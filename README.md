@@ -2,11 +2,12 @@
 
 一个**不依赖 DeepSeek Harness** 的 QQ 陪伴机器人：人设、多轮对话、长期记忆、表情包、主动搭话。
 
-只有一个通道：QQ 私聊。没有 Web 调试台，也没有多余的壳。
+除了 QQ 通道，现在还有一个 Windows 桌面控制台：设置、状态、日志、托盘，双击就能用。
 
 ## 功能
 
 - **QQ 私聊**：官方 Bot WebSocket 收、HTTP 回，自带心跳与断线重连
+- **桌面控制台**：填写 QQ / DeepSeek 配置、看运行状态、实时日志；托盘里暂停 / 重启 / 退出
 - **人设**：`apps/server/persona.md`，改完下一轮即生效
 - **消息聚合**：连发多条 / 多图会合并成一轮再回复（停口 3 秒，最多等 10 秒，不会一直发就一直不回）
 - **看图**：用户发图会下载并作为多模态输入；单张超过 8MB 自动跳过
@@ -18,6 +19,29 @@
 - **自动补标**：启动时把上次没打完标签的表情包补上
 
 ## 快速开始
+
+### 方式一：桌面版（推荐）
+
+从 CI 产物或本地 `pnpm desktop:pack` 拿到 `whale-companion-*-win-x64.zip`，解压后双击 `WhaleCompanion.exe`。
+
+首次启动会打开设置页，填写：
+
+- QQ Bot 的 AppID / AppSecret（q.qq.com → 开发设置）
+- DeepSeek API Key
+
+保存后 Bot 自动启动。便携包自带 `node.exe`，不需要另外装 Node。
+
+数据都在 `%APPDATA%\whale-companion`：
+
+```
+config.json     桌面端设置
+bot.json        启动 Bot 用的临时配置（含密钥）
+data/           聊天记录、记忆、表情包
+logs/           每日日志
+app.lock        单实例锁
+```
+
+### 方式二：命令行
 
 ```bash
 pnpm install
@@ -32,31 +56,62 @@ pnpm dev
 
 QQ 端：在 q.qq.com 把机器人「开发设置 → 事件订阅」设为 **WebSocket**，并把你的 QQ 号加进「内部体验号码」，然后在手机私聊它。
 
+## 桌面控制台
+
+- **状态页**：运行状态、QQ 连接、运行时长、最近消息、最近日志
+- **设置页**：AppID / AppSecret / API Key、关闭窗口行为、开机自启；支持从 `.env` 导入
+- **日志页**：实时输出、搜索、按来源筛选、自动滚动、打开日志目录
+- **托盘菜单**：显示主界面、暂停/启动、重启、打开日志/数据目录、退出
+- **关闭行为**：默认最小化到托盘，也可以设为直接退出
+- **单实例**：检测到已运行时会提示并退出，不会抢 QQ 连接
+- **生命周期**：关闭程序会停掉 Bot；GUI 崩溃时 Bot 会通过父进程看门狗自己退出
+
 ## 常用命令
 
 ```bash
-pnpm dev                              # 启动机器人（tsx watch）
-pnpm typecheck                        # 类型检查
-pnpm --filter @apps/server test       # 单测
-pnpm build                            # tsc 产物到 apps/server/dist
+pnpm dev                              # 只启动机器人（tsx watch）
+pnpm desktop:dev                      # 启动桌面控制台（会先构建 Bot）
+pnpm desktop:pack                     # 打 Windows 便携 zip
+pnpm typecheck                        # 两个包都查
+pnpm test                             # 两个包的单测
+pnpm build                            # Bot 的 tsc 产物
 ```
 
-## 目录说明（apps/server）
+打包产物：`apps/desktop/dist/whale-companion-0.1.0-win-x64.zip`。
+
+## 目录说明
 
 ```
-src/
-  config.ts            环境变量集中读取（缺必填项启动即报错）
-  core/                llm / persona / prompt / chat / reply / tagger / summarize / proactive / commands / mood / sticker-*
-  store/               history / memory / stickers / users（只碰 data/ 下的 JSON 与文件）
-  channels/qq/         token / send / media / text / aggregator / handler / gateway
-  index.ts             启动 QQ + 主动消息 + 补齐标签
+apps/
+  server/               Bot 本体：核心对话 + QQ 通道
+  desktop/              Windows 桌面控制台（Neutralino + React）
 ```
 
-**设计原则**：`core/chat.ts` 不知道消息从哪来；主动消息的发送方式由 `index.ts` 注入，core 不直接碰 QQ。
+`apps/server/src`：
+
+```
+config.ts            环境变量 / --config 集中读取
+core/                llm / persona / prompt / chat / reply / tagger / summarize / proactive / commands / mood / sticker-*
+store/               history / memory / stickers / users（只碰 data/ 下的 JSON 与文件）
+channels/qq/         token / send / media / text / aggregator / handler / gateway
+index.ts             启动 QQ + 主动消息 + 补齐标签
+```
+
+`apps/desktop/src`：
+
+```
+lib/                 配置、路径、锁、日志解析、进程命令（纯函数，有单测）
+hooks/useController  托盘、子进程、单实例、状态与日志的编排
+components/          状态页 / 设置页 / 日志页 / 关于
+```
+
+**设计原则**：`core/chat.ts` 不知道消息从哪来；主动消息的发送方式由 `index.ts` 注入。
+桌面端不 import 服务端源码，只通过「启动子进程 + `--config` + stdout 状态行」控制 Bot。
 
 ## 数据存放
 
-全部在 `apps/server/data/`（已 gitignore）：
+命令行模式在 `apps/server/data/`；桌面版在 `%APPDATA%\whale-companion\data`。
+两边结构一样（已 gitignore）：
 
 | 文件 | 内容 |
 |---|---|
@@ -65,11 +120,20 @@ src/
 | `stickers/` | 表情包图片 + `index.json`（标签） |
 | `users.json` | 谁来过、上次主动打扰时间 |
 
+想沿用命令行模式的历史，把 `apps/server/data` 整个复制到 `%APPDATA%\whale-companion\data` 即可。
+
+## CI
+
+`.github/workflows/desktop.yml` 在 Windows runner 上跑 typecheck、测试和 `desktop:pack`，
+把便携 zip 作为 artifact 上传。手动触发，或推送 `v*` tag。
+
 ## 已知限制
 
 - QQ 主动消息受平台额度限制，可能直接被拒（日志里会有 `主动消息失败`）
 - 表情包挑图是「标签相似度 + 随机兜底」，标签质量取决于打标模型
-- 只有 QQ 通道；想快速调人设，直接改 `apps/server/persona.md` 再在 QQ 里说一句
+- 桌面版目前只有便携 zip，还没做安装包
+- exe 未签名，首次运行可能遇到 SmartScreen「未知发布者」
+- 第二个实例只提示并退出，不会把已有窗口调到前台
 - 聚合时序、存储读写目前只有部分单测，没有端到端测试
 
 ## License
