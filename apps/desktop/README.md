@@ -5,8 +5,11 @@
 - 技术栈：Neutralino 6 + React 19 + Vite
 - 只支持 Windows
 - 不含安装包；`pack` 生成便携 zip
+- 版本与发版见根 [`README.md`](../../README.md) / [`CHANGELOG.md`](../../CHANGELOG.md)
 
 ## 开发
+
+以下命令在仓库根目录执行。
 
 ```bash
 # 先构建一次 Bot，桌面端开发模式会从 ../server/dist 启动
@@ -17,6 +20,10 @@ pnpm desktop:dev
 
 `desktop:dev` 会先构建界面，然后同时跑 Vite watch 和 `neu run`。
 Neutralino 的二进制和客户端库由 `neu update` 下载，已在 .gitignore 中。
+
+开发模式在首次启动（没有 `config.json` 时）会尝试读取 `apps/server/.env`，
+并复用 `apps/server/data`；打包版的数据在 `%APPDATA%\whale-companion\data`。
+也可以把 `.env` 放到 `WhaleCompanion\server\.env`，启动后在设置页点「从 .env 导入」。
 
 ## 打包
 
@@ -55,6 +62,8 @@ WhaleCompanion/
   `apps/server/data`，方便复用现有对话。
 - `persona.md` 通过 `WHALE_PERSONA_FILE` 注入；打包版从 `server/persona.md` 读。
 - 窗口关闭行为默认「最小化到托盘」；托盘菜单在 `useController` 的 `updateTray`。
+- Bot 的状态通过 stdout 里以 `@@WHALE ` 开头的 JSON 行回传（`type` 为
+  `boot` / `ready` / `qq` / `activity`），GUI 解析后更新状态，不写进普通日志。
 
 ## 测试
 
@@ -64,3 +73,6 @@ pnpm --filter @apps/desktop typecheck
 ```
 
 纯函数（配置解析、路径、日志、锁、进程命令）有单测；Neutralino 窗口/托盘需要手动冒烟。
+
+遇到 Bot 起不来、托盘不显示、单实例卡住等问题，先看根 [`AGENTS.md`](../../AGENTS.md)
+的「排障索引」，再查 `%APPDATA%\whale-companion\logs`。

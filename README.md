@@ -4,9 +4,11 @@
 
 除了 QQ 通道，现在还有一个 Windows 桌面控制台：设置、状态、日志、托盘，双击就能用。
 
+> 最新版本见 [Releases](https://github.com/Talyra42/whale-companion/releases) · [更新日志](CHANGELOG.md)
+
 ## 功能
 
-- **QQ 私聊**：官方 Bot WebSocket 收、HTTP 回，自带心跳与断线重连
+- **QQ 私聊**：官方 Bot WebSocket 收、HTTP API 回，自带心跳与断线重连
 - **桌面控制台**：填写 QQ / DeepSeek 配置、看运行状态、实时日志；托盘里暂停 / 重启 / 退出
 - **人设**：`apps/server/persona.md`，改完下一轮即生效
 - **消息聚合**：连发多条 / 多图会合并成一轮再回复（停口 3 秒，最多等 10 秒，不会一直发就一直不回）
@@ -22,14 +24,15 @@
 
 ### 方式一：桌面版（推荐）
 
-从 CI 产物或本地 `pnpm desktop:pack` 拿到 `whale-companion-*-win-x64.zip`，解压后双击 `WhaleCompanion.exe`。
+从 [Releases](https://github.com/Talyra42/whale-companion/releases) 下载 `whale-companion-*-win-x64.zip`，或本地 `pnpm desktop:pack`，解压后双击 `WhaleCompanion.exe`。
 
-首次启动会打开设置页，填写：
+首次启动（没有配置时）会打开设置页，填写：
 
 - QQ Bot 的 AppID / AppSecret（q.qq.com → 开发设置）
 - DeepSeek API Key
 
 保存后 Bot 自动启动。便携包自带 `node.exe`，不需要另外装 Node。
+如果已有 `.env`，可以放到 `WhaleCompanion\server\.env`，然后在设置页点「从 .env 导入」。
 
 数据都在 `%APPDATA%\whale-companion`：
 
@@ -70,11 +73,11 @@ QQ 端：在 q.qq.com 把机器人「开发设置 → 事件订阅」设为 **We
 
 ```bash
 pnpm dev                              # 只启动机器人（tsx watch）
-pnpm desktop:dev                      # 启动桌面控制台（会先构建 Bot）
+pnpm build                            # 先构建 Bot（desktop:dev 需要）
+pnpm desktop:dev                      # 启动桌面控制台
 pnpm desktop:pack                     # 打 Windows 便携 zip
 pnpm typecheck                        # 两个包都查
 pnpm test                             # 两个包的单测
-pnpm build                            # Bot 的 tsc 产物
 ```
 
 打包产物：`apps/desktop/dist/whale-companion-<version>-win-x64.zip`。
@@ -125,9 +128,9 @@ components/          状态页 / 设置页 / 日志页 / 关于
 ## 发版
 
 ```bash
-pnpm release patch      # 0.1.0 -> 0.1.1
-pnpm release minor      # 0.1.0 -> 0.2.0
-pnpm release major      # 0.1.0 -> 1.0.0
+pnpm release patch      # 0.1.1 -> 0.1.2
+pnpm release minor      # 0.1.1 -> 0.2.0
+pnpm release major      # 0.1.1 -> 1.0.0
 pnpm release patch --dry-run   # 只看会改什么，不提交
 ```
 
@@ -135,7 +138,7 @@ pnpm release patch --dry-run   # 只看会改什么，不提交
 同步四个版本文件 → 提交 `chore: release vX.Y.Z` → 打 tag → 推送。
 CI 收到 `v*` tag 后会构建便携包，并自动创建 GitHub Release。
 
-版本号以根 `package.json` 为准。
+版本号以根 `package.json` 为准。发版前记得在 [`CHANGELOG.md`](CHANGELOG.md) 补一条记录（目前手工维护）。
 
 ## CI
 
@@ -152,7 +155,17 @@ CI 收到 `v*` tag 后会构建便携包，并自动创建 GitHub Release。
 - 桌面版目前只有便携 zip，还没做安装包
 - exe 未签名，首次运行可能遇到 SmartScreen「未知发布者」
 - 第二个实例只提示并退出，不会把已有窗口调到前台
-- 聚合时序、存储读写目前只有部分单测，没有端到端测试
+- 桌面版和命令行版数据目录独立，迁移需要手动复制
+- 密钥以明文保存在用户目录（`config.json` / `bot.json`），和原来的 `.env` 一致
+- 存储读写、真实 QQ 链路、Neutralino 托盘/窗口目前没有自动化测试
+
+## 文档
+
+- [维护指南](AGENTS.md) —— 架构、分层、QQ / Windows 踩坑、排障索引
+- [桌面端开发与打包](apps/desktop/README.md)
+- [服务端说明](apps/server/README.md)
+- [更新日志](CHANGELOG.md)
+- [License](LICENSE)
 
 ## License
 

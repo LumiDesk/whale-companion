@@ -2,17 +2,27 @@
 
 写给在此仓库工作的 AI 代理与未来的自己。**中文沟通**。
 
+> 版本号以根 `package.json` 为准；发布记录见 [`CHANGELOG.md`](CHANGELOG.md)。不要在这里硬编码版本。
+
+## 文档地图
+
+- [`README.md`](README.md)：用户视角的安装、使用、发版
+- [`AGENTS.md`](AGENTS.md)：本文件，架构、约定、坑、排障
+- [`apps/desktop/README.md`](apps/desktop/README.md)：桌面端开发与打包
+- [`apps/server/README.md`](apps/server/README.md)：服务端入口
+- [`CHANGELOG.md`](CHANGELOG.md)：版本记录
+
 ## 1. 这是什么
 
 一个**独立**的 QQ 陪伴机器人（不依赖 DeepSeek Harness）：人设、多轮对话、长期记忆、表情包、主动搭话。
 聊天通道只有 QQ 私聊；另有一个 Windows 桌面控制台（Neutralino）负责设置、状态、日志和托盘。
-没有 Web 调试台，也没有 HTTP 服务。
+没有 Web 调试台，也没有对外 HTTP 服务。
 
 **不是**：agent 平台、工具执行器、文件操作机器人、多用户 SaaS。别往里塞这些。
 
 ## 2. 技术栈与命令
 
-- Node ≥ 22 + TypeScript（`tsx` 直跑，不编译）
+- Node ≥ 22 + TypeScript（server 用 `tsx` 直跑；desktop 用 Vite 构建）
 - 没有 Web 框架：QQ 官方 API 用原生 `fetch` + `WebSocket`
 - 桌面端：Neutralino 6 + React 19 + Vite（Windows only）
 - pnpm workspaces：`apps/server` + `apps/desktop`
@@ -20,10 +30,10 @@
 
 ```bash
 pnpm dev                              # 只启动机器人（tsx watch）
+pnpm build                            # tsc → apps/server/dist（desktop:dev 需要）
 pnpm desktop:dev                      # 启动桌面控制台
 pnpm typecheck                        # 两个包都查
 pnpm test                             # 两个包的单测
-pnpm build                            # tsc → apps/server/dist
 pnpm desktop:pack                     # 打 Windows 便携 zip
 pnpm release patch|minor|major        # 发版（bump + tag + push，触发 CI）
 ```
@@ -44,6 +54,9 @@ apps/desktop/
   src/lib/                配置/路径/锁/日志/进程命令（纯函数，有单测）
   src/hooks/useController 托盘、子进程、单实例、状态与日志编排
   src/components/         状态页 / 设置页 / 日志页 / 关于
+
+scripts/release.mjs      pnpm release：bump + tag + push
+.github/workflows/        Windows 构建 / GitHub Release
 ```
 
 **分层铁律**
@@ -196,7 +209,23 @@ QQ 事件 → cleanQQContent 清洗 <faceType>/<@...> → 串行下载图片（�
 - tag 触发 CI：构建 zip → 上传 artifact → `gh release create`（已存在则 `upload --clobber`）。
   所以 workflow 需要 `permissions: contents: write`。
 - 不要在 CI 里跑 release 脚本；它只给本地维护者用。
+- `CHANGELOG.md` 目前手工维护：发版前补一条并先提交（release 脚本要求工作区干净）。
 
-## 16. License
+## 16. 排障索引
+
+| 症状 | 先看 |
+|---|---|
+| 桌面端 Bot 起不来 / 立刻退出 | `%APPDATA%\whale-companion\logs`、`bot.json`、`server/index.js`、`node.exe`；确认没有给 `spawnProcess` 传 `envs` |
+| 托盘图标找不到 | Windows 隐藏图标区；`setTray` 是否报错；`/resources/icons/tray.png` 是否存在 |
+| 第二个实例卡住 | 单实例提示不要用 `showMessageBox`；看 `app.lock`、心跳、`tasklist` |
+| QQ 连接失败 / 4009 | `gateway` / `token` 日志；确认没有第二个 Bot 进程；检查 AppID/Secret |
+| 回复发不出去 | `channels/qq/send.ts` 的 `msg_seq` 和 QQ 返回体 |
+| 表情包不发 / 不匹配 | 标签质量、`MIN_SCORE`、冷却和 `allowRandom` |
+| 记忆没生效 | `history.json` / `memory`、`prompt.ts` 的拼接、摘要阈值 |
+| 打包失败 | `neu build` 的 `dist/<binaryName>/`、`resources/js/neutralino.js`、rcedit |
+| CI Release 失败 | workflow 的 `contents: write`、`gh` 是否可用、tag 是否已存在 |
+| 发版脚本中止 | 是否在 `main`、工作区是否干净、tag 是否重复、远程是否可推 |
+
+## 17. License
 
 AGPL-3.0-only，见根目录 `LICENSE`。网络服务也传染：衍生版本对外提供服务必须同样开源。
