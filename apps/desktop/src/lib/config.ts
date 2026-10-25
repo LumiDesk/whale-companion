@@ -1,4 +1,4 @@
-import type { IAppConfig } from "./types";
+import type { IAppConfig, ThemeMode } from "./types";
 
 export const DEFAULT_CONFIG: IAppConfig = {
   version: 1,
@@ -9,6 +9,12 @@ export const DEFAULT_CONFIG: IAppConfig = {
     baseUrl: "https://api.deepseek.com",
   },
   behavior: { closeAction: "tray", launchAtLogin: false },
+  appearance: { theme: "system" },
+};
+
+const asTheme = (value: unknown): ThemeMode => {
+  if (value === "light" || value === "dark" || value === "system") return value;
+  return "system";
 };
 
 const asText = (value: unknown, fallback = ""): string =>
@@ -25,6 +31,7 @@ export const normalizeConfig = (raw: unknown): IAppConfig => {
   const qq = asObject(root.qq);
   const llm = asObject(root.llm);
   const behavior = asObject(root.behavior);
+  const appearance = asObject(root.appearance);
 
   return {
     version: 1,
@@ -40,6 +47,9 @@ export const normalizeConfig = (raw: unknown): IAppConfig => {
     behavior: {
       closeAction: behavior.closeAction === "exit" ? "exit" : "tray",
       launchAtLogin: behavior.launchAtLogin === true,
+    },
+    appearance: {
+      theme: asTheme(appearance.theme),
     },
   };
 };

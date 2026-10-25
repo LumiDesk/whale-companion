@@ -2,6 +2,11 @@ export type PageId = "status" | "settings" | "logs" | "about";
 
 export type CloseAction = "tray" | "exit";
 
+/** system = 跟随 Windows 的深浅色设置 */
+export type ThemeMode = "system" | "light" | "dark";
+
+export type ResolvedTheme = "light" | "dark";
+
 export type BotState =
   | "stopped"
   | "starting"
@@ -31,6 +36,9 @@ export interface IAppConfig {
   behavior: {
     closeAction: CloseAction;
     launchAtLogin: boolean;
+  };
+  appearance: {
+    theme: ThemeMode;
   };
 }
 

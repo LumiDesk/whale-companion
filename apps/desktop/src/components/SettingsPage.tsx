@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 import type { IController } from "../hooks/useController";
 import { validateConfig } from "../lib/config";
-import type { CloseAction, IAppConfig } from "../lib/types";
+import type { CloseAction, IAppConfig, ThemeMode } from "../lib/types";
 import { IconEye, IconEyeOff, IconFolder } from "./Icons";
 
 interface IProps {
@@ -16,9 +16,13 @@ const SettingsPage = ({ controller }: IProps) => {
   const [saving, setSaving] = useState(false);
   const [attempted, setAttempted] = useState(false);
 
+  // 主题是即时保存的，只同步这一小块，别把其他未保存的输入覆盖掉
   useEffect(() => {
-    setForm(controller.config);
-  }, [controller.config]);
+    setForm((previous) => ({
+      ...previous,
+      appearance: controller.config.appearance,
+    }));
+  }, [controller.config.appearance]);
 
   const errors = validateConfig(form);
 
@@ -72,6 +76,42 @@ const SettingsPage = ({ controller }: IProps) => {
           </div>
         </div>
       )}
+
+      <div className="card">
+        <div className="card-head">
+          <h2>外观</h2>
+          <span className="badge">即时生效</span>
+        </div>
+        <p className="muted card-desc">
+          默认跟随 Windows 的深浅色设置，也可以固定成浅色或深色。
+        </p>
+
+        <div className="radio-row">
+          {(
+            [
+              ["system", "跟随系统"],
+              ["light", "浅色"],
+              ["dark", "深色"],
+            ] as Array<[ThemeMode, string]>
+          ).map(([value, label]) => (
+            <label key={value} className="radio-item">
+              <input
+                type="radio"
+                name="theme"
+                checked={controller.config.appearance.theme === value}
+                onChange={() => void controller.setTheme(value)}
+              />
+              <span>{label}</span>
+            </label>
+          ))}
+        </div>
+        <p className="hint">
+          当前显示：{controller.resolvedTheme === "dark" ? "深色" : "浅色"}
+          {controller.config.appearance.theme === "system"
+            ? "（跟随系统）"
+            : ""}
+        </p>
+      </div>
 
       <div className="card">
         <div className="card-head">

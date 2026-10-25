@@ -54,6 +54,12 @@ import {
   buildSpawnCommand,
 } from "../lib/process";
 import { LineBuffer, parseStatusLine } from "../lib/status";
+import {
+  applyTheme,
+  resolveTheme,
+  systemPrefersDark,
+  watchSystemTheme,
+} from "../lib/theme";
 import type {
   BotState,
   IAppConfig,
@@ -62,6 +68,8 @@ import type {
   IServerPaths,
   PageId,
   QQState,
+  ResolvedTheme,
+  ThemeMode,
 } from "../lib/types";
 import type { ITrayItem } from "../lib/types-ui";
 import { APP_VERSION } from "../lib/version";
@@ -84,6 +92,8 @@ export interface IController {
   setPage: (page: PageId) => void;
   config: IAppConfig;
   configLoaded: boolean;
+  resolvedTheme: ResolvedTheme;
+  setTheme: (theme: ThemeMode) => Promise<void>;
   botState: BotState;
   qqState: QQState;
   botPid: number | null;
@@ -135,6 +145,12 @@ const writeConfigFile = async (
   await movePath(tmp, file);
 };
 
+const themeLabel = (theme: ThemeMode): string => {
+  if (theme === "light") return "浅色";
+  if (theme === "dark") return "深色";
+  return "跟随系统";
+};
+
 const stateLabel = (state: BotState): string => {
   switch (state) {
     case "starting":
@@ -156,6 +172,9 @@ export const useController = (): IController => {
   const [page, setPage] = useState<PageId>("status");
   const [config, setConfig] = useState<IAppConfig>(DEFAULT_CONFIG);
   const [configLoaded, setConfigLoaded] = useState(false);
+  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() =>
+    resolveTheme("system", systemPrefersDark()),
+  );
   const [botState, setBotState] = useState<BotState>("stopped");
   const [qqState, setQqState] = useState<QQState>("unknown");
   const [botPid, setBotPid] = useState<number | null>(null);
@@ -553,8 +572,45 @@ export const useController = (): IController => {
 
   const dismissMessage = () => setMessage(null);
 
+  /**
+   * 主题只改外观，不需要重启 Bot；单独写一次 config.json。
+   * 先应用再落盘，写失败就回滚到上一份配置。
+   */
+  const setTheme = async (theme: ThemeMode): Promise<void> => {
+    const previous = configRef.current;
+    if (previous.appearance.theme === theme) return;
+
+    const next = normalizeConfig({
+      ...previous,
+      appearance: { theme },
+    });
+
+    configRef.current = next;
+    setConfig(next);
+
+    const currentPaths = pathsRef.current;
+    if (!currentPaths) return;
+
+    try {
+      await writeConfigFile(currentPaths.configFile, next);
+      addLog("gui", `外观已切换为${themeLabel(theme)}`);
+    } catch (error) {
+      configRef.current = previous;
+      setConfig(previous);
+      addLog("error", `保存外观设置失败：${errText(error)}`);
+      setMessage({
+        kind: "error",
+        text: `外观设置没有保存成功：${errText(error)}`,
+      });
+    }
+  };
+
   const saveConfig = async (next: IAppConfig): Promise<boolean> => {
-    const normalized = normalizeConfig(next);
+    // 主题已经在设置页即时保存；保存其他字段时不要用表单里的旧值把它覆盖回去
+    const normalized = normalizeConfig({
+      ...next,
+      appearance: configRef.current.appearance,
+    });
     const errors = validateConfig(normalized);
 
     if (errors.length > 0) {
@@ -811,6 +867,22 @@ export const useController = (): IController => {
   }, []);
 
   useEffect(() => {
+    // 把配置里的主题落到 DOM；跟随系统时还要监听系统切换
+    const mode = config.appearance.theme;
+
+    const sync = () => {
+      const resolved = resolveTheme(mode, systemPrefersDark());
+      applyTheme(resolved);
+      setResolvedTheme(resolved);
+    };
+
+    sync();
+    if (mode !== "system") return;
+
+    return watchSystemTheme(sync);
+  }, [config.appearance.theme]);
+
+  useEffect(() => {
     // 错误留下来，别让用户错过；成功/提示 5 秒后自动消失
     if (!message || message.kind === "error") return;
     const timer = setTimeout(() => setMessage(null), 5000);
@@ -835,6 +907,8 @@ export const useController = (): IController => {
     setPage,
     config,
     configLoaded,
+    resolvedTheme,
+    setTheme,
     botState,
     qqState,
     botPid,
