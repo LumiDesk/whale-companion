@@ -27,7 +27,7 @@ pnpm desktop:pack
 产物：
 
 ```
-apps/desktop/dist/whale-companion-0.1.0-win-x64.zip
+apps/desktop/dist/whale-companion-<version>-win-x64.zip
 ```
 
 zip 内是完整的便携目录：

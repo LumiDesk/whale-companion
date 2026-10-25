@@ -25,6 +25,7 @@ pnpm typecheck                        # 两个包都查
 pnpm test                             # 两个包的单测
 pnpm build                            # tsc → apps/server/dist
 pnpm desktop:pack                     # 打 Windows 便携 zip
+pnpm release patch|minor|major        # 发版（bump + tag + push，触发 CI）
 ```
 
 ## 3. 目录地图
@@ -179,9 +180,23 @@ QQ 事件 → cleanQQContent 清洗 <faceType>/<@...> → 串行下载图片（�
 - **打包**：`pnpm desktop:pack` 会构建 server + 前端、`neu build`、复制 `node.exe` 和 `server/`、
   用 rcedit 写图标/版本，最后 `Compress-Archive` 成 `apps/desktop/dist/whale-companion-*-win-x64.zip`。
   `neu build` 的输出在 `dist/<binaryName>/`，里面才是 exe + `resources.neu`。
-- **CI**：`.github/workflows/desktop.yml` 在 Windows runner 上跑 typecheck、测试、打包并上传 artifact。
+- **CI**：`.github/workflows/desktop.yml` 在 Windows runner 上跑 typecheck、测试、打包并上传 artifact；
+  推 `v*` tag 时额外创建 GitHub Release 并附上 zip。
 - **测试**：`pnpm --filter @apps/desktop test`；托盘/窗口/单实例仍需手动冒烟（用 UIA 或肉眼）。
 
-## 15. License
+## 15. 发版
+
+- 版本号以根 `package.json` 为准；`scripts/release.mjs` 会同步根、server、desktop 和
+  `neutralino.config.json` 的 `version`。
+- 用法：`pnpm release patch|minor|major`，加 `--dry-run` 只预览。
+- 前置条件：在 `main`、工作区干净、远程 `origin` 可推送。
+- 脚本会先 `git pull --ff-only`，跑 `pnpm typecheck` + `pnpm test`，然后提交
+  `chore: release vX.Y.Z`、打 annotated tag、推 `main` 和 tag。
+- 推送失败时本地 commit/tag 会保留，按提示手动 `git push origin main && git push origin vX.Y.Z` 即可。
+- tag 触发 CI：构建 zip → 上传 artifact → `gh release create`（已存在则 `upload --clobber`）。
+  所以 workflow 需要 `permissions: contents: write`。
+- 不要在 CI 里跑 release 脚本；它只给本地维护者用。
+
+## 16. License
 
 AGPL-3.0-only，见根目录 `LICENSE`。网络服务也传染：衍生版本对外提供服务必须同样开源。

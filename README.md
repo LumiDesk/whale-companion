@@ -77,7 +77,7 @@ pnpm test                             # 两个包的单测
 pnpm build                            # Bot 的 tsc 产物
 ```
 
-打包产物：`apps/desktop/dist/whale-companion-0.1.0-win-x64.zip`。
+打包产物：`apps/desktop/dist/whale-companion-<version>-win-x64.zip`。
 
 ## 目录说明
 
@@ -122,10 +122,28 @@ components/          状态页 / 设置页 / 日志页 / 关于
 
 想沿用命令行模式的历史，把 `apps/server/data` 整个复制到 `%APPDATA%\whale-companion\data` 即可。
 
+## 发版
+
+```bash
+pnpm release patch      # 0.1.0 -> 0.1.1
+pnpm release minor      # 0.1.0 -> 0.2.0
+pnpm release major      # 0.1.0 -> 1.0.0
+pnpm release patch --dry-run   # 只看会改什么，不提交
+```
+
+脚本会：检查当前在 `main`、工作区干净 → 拉取远程 → 跑 typecheck 和测试 →
+同步四个版本文件 → 提交 `chore: release vX.Y.Z` → 打 tag → 推送。
+CI 收到 `v*` tag 后会构建便携包，并自动创建 GitHub Release。
+
+版本号以根 `package.json` 为准。
+
 ## CI
 
 `.github/workflows/desktop.yml` 在 Windows runner 上跑 typecheck、测试和 `desktop:pack`，
-把便携 zip 作为 artifact 上传。手动触发，或推送 `v*` tag。
+把便携 zip 作为 artifact 上传。
+
+- 手动触发：只上传 artifact
+- 推送 `v*` tag：额外创建 GitHub Release 并附上 zip
 
 ## 已知限制
 
