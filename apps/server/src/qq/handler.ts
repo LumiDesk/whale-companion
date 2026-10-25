@@ -1,12 +1,19 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
 import { AIReply } from "../llm.js";
 import { getPersona } from "../persona.js";
-import { sendC2C } from "./send.js";
+import { sendC2C, sendImageC2C } from "./send.js";
 import { loadHistory, saveHistory } from "./history.js";
 import {
   type IContent,
   type IImageInput,
   type IMessages,
 } from "../types/message.js";
+
+const testImagePath = fileURLToPath(
+  new URL("../../assets/test.png", import.meta.url),
+);
 
 /** 把图片字节转成模型能吃的 data URL */
 const toDataUrl = (img: IImageInput) =>
@@ -31,6 +38,13 @@ export const handler = async (
   content: string,
   images: IImageInput[],
 ) => {
+  // 测试指令：发「发图」就回一张本地测试图（A1 阶段用，之后接图库时删掉）
+  if (/^(发图|表情包|来个表情包)$/.test(content.trim())) {
+    const png = readFileSync(testImagePath);
+    await sendImageC2C(userId, msgId, token, png, "image/png");
+    return;
+  }
+
   const historys = loadHistory(userId);
   if (historys.length === 0)
     historys.push({ role: "system", content: getPersona() });
