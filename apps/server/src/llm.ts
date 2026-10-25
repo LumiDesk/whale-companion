@@ -1,6 +1,4 @@
-interface IMessages {
-  messages: Array<{ role: "user" | "assistant" | "system"; content: string }>;
-}
+import { type IMessages } from "./types/message.js";
 
 const apikey = process.env.DEEPSEEK_API_KEY;
 
@@ -15,7 +13,7 @@ export const AIReply = async (messages: IMessages) => {
     },
     body: JSON.stringify({
       model: "deepseek-flash",
-      messages: messages.messages,
+      messages,
       stream: false,
     }),
   });

@@ -53,8 +53,8 @@ const connect = async (token: string) => {
           a.content_type?.startsWith("image"),
         );
         if (img) {
-          const { data, mime } = await downloadImage(img.url);
-          slog("image", mime, data.byteLength);
+          const { data: bytes, mime } = await downloadImage(img.url);
+          slog(bytes, mime);
         }
 
         // handler 流程
@@ -64,6 +64,7 @@ const connect = async (token: string) => {
             data.d.id,
             token,
             data.d.content,
+            [],
           );
         } catch (e) {
           slog("消息解析失败", e);

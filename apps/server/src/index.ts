@@ -3,14 +3,10 @@ import { Hono } from "hono";
 import { getPersona } from "./persona.js";
 import { AIReply } from "./llm.js";
 import { startQQ } from "./qq/gateway.js";
-
-interface IMessage {
-  role: "user" | "assistant" | "system";
-  content: string;
-}
+import { type IMessage, type IMessages } from "./types/message.js";
 
 interface IRequestApiChat {
-  messages: Array<IMessage>;
+  messages: IMessages;
 }
 
 const app = new Hono();
@@ -45,7 +41,7 @@ app.post("/api/chat", async (c) => {
 
   let res: string;
   try {
-    res = await AIReply({ messages });
+    res = await AIReply(messages);
   } catch (e) {
     console.error(e);
     return c.json({ error: "模型服务暂时不可用" }, 502);

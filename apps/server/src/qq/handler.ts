@@ -8,13 +8,14 @@ export const handler = async (
   msgId: string,
   token: string,
   content: string,
+  images: Array<{ data: ArrayBuffer; mime: string }>,
 ) => {
   const historys = loadHistory(userId);
   if (historys.length === 0)
     historys.push({ role: "system", content: getPersona() });
   historys.push({ role: "user", content });
 
-  const apply = await AIReply({ messages: historys });
+  const apply = await AIReply(historys);
 
   await sendC2C(userId, msgId, token, apply);
 

@@ -1,11 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-
-export interface IMessage {
-  role: "user" | "assistant" | "system";
-  content: string;
-}
+import { type IMessage } from "../types/message.js";
 
 const filePath = fileURLToPath(
   new URL("../../data/history.json", import.meta.url),
