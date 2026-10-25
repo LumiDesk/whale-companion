@@ -1,8 +1,15 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
+import { getPersona } from "./persona.js";
+import { AIReply } from "./llm.js";
+
+interface IMessage {
+  role: "user" | "assistant" | "system";
+  content: string;
+}
 
 interface IRequestApiChat {
-  messages: Array<{ role: "user" | "assistant" | "system"; content: string }>;
+  messages: Array<IMessage>;
 }
 
 const app = new Hono();
@@ -28,7 +35,21 @@ app.post("/api/chat", async (c) => {
   if (!lastMessage) {
     return c.json({ error: "没有找到用户消息" }, 400);
   }
-  return c.json({ reply: `（还没接模型）你说的是：${lastMessage.content}` });
+
+  // Main Chats
+  const messages: Array<IMessage> = [
+    { role: "system", content: getPersona() },
+    ...body.messages,
+  ];
+
+  let res: string;
+  try {
+    res = await AIReply({ messages });
+  } catch (e) {
+    console.error(e);
+    return c.json({ error: "模型服务暂时不可用" }, 502);
+  }
+  return c.json({ reply: res });
 });
 
 serve(
