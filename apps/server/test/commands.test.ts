@@ -29,3 +29,7 @@ test("命令大小写不敏感", () => {
 test("斜杠后面没东西不算命令", () => {
   assert.equal(parseCommand("/"), undefined);
 });
+
+test("命令后面跟了别的话就不算命令", () => {
+  assert.equal(parseCommand("/help\n今天好累"), undefined);
+});

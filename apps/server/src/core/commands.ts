@@ -73,7 +73,8 @@ export const commands: ICommandSpec[] = [
 export const parseCommand = (
   text: string,
 ): { name: string; args: string } | undefined => {
-  const m = /^\/([a-zA-Z\u4e00-\u9fa5]+)(?:\s+([\s\S]*))?$/.exec(text.trim());
+  // 只认单行命令：聚合后如果还跟着别的话，就交给模型正常回复
+  const m = /^\/([a-zA-Z\u4e00-\u9fa5]+)(?:[ \t]+([^\n]*))?$/.exec(text.trim());
   if (!m) return undefined;
   return { name: m[1].toLowerCase(), args: (m[2] ?? "").trim() };
 };
