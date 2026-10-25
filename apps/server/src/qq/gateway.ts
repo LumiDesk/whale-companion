@@ -2,9 +2,7 @@ import { handler } from "./handler.js";
 import { getAccessToken } from "./token.js";
 import { slog } from "./util.js";
 
-export const startQQ = async () => {
-  const token = await getAccessToken();
-
+const connect = async (token: string) => {
   const gateway = await fetch("https://api.sgroup.qq.com/gateway", {
     headers: {
       Authorization: "QQBot " + token,
@@ -16,6 +14,8 @@ export const startQQ = async () => {
   const ws = new WebSocket(url);
 
   let lastSeq: number | null = null;
+
+  let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
 
   ws.onmessage = async (e) => {
     const data = JSON.parse(e.data);
@@ -31,7 +31,7 @@ export const startQQ = async () => {
           },
         }),
       );
-      setInterval(() => {
+      heartbeatTimer = setInterval(() => {
         ws.send(JSON.stringify({ op: 1, d: lastSeq }));
       }, data.d.heartbeat_interval);
     }
@@ -54,17 +54,30 @@ export const startQQ = async () => {
       case 0: {
         if (data.t === "READY") {
           slog("ready");
-          break;
         }
+        break;
+      }
+      case 11: {
+        slog("♥");
+        break;
       }
     }
   };
 
   ws.onclose = (e) => {
+    if (heartbeatTimer) {
+      clearInterval(heartbeatTimer);
+      heartbeatTimer = null;
+    }
     console.log("close", e.code, e.reason);
   };
 
   ws.onerror = (e) => {
     console.log("error", e);
   };
+};
+
+export const startQQ = async () => {
+  const token = await getAccessToken();
+  await connect(token);
 };
