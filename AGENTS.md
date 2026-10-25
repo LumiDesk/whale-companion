@@ -46,8 +46,8 @@ apps/server/
   persona.md              人设正文（每轮现读，改完下一条生效）
   src/config.ts           所有环境变量在此收口；缺必填项启动即报错
   src/core/               llm / persona / prompt / chat / reply / tagger / summarize / proactive / commands / mood / sticker-*
-  src/store/              history / memory / stickers / users（只碰 data/ 下的 JSON 与文件）
-  src/channels/qq/        token / send / media / text / aggregator / handler / gateway
+  src/store/              history / memory / stickers / users / atomic（只碰 data/ 下的 JSON 与文件）
+  src/channels/qq/        token / send / media / text / aggregator / handler / gateway / migrate
   src/index.ts            组合根：启动 QQ + 主动消息 + 补齐标签
 
 apps/desktop/
@@ -233,7 +233,7 @@ QQ 事件 → cleanQQContent 清洗 <faceType>/<@...> → 串行下载图片（�
 - tag 触发 CI：构建 zip → 生成 `SHA256SUMS.txt` → 上传 artifact →
   `gh release create`（已存在则 `upload --clobber`）。
   所以 workflow 需要 `permissions: contents: write`。
-- 自动更新依赖 Release 里的 zip 与校验文件；发版后可以在「关于」页手动检查一次。
+- 自动更新依赖 Release 里的 zip；有 `SHA256SUMS.txt` 时会一并校验。发版后可以在「关于」页手动检查一次。
 - 不要在 CI 里跑 release 脚本；它只给本地维护者用。
 - `CHANGELOG.md` 目前手工维护：发版前补一条并先提交（release 脚本要求工作区干净）。
 

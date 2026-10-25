@@ -98,8 +98,8 @@
 | QQ 通道 | **QQ 官方机器人 API** | 原生 `fetch` + `WebSocket`，自带心跳、断线重连、token 缓存 |
 | 桌面控制台 | **Neutralino 6 · React 19 · Vite** | 用系统 WebView2，仅 Windows；不打包 Chromium |
 | 打包 | `neu build` + 内置 `node.exe` | 便携 zip，用户不用装 Node |
-| 测试 | `node:test` + `tsx` | 纯函数、聚合器、配置解析都有单测 |
-| CI | **GitHub Actions** | Windows runner 构建；推 `v*` tag 自动创建 Release |
+| 测试 | `node:test` + `tsx` | 纯函数、聚合器、原子写、主题与更新脚本都有单测 |
+| CI | **GitHub Actions** | Windows runner 构建；推 `v*` tag 生成 `SHA256SUMS.txt` 并创建 Release |
 
 几个刻意的取舍：
 
@@ -113,7 +113,7 @@
 
 1. 从 [Releases](https://github.com/Talyra42/whale-companion/releases) 下载 `whale-companion-*-win-x64.zip`，解压到任意目录
 2. 双击 `WhaleCompanion.exe`；首次启动会自动打开设置页
-3. 填 **QQ Bot 的 AppID / AppSecret** 和 **DeepSeek API Key**，保存后 Bot 自动启动
+3. 填 **QQ Bot 的 AppID / AppSecret** 和 **DeepSeek API Key**（模型和接口地址可保留默认），保存后 Bot 自动启动
 
 便携包自带 `node.exe`，不需要另外装环境。已有 `.env` 的话，放到 `WhaleCompanion\server\.env`，
 再点设置页右上角的「从 .env 导入」即可。
