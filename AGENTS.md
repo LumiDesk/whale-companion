@@ -11,7 +11,7 @@
 - [`apps/desktop/README.md`](apps/desktop/README.md)：桌面端开发与打包
 - [`apps/server/README.md`](apps/server/README.md)：服务端入口
 - [`CHANGELOG.md`](CHANGELOG.md)：版本记录
-- [`docs/`](docs/)：README 用的界面截图（`screenshots/`）与图标、社交预览图（`assets/`）
+- [`docs/`](docs/)：README 用的界面截图（`screenshots/`）与图标、架构图、社交预览图（`assets/`）
 
 ## 1. 这是什么
 

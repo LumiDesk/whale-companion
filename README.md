@@ -142,31 +142,9 @@ Windows 下也可以直接 `Copy-Item apps/server/.env.example apps/server/.env`
 
 ## 它怎么工作
 
-```mermaid
-flowchart LR
-  U(["主人"])
-
-  subgraph qq["channels/qq · 只做传输"]
-    GW["gateway<br/>WebSocket + 心跳"]
-    AGG["聚合器<br/>停口 3s / 最长 10s"]
-    H["handler"]
-    SEND["send<br/>msg_seq 递增"]
-  end
-
-  subgraph core["core · 不知道消息从哪来"]
-    CMD["commands"]
-    CHAT["chat.generateReply"]
-    PRO["proactive"]
-  end
-
-  U -->|"私聊消息"| GW --> AGG --> H
-  H -->|"/命令"| CMD
-  H --> CHAT
-  CHAT -->|"人设 + 记忆 + 此刻"| LLM["DeepSeek API"]
-  CHAT -.->|"读写"| DB[("data/ · JSON + 图片")]
-  H --> SEND -->|"回复 / 表情包"| U
-  PRO -.->|"注入 send"| SEND
-```
+<p align="center">
+  <img src="docs/assets/architecture.png" alt="架构：主人 ↔ channels/qq ↔ core ↔ data" />
+</p>
 
 一条消息的旅程：
 
@@ -193,7 +171,7 @@ apps/
     src/components/      状态 / 设置 / 日志 / 关于
 docs/
   screenshots/          README 截图
-  assets/               图标与社交预览图
+  assets/               图标 · 架构图 · 社交预览图
 ```
 
 分层铁律（改代码前先看这条）：

@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1160" height="500" viewBox="0 0 1160 500" font-family="'Microsoft YaHei UI','Microsoft YaHei',system-ui,sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
+    </marker>
+    <style>
+      .card { fill: #f8fafc; stroke: #dfe8f1; stroke-width: 1.2; }
+      .h { fill: #0f172a; font-size: 18px; font-weight: 700; }
+      .row { fill: #1e293b; font-size: 13.5px; font-weight: 600; }
+      .sub { fill: #64748b; font-size: 11.5px; }
+      .muted { fill: #94a3b8; font-size: 12px; }
+      .edge { fill: #64748b; font-size: 11.5px; }
+      .tag { fill: #0369a1; font-size: 11px; }
+      .line { stroke: #e2e8f0; stroke-width: 1; }
+      .wire { stroke: #94a3b8; stroke-width: 1.6; fill: none; }
+      .dash { stroke: #94a3b8; stroke-width: 1.5; stroke-dasharray: 5 4; fill: none; }
+    </style>
+  </defs>
+
+  <!-- 卡片：主人 -->
+  <rect class="card" x="32" y="110" width="220" height="280" rx="16"/>
+  <rect x="32" y="110" width="4" height="280" rx="2" fill="#7dd3fc"/>
+  <text class="h" x="58" y="152">主人</text>
+  <text class="sub" x="58" y="176">QQ 私聊</text>
+  <line class="line" x1="58" y1="196" x2="226" y2="196"/>
+  <text class="sub" x="58" y="232">发消息 / 图片</text>
+  <text class="sub" x="58" y="254">收到回复 / 表情包</text>
+  <line class="line" x1="58" y1="286" x2="226" y2="286"/>
+  <text class="muted" x="58" y="314">同一 AppID 只允许</text>
+  <text class="muted" x="58" y="334">一条 WebSocket 连接</text>
+
+  <!-- 卡片：channels -->
+  <rect class="card" x="340" y="110" width="340" height="280" rx="16"/>
+  <rect x="340" y="110" width="4" height="280" rx="2" fill="#38bdf8"/>
+  <text class="h" x="366" y="152">channels/qq</text>
+  <rect x="592" y="130" width="66" height="22" rx="11" fill="#e0f2fe"/>
+  <text class="tag" x="625" y="145" text-anchor="middle">只做传输</text>
+  <line class="line" x1="366" y1="170" x2="654" y2="170"/>
+
+  <circle cx="372" cy="203" r="3" fill="#38bdf8"/>
+  <text class="row" x="386" y="207">gateway</text>
+  <text class="sub" x="386" y="224">WebSocket · 心跳 · 重连</text>
+
+  <circle cx="372" cy="253" r="3" fill="#38bdf8"/>
+  <text class="row" x="386" y="257">聚合器</text>
+  <text class="sub" x="386" y="274">停口 3s · 最长 10s · 同人串行</text>
+
+  <circle cx="372" cy="303" r="3" fill="#38bdf8"/>
+  <text class="row" x="386" y="307">handler</text>
+  <text class="sub" x="386" y="324">编排：命令 / 入库 / 回复</text>
+
+  <circle cx="372" cy="353" r="3" fill="#38bdf8"/>
+  <text class="row" x="386" y="357">send</text>
+  <text class="sub" x="386" y="374">msg_seq 递增 · 文本 / 图片</text>
+
+  <!-- 卡片：core -->
+  <rect class="card" x="760" y="110" width="340" height="280" rx="16"/>
+  <rect x="760" y="110" width="4" height="280" rx="2" fill="#0284c7"/>
+  <text class="h" x="786" y="152">core</text>
+  <rect x="944" y="130" width="132" height="22" rx="11" fill="#e0f2fe"/>
+  <text class="tag" x="1010" y="145" text-anchor="middle">不知道消息从哪来</text>
+  <line class="line" x1="786" y1="170" x2="1074" y2="170"/>
+
+  <circle cx="792" cy="203" r="3" fill="#0284c7"/>
+  <text class="row" x="806" y="207">chat.generateReply</text>
+  <text class="sub" x="806" y="224">人设 + 记忆 + 此刻 → DeepSeek</text>
+
+  <circle cx="792" cy="258" r="3" fill="#0284c7"/>
+  <text class="row" x="806" y="262">commands</text>
+  <text class="sub" x="806" y="279">/help /new /forget /remember /status</text>
+
+  <circle cx="792" cy="313" r="3" fill="#0284c7"/>
+  <text class="row" x="806" y="317">proactive</text>
+  <text class="sub" x="806" y="334">空闲时开口 · 发送方式由外部注入</text>
+
+  <!-- 卡片：data -->
+  <rect x="760" y="430" width="340" height="54" rx="14" fill="#ffffff" stroke="#cbd5e1" stroke-dasharray="5 4"/>
+  <text class="row" x="786" y="463">data/</text>
+  <text class="sub" x="834" y="463">history · memory · stickers · users</text>
+
+  <!-- 连接线 -->
+  <line class="wire" x1="252" y1="210" x2="334" y2="210" marker-end="url(#arrow)"/>
+  <text class="edge" x="293" y="196" text-anchor="middle">私聊消息</text>
+
+  <line class="wire" x1="340" y1="310" x2="258" y2="310" marker-end="url(#arrow)"/>
+  <text class="edge" x="299" y="330" text-anchor="middle">回复 / 表情包</text>
+
+  <line class="wire" x1="680" y1="215" x2="754" y2="215" marker-end="url(#arrow)"/>
+  <text class="edge" x="717" y="201" text-anchor="middle">调用</text>
+
+  <line class="wire" x1="760" y1="315" x2="686" y2="315" marker-end="url(#arrow)"/>
+  <text class="edge" x="723" y="335" text-anchor="middle">回复文本</text>
+
+  <path class="dash" d="M930 390 L930 424" marker-end="url(#arrow)"/>
+  <text class="edge" x="942" y="412">读写</text>
+
+  <text class="muted" x="32" y="470">实线：一次消息的往返　虚线：读写 / 注入</text>
+</svg>
