@@ -2,6 +2,14 @@
 
 本项目的版本记录。版本号以根 `package.json` 为准，发版流程见 [`README.md`](README.md) 的「发版」。
 
+## [Unreleased]
+
+### 文档
+
+- 重写 README：补充桌面控制台截图、技术栈表、Mermaid 架构图、常见问题，重排信息结构
+- 新增 `docs/`：控制台截图（`docs/screenshots/`）与图标、GitHub 社交预览图（`docs/assets/`）
+- AGENTS.md 文档地图与「常见维护任务」补充 `docs/` 与截图维护
+
 ## [0.1.1] - 2026-10-25
 
 首个带桌面控制台的正式版本。

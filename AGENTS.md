@@ -11,6 +11,7 @@
 - [`apps/desktop/README.md`](apps/desktop/README.md)：桌面端开发与打包
 - [`apps/server/README.md`](apps/server/README.md)：服务端入口
 - [`CHANGELOG.md`](CHANGELOG.md)：版本记录
+- [`docs/`](docs/)：README 用的界面截图（`screenshots/`）与图标、社交预览图（`assets/`）
 
 ## 1. 这是什么
 
@@ -155,6 +156,7 @@ QQ 事件 → cleanQQContent 清洗 <faceType>/<@...> → 串行下载图片（�
 | 改桌面端页面 | `apps/desktop/src/components/` |
 | 改托盘菜单/关闭行为 | `apps/desktop/src/hooks/useController.ts` |
 | 改桌面端打包 | `apps/desktop/scripts/pack.mjs` |
+| 换 README 截图 | 重新渲染并覆盖 `docs/screenshots/*.png`（真实组件 + 演示数据），文案在 `README.md` 的「截图」一节 |
 
 ## 12. 已知限制与候选升级
 
