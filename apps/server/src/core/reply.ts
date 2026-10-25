@@ -4,11 +4,12 @@ export interface IParsedReply {
   sticker?: string;
 }
 
-const MARKER = /\[表情包[:：]\s*([^\]]{1,20})\]/g;
+/** 兼容半角/全角方括号与中英文冒号 */
+const MARKER = /(?:\[|【)表情包[:：]\s*([^\]】]{1,20})(?:\]|】)/g;
 
 /**
  * 把模型输出里的 [表情包:关键词] 标记剥出来。
- * 正文可能因此变空，调用方要兜底。
+ * 顺手把旧习惯里的 "||" 换行符还原成普通换行——现在不再按它分条了。
  */
 export const parseReply = (raw: string): IParsedReply => {
   let sticker: string | undefined;
@@ -18,6 +19,7 @@ export const parseReply = (raw: string): IParsedReply => {
       if (!sticker) sticker = keyword.trim();
       return "";
     })
+    .replace(/\s*\|\|\s*/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 
@@ -25,37 +27,48 @@ export const parseReply = (raw: string): IParsedReply => {
 };
 
 /**
- * 把一条回复拆成最多 max 条，模拟"人不会一口气说完"。
- * 支持三种写法：|| 分隔、空行分隔、独立的 --- 分隔；
- * 另外超长的单段会在句号处再断一刀（否则模型不写分隔符就永远不分条）。
+ * 单条消息的安全长度。QQ 文本上限比这大得多，这里只留一个兜底：
+ * 正常回复（一两句话）永远是一条发完，超长才按段落/句子切开。
  */
-export const splitReply = (text: string, max = 3): string[] => {
-  const rough = text
-    .split(/\s*\|\|\s*|\n{2,}|\n-{3,}\n/)
-    .map((s) => s.trim())
-    .filter(Boolean);
+export const MAX_MESSAGE_CHARS = 500;
+
+/** 切分优先级：空行 > 换行 > 句末标点 > 逗号 > 空格 */
+const SEPARATORS = ["\n\n", "\n", "。", "！", "？", "；", "～", "，", " "];
+
+/**
+ * 把回复切成可发送的块。默认一整条发出去，
+ * 只有超过 maxChars 才在自然停顿处切开，避免平台截断。
+ */
+export const splitReply = (
+  text: string,
+  maxChars = MAX_MESSAGE_CHARS,
+): string[] => {
+  const body = text.trim();
+  if (!body) return [];
+  if (body.length <= maxChars) return [body];
 
   const out: string[] = [];
+  let rest = body;
 
-  for (const chunk of rough) {
-    if (out.length >= max) break;
+  while (rest.length > maxChars) {
+    let cut = -1;
 
-    if (chunk.length > 60) {
-      const parts = chunk
-        .split(/(?<=[。！？!?～~])\s*/u)
-        .map((s) => s.trim())
-        .filter(Boolean);
-
-      if (parts.length > 1) {
-        out.push(parts[0]);
-        const rest = parts.slice(1).join("");
-        if (rest && out.length < max) out.push(rest);
-        continue;
+    for (const sep of SEPARATORS) {
+      const idx = rest.lastIndexOf(sep, maxChars);
+      // 太靠前会把开头切成一小截，宁可硬切
+      if (idx > maxChars * 0.4) {
+        cut = idx + sep.length;
+        break;
       }
     }
 
-    out.push(chunk);
+    if (cut <= 0) cut = maxChars;
+
+    const head = rest.slice(0, cut).trim();
+    if (head) out.push(head);
+    rest = rest.slice(cut).trim();
   }
 
-  return out.slice(0, max);
+  if (rest) out.push(rest);
+  return out;
 };
