@@ -43,21 +43,26 @@ run("pnpm", ["exec", "neu", "build"], appRoot);
 
 console.log("4/5 组装便携目录…");
 const dist = join(appRoot, "dist");
+const neuConfig = JSON.parse(
+  readFileSync(join(appRoot, "neutralino.config.json"), "utf8"),
+);
+const binaryName = neuConfig.cli?.binaryName ?? "whale-companion";
+const buildDir = join(dist, binaryName);
 const staging = join(dist, "portable", "WhaleCompanion");
 
 rmSync(staging, { recursive: true, force: true });
 mkdirSync(staging, { recursive: true });
 
-const builtExe = readdirSync(dist).find((name) =>
+const builtExe = readdirSync(buildDir).find((name) =>
   /win_x64\.exe$/i.test(name),
 );
 if (!builtExe) {
-  console.error("neu build 没有产出 Windows exe");
+  console.error(`neu build 没有产出 Windows exe：${buildDir}`);
   process.exit(1);
 }
 
-cpSync(join(dist, builtExe), join(staging, "WhaleCompanion.exe"));
-cpSync(join(dist, "resources.neu"), join(staging, "resources.neu"));
+cpSync(join(buildDir, builtExe), join(staging, "WhaleCompanion.exe"));
+cpSync(join(buildDir, "resources.neu"), join(staging, "resources.neu"));
 
 // 带上 Node 运行时，用户不用自己装
 cpSync(process.execPath, join(staging, "node.exe"));

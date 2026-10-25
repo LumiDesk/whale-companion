@@ -10,7 +10,7 @@
     "test": "pnpm -r test",
     "desktop:dev": "pnpm --filter @apps/desktop dev",
     "desktop:build": "pnpm --filter @apps/desktop build",
-    "desktop:pack": "pnpm --filter @apps/desktop pack",
+    "desktop:pack": "pnpm --filter @apps/desktop run pack",
     "lint:prettier": "prettier --write \"**/*.{js,ts,mjs,cjs,json,tsx,css,less,scss,vue,html,md}\""
   },
   "keywords": [],
