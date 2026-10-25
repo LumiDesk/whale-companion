@@ -2,6 +2,7 @@
 import "./config.js";
 
 import { startQQ } from "./channels/qq/gateway.js";
+import { cleanLegacyHistory } from "./channels/qq/migrate.js";
 import { getAccessToken } from "./channels/qq/token.js";
 import { sendC2CProactive } from "./channels/qq/send.js";
 import { startProactive } from "./core/proactive.js";
@@ -28,6 +29,13 @@ if (Number.isInteger(parentPid) && parentPid > 0) {
   }, 5000);
 
   timer.unref();
+}
+
+// 清理旧版本留在历史里的平台标记；失败不阻塞启动
+try {
+  cleanLegacyHistory();
+} catch (e) {
+  slog("历史清理失败（不影响启动）", e);
 }
 
 // QQ 长连接（内部自带重连，不会阻塞启动）

@@ -1,7 +1,8 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { config } from "../config.js";
+import { writeJsonAtomic } from "./atomic.js";
 
 export interface IKnownUser {
   userId: string;
@@ -25,8 +26,7 @@ const readAll = (): IKnownUser[] => {
 
 const writeAll = (list: IKnownUser[]) => {
   try {
-    mkdirSync(config.paths.dataDir, { recursive: true });
-    writeFileSync(filePath, JSON.stringify(list, null, 2), "utf8");
+    writeJsonAtomic(filePath, list);
   } catch (e) {
     console.error("[users] 写入失败", e);
   }

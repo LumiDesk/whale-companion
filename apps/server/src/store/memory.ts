@@ -1,7 +1,8 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { config } from "../config.js";
+import { writeJsonAtomic } from "./atomic.js";
 
 export interface IMemory {
   /** 老的对话压成的一段话 */
@@ -34,8 +35,7 @@ export const loadMemory = (userId: string): IMemory => {
 
 export const saveMemory = (userId: string, mem: IMemory): void => {
   try {
-    mkdirSync(dir, { recursive: true });
-    writeFileSync(fileOf(userId), JSON.stringify(mem, null, 2), "utf8");
+    writeJsonAtomic(fileOf(userId), mem);
   } catch (e) {
     console.error("[memory] 写入失败", e);
   }

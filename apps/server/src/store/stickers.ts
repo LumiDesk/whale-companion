@@ -8,6 +8,7 @@ import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 
 import { config } from "../config.js";
+import { writeJsonAtomic } from "./atomic.js";
 
 export interface ISticker {
   id: string;
@@ -32,8 +33,7 @@ const readIndex = (): ISticker[] => {
 };
 
 const writeIndex = (list: ISticker[]) => {
-  mkdirSync(dir, { recursive: true });
-  writeFileSync(indexPath, JSON.stringify(list, null, 2), "utf8");
+  writeJsonAtomic(indexPath, list);
 };
 
 const extOf = (mime: string) =>

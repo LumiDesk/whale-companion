@@ -1,17 +1,18 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { config } from "../config.js";
 import type { IMessage } from "../types/message.js";
+import { writeFileAtomic, writeJsonAtomic } from "./atomic.js";
 
 const filePath = join(config.paths.dataDir, "history.json");
 
 type HistoryFile = Record<string, IMessage[]>;
 
-const readAll = (): HistoryFile => {
+const readHistoryFile = (file: string): HistoryFile => {
   try {
-    if (!existsSync(filePath)) return {};
-    const parsed = JSON.parse(readFileSync(filePath, "utf8"));
+    if (!existsSync(file)) return {};
+    const parsed = JSON.parse(readFileSync(file, "utf8"));
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
       return {};
     }
@@ -21,6 +22,8 @@ const readAll = (): HistoryFile => {
     return {};
   }
 };
+
+const readAll = (): HistoryFile => readHistoryFile(filePath);
 
 /** 读某个用户的对话；system 不落盘，由调用方现拼 */
 export const loadHistory = (userId: string): IMessage[] => {
@@ -39,9 +42,86 @@ export const saveHistory = (userId: string, messages: IMessage[]): void => {
   all[userId] = trimmed;
 
   try {
-    mkdirSync(config.paths.dataDir, { recursive: true });
-    writeFileSync(filePath, JSON.stringify(all, null, 2), "utf8");
+    writeJsonAtomic(filePath, all);
   } catch (e) {
     console.error("[history] 写入失败", e);
   }
+};
+
+export interface IHistorySanitizeResult {
+  /** 被改写的消息条数 */
+  changed: number;
+  /** 涉及的用户数 */
+  users: number;
+  /** 改动前的备份文件；没有改动时为 null */
+  backup: string | null;
+}
+
+/**
+ * 清理历史里遗留的平台标记（例如旧版本写进去的 `<faceType=...>`）。
+ * 只在确实有改动时备份并重写，重复执行是安全的。
+ * cleaner 由调用方注入，store 不关心是哪个平台的标记。
+ */
+export const sanitizeHistoryFile = (
+  file: string,
+  cleaner: (text: string) => string,
+): IHistorySanitizeResult => {
+  if (!existsSync(file)) return { changed: 0, users: 0, backup: null };
+
+  let raw: string;
+  try {
+    raw = readFileSync(file, "utf8");
+  } catch (e) {
+    throw new Error(
+      `读取历史失败：${e instanceof Error ? e.message : String(e)}`,
+    );
+  }
+
+  let parsed: HistoryFile;
+  try {
+    const value: unknown = JSON.parse(raw);
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      return { changed: 0, users: 0, backup: null };
+    }
+    parsed = value as HistoryFile;
+  } catch (e) {
+    // 坏文件不覆盖：宁可保留现场，也不能把用户的历史清空
+    console.error(
+      "[history] 清理时发现 JSON 无效，跳过：",
+      e instanceof Error ? e.message : String(e),
+    );
+    return { changed: 0, users: 0, backup: null };
+  }
+
+  let changed = 0;
+  const changedUsers = new Set<string>();
+  const next: HistoryFile = {};
+
+  for (const [userId, messages] of Object.entries(parsed)) {
+    if (!Array.isArray(messages)) {
+      next[userId] = messages;
+      continue;
+    }
+
+    next[userId] = messages.map((message) => {
+      if (typeof message.content !== "string") return message;
+
+      const cleaned = cleaner(message.content);
+      if (cleaned === message.content) return message;
+
+      changed += 1;
+      changedUsers.add(userId);
+      return { ...message, content: cleaned };
+    });
+  }
+
+  if (changed === 0) return { changed: 0, users: 0, backup: null };
+
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const backup = `${file}.bak-${stamp}`;
+
+  writeFileAtomic(backup, raw);
+  writeJsonAtomic(file, next);
+
+  return { changed, users: changedUsers.size, backup };
 };
