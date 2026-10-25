@@ -1,10 +1,13 @@
 import { config } from "../config.js";
 import { askModel } from "./llm.js";
 import { buildSystem } from "./prompt.js";
+import { parseReply } from "./reply.js";
+import { loadHistory, saveHistory } from "../store/history.js";
 import { listUsers, markProactive } from "../store/users.js";
-import { getAccessToken } from "../channels/qq/token.js";
-import { sendC2CProactive } from "../channels/qq/send.js";
 import { slog } from "../util.js";
+
+/** 由组合根注入真正的发送方式，core 不直接碰 QQ */
+export type ProactiveSender = (userId: string, text: string) => Promise<void>;
 
 const inQuietHours = (hour: number): boolean => {
   const { quietStart, quietEnd } = config.proactive;
@@ -19,7 +22,11 @@ const startOfToday = (): number => {
   return d.getTime();
 };
 
-const tick = async (): Promise<void> => {
+let running = false;
+
+const tick = async (send: ProactiveSender): Promise<void> => {
+  if (running) return;
+
   const now = Date.now();
   if (inQuietHours(new Date().getHours())) return;
 
@@ -36,11 +43,13 @@ const tick = async (): Promise<void> => {
   const user = candidates[0];
   if (!user) return;
 
+  running = true;
+
   const hours = Math.round((now - user.lastSeen) / 3_600_000);
   const system = buildSystem(user.userId);
 
   try {
-    const text = await askModel([
+    const raw = await askModel([
       { role: "system", content: system },
       {
         role: "user",
@@ -51,24 +60,38 @@ const tick = async (): Promise<void> => {
       },
     ]);
 
-    const token = await getAccessToken();
-    await sendC2CProactive(user.userId, token, text);
+    const text = parseReply(raw).text;
+    if (!text) {
+      slog("主动消息生成了空内容，跳过");
+      return;
+    }
+
+    await send(user.userId, text);
+
+    // 主动说过的话也要进历史，否则下一轮她自己不记得
+    saveHistory(user.userId, [
+      ...loadHistory(user.userId),
+      { role: "assistant", content: text },
+    ]);
+
     markProactive(user.userId, "qq");
     slog("主动打招呼成功");
   } catch (e) {
     slog("主动消息失败（平台可能不允许主动推送）", e);
+  } finally {
+    running = false;
   }
 };
 
 /** 启动主动消息定时器；平台不允许时只会打日志，不影响其他功能 */
-export const startProactive = (): void => {
+export const startProactive = (send: ProactiveSender): void => {
   if (!config.proactive.enabled) {
     slog("主动消息已关闭");
     return;
   }
 
   setInterval(() => {
-    void tick();
+    void tick(send);
   }, config.proactive.intervalMs);
 
   slog(

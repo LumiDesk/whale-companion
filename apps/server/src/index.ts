@@ -1,19 +1,20 @@
-import { serve } from "@hono/node-server";
-
-import { config } from "./config.js";
-import { createWebApp } from "./channels/web/routes.js";
 import { startQQ } from "./channels/qq/gateway.js";
+import { getAccessToken } from "./channels/qq/token.js";
+import { sendC2CProactive } from "./channels/qq/send.js";
 import { startProactive } from "./core/proactive.js";
+import { retagUntaggedStickers } from "./core/tagger.js";
 import { slog } from "./util.js";
 
-const app = createWebApp();
+slog("小鲸鱼启动中…");
 
-serve({ fetch: app.fetch, port: config.server.port }, (info) => {
-  slog(`HTTP 服务已启动 http://localhost:${info.port}`);
+// QQ 长连接（内部自带重连，不会阻塞启动）
+void startQQ().catch((e) => slog("QQ 通道异常退出", e));
+
+// 主动消息：渠道发送方式由这里注入，core 不直接碰 QQ
+startProactive(async (userId, text) => {
+  const token = await getAccessToken();
+  await sendC2CProactive(userId, token, text);
 });
 
-// QQ 长连接与 HTTP 并行跑；内部自带重连，不会阻塞启动
-void startQQ();
-
-// 主动消息（平台不允许时只打日志）
-startProactive();
+// 上次没打完标签的图，启动后补上
+retagUntaggedStickers();
