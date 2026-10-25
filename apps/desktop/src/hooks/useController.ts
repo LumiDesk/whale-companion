@@ -172,20 +172,22 @@ const findPayloadDir = async (root: string): Promise<string | null> => {
   return null;
 };
 
-/** 下载 GitHub 资源：优先 curl，系统没有 curl 时退回 PowerShell */
+/**
+ * 下载 GitHub 资源：优先 curl；没有 curl、或 curl 因代理/TLS 失败时，
+ * 退回 PowerShell（会走系统代理）。
+ */
 const runDownload = async (url: string, destination: string): Promise<void> => {
   let result = await os.execCommand(
     buildDownloadCommand(url, destination),
   );
 
-  const missingCurl =
-    result.exitCode === 9009 ||
-    /not recognized|不是内部或外部命令/i.test(result.stdErr);
-
-  if (missingCurl) {
-    result = await os.execCommand(
+  if (result.exitCode !== 0) {
+    const fallback = await os.execCommand(
       buildPowerShellDownloadCommand(url, destination),
     );
+
+    if (fallback.exitCode === 0) return;
+    result = fallback;
   }
 
   if (result.exitCode !== 0) {
