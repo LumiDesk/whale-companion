@@ -1,7 +1,6 @@
 import { config } from "../config.js";
 import { askModel } from "./llm.js";
-import { getPersona } from "./persona.js";
-import { loadMemory, renderMemory } from "../store/memory.js";
+import { buildSystem } from "./prompt.js";
 import { listUsers, markProactive } from "../store/users.js";
 import { getAccessToken } from "../channels/qq/token.js";
 import { sendC2CProactive } from "../channels/qq/send.js";
@@ -38,9 +37,7 @@ const tick = async (): Promise<void> => {
   if (!user) return;
 
   const hours = Math.round((now - user.lastSeen) / 3_600_000);
-  const system = [getPersona(), renderMemory(loadMemory(user.userId))]
-    .filter(Boolean)
-    .join("\n\n");
+  const system = buildSystem(user.userId);
 
   try {
     const text = await askModel([

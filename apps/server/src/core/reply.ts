@@ -23,3 +23,14 @@ export const parseReply = (raw: string): IParsedReply => {
 
   return { text, sticker };
 };
+
+/**
+ * 把一条回复拆成最多 max 条，模拟"人不会一口气说完"。
+ * 约定：模型用 || 分隔（也兼容独立一行的 ---）。
+ */
+export const splitReply = (text: string, max = 3): string[] =>
+  text
+    .split(/\s*\|\|\s*|\n-{3,}\n/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, max);

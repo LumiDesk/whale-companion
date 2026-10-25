@@ -1,9 +1,8 @@
 import { config } from "../config.js";
 import { askModel } from "./llm.js";
-import { getPersona } from "./persona.js";
+import { buildSystem } from "./prompt.js";
 import { summarizeIfNeeded } from "./summarize.js";
 import { loadHistory, saveHistory } from "../store/history.js";
-import { loadMemory, renderMemory } from "../store/memory.js";
 import { slog } from "../util.js";
 import type { IContent, IImageInput, IMessages } from "../types/message.js";
 
@@ -35,8 +34,7 @@ export const generateReply = async (
   text: string,
   images: IImageInput[] = [],
 ): Promise<string> => {
-  const memoryBlock = renderMemory(loadMemory(userId));
-  const system = [getPersona(), memoryBlock].filter(Boolean).join("\n\n");
+  const system = buildSystem(userId);
 
   const recent = loadHistory(userId).slice(-config.history.send);
 
