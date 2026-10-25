@@ -11,8 +11,8 @@
     "lint:prettier": "prettier --write \"**/*.{js,ts,mjs,cjs,json,tsx,css,less,scss,vue,html,md}\""
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "Talyra42",
+  "license": "AGPL-3.0-only",
   "devEngines": {
     "packageManager": {
       "name": "pnpm",

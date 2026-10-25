@@ -1,6 +1,7 @@
 {
   "name": "@apps/server",
   "type": "module",
+  "license": "AGPL-3.0-only",
   "engines": {
     "node": ">=22"
   },
