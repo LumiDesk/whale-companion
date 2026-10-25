@@ -362,7 +362,7 @@ export const buildUpdateScript = (options: IUpdateScriptOptions): string => {
     "  $copied = $false",
     "  for ($attempt = 1; $attempt -le 10; $attempt++) {",
     "    try {",
-    "      Copy-Item -Path (Join-Path $source '*') -Destination $target -Recurse -Force",
+    "      Get-ChildItem -LiteralPath $source -Force | Copy-Item -Destination $target -Recurse -Force",
     "      $copied = $true",
     "      break",
     "    } catch {",
