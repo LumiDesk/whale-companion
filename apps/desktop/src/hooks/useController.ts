@@ -676,7 +676,12 @@ export const useController = (): IController => {
         setMessage({ kind: "ok", text: `已更新到 v${APP_VERSION}。` });
         addLog("gui", `更新成功：v${APP_VERSION}`);
         if (pending?.workDir) {
-          await removePath(pending.workDir).catch(() => {});
+          // 只删 updates 目录下的内容，防止 pending.json 被改成任意路径
+          const prefix = `${normalizePath(updatesDir)}\\`;
+          const workDir = normalizePath(pending.workDir);
+          if (workDir.startsWith(prefix)) {
+            await removePath(workDir).catch(() => {});
+          }
         }
       } else if (result.ok) {
         setMessage({
@@ -818,6 +823,12 @@ export const useController = (): IController => {
         kind: "error",
         text: `${info.tag} 没有提供 Windows 便携包。`,
       });
+      return;
+    }
+
+    // Release 资源名只允许安全字符，避免被拼成路径穿越
+    if (!/^[0-9A-Za-z._-]+\.zip$/i.test(asset.name)) {
+      setMessage({ kind: "error", text: "安装包文件名不合法，已停止更新。" });
       return;
     }
 
