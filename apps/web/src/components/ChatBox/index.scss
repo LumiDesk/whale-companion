@@ -1,0 +1,22 @@
+.chat-box-container {
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  .box {
+    display: flex;
+    flex-direction: row;
+    padding-bottom: 20px;
+    gap: 20px;
+
+    .send-button {
+      background-color: #0080ff;
+      padding: 5px 10px;
+      border-radius: 10px;
+      color: white;
+    }
+  }
+}
