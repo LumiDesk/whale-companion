@@ -24,9 +24,9 @@
     "window": {
       "title": "小鲸鱼",
       "width": 940,
-      "height": 680,
+      "height": 720,
       "minWidth": 780,
-      "minHeight": 560,
+      "minHeight": 600,
       "center": true,
       "icon": "/resources/icons/app.png",
       "enableInspector": false,

@@ -444,7 +444,7 @@ export const useController = (): IController => {
       setBotPid(proc.pid);
       setStartedAt(Date.now());
       updateBotState("running");
-      addLog("gui", `Bot 已启动（pid=${proc.pid}）`);
+      addLog("gui", "Bot 已启动");
 
       const buffered = orphanEventsRef.current.get(proc.id);
       if (buffered) {
