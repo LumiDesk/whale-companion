@@ -69,3 +69,22 @@ test("接口地址必须是 http(s)", () => {
 
   assert.ok(validateConfig(config).some((error) => error.includes("接口地址")));
 });
+
+test("模型名称与接口地址会被规范化", () => {
+  const parsed = normalizeConfig({
+    llm: { model: "  ", baseUrl: "https://example.com///" },
+  });
+
+  assert.equal(parsed.llm.model, "deepseek-flash");
+  assert.equal(parsed.llm.baseUrl, "https://example.com");
+});
+
+test("模型名称不能为空", () => {
+  const config = normalizeConfig({
+    qq: { appId: "1", appSecret: "2" },
+    llm: { apiKey: "3" },
+  });
+  config.llm.model = "";
+
+  assert.ok(validateConfig(config).some((error) => error.includes("模型名称")));
+});

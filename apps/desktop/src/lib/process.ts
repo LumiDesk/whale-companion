@@ -3,6 +3,18 @@ import type { IAppConfig } from "./types";
 export const quoteArg = (value: string): string =>
   `"${value.replace(/"/g, '\\"')}"`;
 
+/**
+ * 开机自启时注册表里带 `--hidden`，应用启动后应直接收进托盘。
+ * NL_ARGS 是 Neutralino 注入的原始命令行参数数组。
+ */
+export const hasHiddenFlag = (
+  args: readonly string[] | undefined | null,
+): boolean =>
+  Array.isArray(args) &&
+  args.some(
+    (arg) => arg === "--hidden" || arg === "-hidden" || arg === "--hidden=true",
+  );
+
 export const buildSpawnCommand = (
   nodePath: string,
   scriptPath: string,

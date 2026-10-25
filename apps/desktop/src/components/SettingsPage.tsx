@@ -164,7 +164,7 @@ const SettingsPage = ({ controller }: IProps) => {
           <span className="badge">必填</span>
         </div>
         <p className="muted card-desc">
-          模型调用需要 API Key。默认使用 deepseek-flash。
+          默认使用 deepseek-flash；也可以换成别的 OpenAI 兼容接口。
         </p>
 
         <label className="field">
@@ -187,6 +187,31 @@ const SettingsPage = ({ controller }: IProps) => {
             </button>
           </div>
         </label>
+
+        <div className="form-grid">
+          <label className="field">
+            <span>模型</span>
+            <input
+              value={form.llm.model}
+              placeholder="deepseek-flash"
+              spellCheck={false}
+              onChange={(event) => patchLlm({ model: event.target.value })}
+            />
+          </label>
+
+          <label className="field">
+            <span>接口地址</span>
+            <input
+              value={form.llm.baseUrl}
+              placeholder="https://api.deepseek.com"
+              spellCheck={false}
+              onChange={(event) => patchLlm({ baseUrl: event.target.value })}
+            />
+          </label>
+        </div>
+        <p className="hint">
+          接口地址要带 http:// 或 https://；改完保存会重启 Bot。
+        </p>
       </div>
 
       <div className="card">

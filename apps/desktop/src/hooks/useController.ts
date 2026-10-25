@@ -52,6 +52,7 @@ import {
 import {
   buildBotConfig,
   buildSpawnCommand,
+  hasHiddenFlag,
 } from "../lib/process";
 import { LineBuffer, parseStatusLine } from "../lib/status";
 import {
@@ -738,6 +739,26 @@ export const useController = (): IController => {
         return;
       }
 
+      // 开机自启时注册表传来的 --hidden：先藏起来，配置有问题再露脸
+      const startHidden = hasHiddenFlag(window.NL_ARGS);
+      if (startHidden) {
+        try {
+          await hideWindow();
+        } catch (error) {
+          addLog("error", `隐藏窗口失败：${errText(error)}`);
+        }
+      }
+
+      const revealIfHidden = async (reason: string) => {
+        if (!startHidden) return;
+        try {
+          await showWindow();
+          addLog("gui", `开机自启：${reason}，已显示窗口`);
+        } catch (error) {
+          addLog("error", `显示窗口失败：${errText(error)}`);
+        }
+      };
+
       try {
         setBootMessage("读取应用目录…");
         const appPaths = buildAppPaths(await getAppDataPath());
@@ -827,12 +848,14 @@ export const useController = (): IController => {
         addLog("gui", `小鲸鱼控制台已启动（v${APP_VERSION}）`);
 
         if (!nodeRef.current) {
+          await revealIfHidden("没有找到 Node.js");
           setPage("settings");
           setMessage({
             kind: "error",
             text: "没有找到 Node.js。请安装 Node 22+，或使用带 node.exe 的打包版。",
           });
         } else if (validateConfig(loaded).length > 0) {
+          await revealIfHidden("配置不完整");
           setPage("settings");
           setMessage({
             kind: "info",
@@ -841,11 +864,18 @@ export const useController = (): IController => {
           addLog("gui", "配置未完成，等待填写");
         } else {
           setBootMessage("启动 Bot…");
-          await startBot();
+          const started = await startBot();
+
+          if (startHidden && started) {
+            addLog("gui", "开机自启：已隐藏到托盘");
+          } else if (startHidden) {
+            await revealIfHidden("Bot 启动失败");
+          }
         }
 
         if (!cancelled) setReady(true);
       } catch (error) {
+        await revealIfHidden("初始化失败");
         addLog("error", `初始化失败：${errText(error)}`);
         setBootMessage(`初始化失败：${errText(error)}`);
         setMessage({ kind: "error", text: `初始化失败：${errText(error)}` });

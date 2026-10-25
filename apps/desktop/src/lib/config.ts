@@ -41,8 +41,13 @@ export const normalizeConfig = (raw: unknown): IAppConfig => {
     },
     llm: {
       apiKey: asText(llm.apiKey),
-      model: asText(llm.model, DEFAULT_CONFIG.llm.model),
-      baseUrl: asText(llm.baseUrl, DEFAULT_CONFIG.llm.baseUrl),
+      model:
+        asText(llm.model, DEFAULT_CONFIG.llm.model) ||
+        DEFAULT_CONFIG.llm.model,
+      baseUrl: asText(llm.baseUrl, DEFAULT_CONFIG.llm.baseUrl).replace(
+        /\/+$/,
+        "",
+      ),
     },
     behavior: {
       closeAction: behavior.closeAction === "exit" ? "exit" : "tray",
@@ -60,6 +65,7 @@ export const validateConfig = (config: IAppConfig): string[] => {
   if (!config.qq.appId) errors.push("QQ Bot AppID 不能为空");
   if (!config.qq.appSecret) errors.push("QQ Bot AppSecret 不能为空");
   if (!config.llm.apiKey) errors.push("DeepSeek API Key 不能为空");
+  if (!config.llm.model) errors.push("模型名称不能为空");
   if (!/^https?:\/\//.test(config.llm.baseUrl)) {
     errors.push("模型接口地址必须以 http:// 或 https:// 开头");
   }
