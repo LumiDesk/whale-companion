@@ -234,6 +234,7 @@ pnpm release patch    # 发版：bump + tag + push（触发 CI）
 | [`CHANGELOG.md`](CHANGELOG.md) | 版本记录 |
 | [`apps/desktop/README.md`](apps/desktop/README.md) | 桌面端开发与打包 |
 | [`apps/server/README.md`](apps/server/README.md) | 服务端入口 |
+| [`docs/README.md`](docs/README.md) | 截图、架构图、社交预览图的来源与更新方法 |
 
 这是一个偏个人的项目，但 issue 和 PR 都欢迎。动代码之前建议先读 `AGENTS.md`：
 里面的「QQ 平台踩过的坑」和「Windows 大坑」能省掉大半天。

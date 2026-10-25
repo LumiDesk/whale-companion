@@ -8,6 +8,7 @@
 
 - 重写 README：补充桌面控制台截图、技术栈表、架构图、常见问题，重排信息结构
 - 新增 `docs/`：控制台截图（`docs/screenshots/`）与图标、架构图、GitHub 社交预览图（`docs/assets/`）
+- 新增 `docs/README.md`：说明截图、架构图、社交预览图的来源与重新生成方法
 - AGENTS.md 文档地图与「常见维护任务」补充 `docs/` 与截图维护
 
 ### 其他
