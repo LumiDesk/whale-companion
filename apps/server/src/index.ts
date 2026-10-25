@@ -1,10 +1,34 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 
+interface IRequestApiChat {
+  messages: Array<{ role: "user" | "assistant" | "system"; content: string }>;
+}
+
 const app = new Hono();
 
 app.get("/", (c) => {
   return c.text("Hello Hono!");
+});
+
+app.post("/api/chat", async (c) => {
+  let body: IRequestApiChat;
+  try {
+    body = await c.req.json<IRequestApiChat>();
+  } catch (_) {
+    return c.json({ error: "不是合法 JSON" }, 400);
+  }
+  if (!Array.isArray(body.messages)) {
+    return c.json({ error: "必须是数组" }, 400);
+  }
+  if (body.messages.length === 0) {
+    return c.json({ error: "不能为空" }, 400);
+  }
+  const lastMessage = body.messages.findLast((i) => i.role === "user");
+  if (!lastMessage) {
+    return c.json({ error: "没有找到用户消息" }, 400);
+  }
+  return c.json({ reply: `（还没接模型）你说的是：${lastMessage.content}` });
 });
 
 serve(
