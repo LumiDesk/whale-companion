@@ -2,6 +2,7 @@ import { handler } from "./handler.js";
 import { downloadImage } from "./media.js";
 import { getAccessToken } from "./token.js";
 import { slog } from "./util.js";
+import type { IImageInput } from "../types/message.js";
 
 let delay = 3000;
 
@@ -48,13 +49,17 @@ const connect = async (token: string) => {
 
       // 收到了用户的消息
       if (data.t === "C2C_MESSAGE_CREATE") {
-        // 读取附件图片
-        const img = data.d.attachments?.find((a: any) =>
-          a.content_type?.startsWith("image"),
-        );
-        if (img) {
-          const { data: bytes, mime } = await downloadImage(img.url);
-          slog(bytes, mime);
+        // 读取附件图片（一张失败不影响整条消息）
+        const images: IImageInput[] = [];
+        for (const att of data.d.attachments ?? []) {
+          if (!String(att.content_type ?? "").startsWith("image/")) continue;
+          try {
+            const { data: bytes, mime } = await downloadImage(att.url);
+            images.push({ data: bytes, mime });
+            slog("image", mime, bytes.byteLength);
+          } catch (e) {
+            slog("图片下载失败", e);
+          }
         }
 
         // handler 流程
@@ -64,7 +69,7 @@ const connect = async (token: string) => {
             data.d.id,
             token,
             data.d.content,
-            [],
+            images,
           );
         } catch (e) {
           slog("消息解析失败", e);
