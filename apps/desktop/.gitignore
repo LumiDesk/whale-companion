@@ -1,0 +1,7 @@
+node_modules/
+resources/
+dist/
+bin/
+*.log
+.storage/
+.tmp/

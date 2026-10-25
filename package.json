@@ -6,8 +6,11 @@
   "scripts": {
     "dev": "pnpm --filter @apps/server dev",
     "build": "pnpm --filter @apps/server build",
-    "typecheck": "pnpm --filter @apps/server typecheck",
-    "test": "pnpm --filter @apps/server test",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "desktop:dev": "pnpm --filter @apps/desktop dev",
+    "desktop:build": "pnpm --filter @apps/desktop build",
+    "desktop:pack": "pnpm --filter @apps/desktop pack",
     "lint:prettier": "prettier --write \"**/*.{js,ts,mjs,cjs,json,tsx,css,less,scss,vue,html,md}\""
   },
   "keywords": [],

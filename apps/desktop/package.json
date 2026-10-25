@@ -1,0 +1,29 @@
+{
+  "name": "@apps/desktop",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test test/*.test.ts",
+    "pack": "node scripts/pack.mjs"
+  },
+  "dependencies": {
+    "@neutralinojs/lib": "^6.10.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@neutralinojs/neu": "^11.8.0",
+    "@types/node": "^26.1.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "rcedit": "^5.0.2",
+    "tsx": "^4.23.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4"
+  }
+}
