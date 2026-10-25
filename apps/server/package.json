@@ -1,5 +1,5 @@
 {
-  "name": "server",
+  "name": "@apps/server",
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
