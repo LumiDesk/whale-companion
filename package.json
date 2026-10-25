@@ -1,6 +1,6 @@
 {
   "name": "whale-companion",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "独立的 QQ 陪伴 AI（不依赖 DeepSeek Harness）",
   "private": true,
   "scripts": {
@@ -11,6 +11,7 @@
     "desktop:dev": "pnpm --filter @apps/desktop dev",
     "desktop:build": "pnpm --filter @apps/desktop build",
     "desktop:pack": "pnpm --filter @apps/desktop run pack",
+    "release": "node scripts/release.mjs",
     "lint:prettier": "prettier --write \"**/*.{js,ts,mjs,cjs,json,tsx,css,less,scss,vue,html,md}\""
   },
   "keywords": [],
