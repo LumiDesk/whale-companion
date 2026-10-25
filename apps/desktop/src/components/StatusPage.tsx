@@ -4,6 +4,7 @@ import type { IController } from "../hooks/useController";
 import { validateConfig } from "../lib/config";
 import { formatDateTime, formatDuration } from "../lib/format";
 import type { BotState, QQState } from "../lib/types";
+import { APP_VERSION } from "../lib/version";
 import { IconFolder, IconPause, IconPlay, IconRestart } from "./Icons";
 
 const botLabel = (state: BotState): string => {
@@ -81,6 +82,22 @@ const StatusPage = ({ controller }: IProps) => {
           <p>看看小鲸鱼现在在不在线。</p>
         </div>
       </header>
+
+      {controller.update.status === "available" && controller.update.info && (
+        <div className="callout callout-info">
+          <div>
+            <strong>有新版本 v{controller.update.info.version}</strong>
+            <span>当前 v{APP_VERSION}，去「关于」页可以下载并更新。</span>
+          </div>
+          <button
+            type="button"
+            className="btn btn-small"
+            onClick={() => controller.setPage("about")}
+          >
+            查看更新
+          </button>
+        </div>
+      )}
 
       {configErrors.length > 0 && (
         <div className="callout callout-warn">

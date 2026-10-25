@@ -45,6 +45,16 @@ export const readText = async (path: string): Promise<string | null> => {
   }
 };
 
+/** 文件大小；不存在或读不到时返回 null（下载进度用，不该打断流程） */
+export const fileSize = async (path: string): Promise<number | null> => {
+  try {
+    const stats = await filesystem.getStats(path);
+    return Number.isFinite(stats.size) ? stats.size : null;
+  } catch {
+    return null;
+  }
+};
+
 export const writeText = async (path: string, content: string): Promise<void> => {
   await filesystem.writeFile(path, content);
 };

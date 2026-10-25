@@ -13,6 +13,7 @@ interface IProps {
   page: PageId;
   onNavigate: (page: PageId) => void;
   botState: BotState;
+  hasUpdate: boolean;
 }
 
 const items: Array<{
@@ -41,7 +42,7 @@ const stateText = (state: BotState): string => {
   return "已停止";
 };
 
-const Sidebar = ({ page, onNavigate, botState }: IProps) => (
+const Sidebar = ({ page, onNavigate, botState, hasUpdate }: IProps) => (
   <aside className="sidebar">
     <div className="brand">
       <img className="brand-logo" src="./icons/logo.png" alt="" />
@@ -63,6 +64,9 @@ const Sidebar = ({ page, onNavigate, botState }: IProps) => (
           >
             <Icon />
             <span>{item.label}</span>
+            {item.id === "about" && hasUpdate && (
+              <span className="nav-dot" title="有新版本" />
+            )}
           </button>
         );
       })}

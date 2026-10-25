@@ -236,6 +236,15 @@ img {
   flex: 0 0 auto;
 }
 
+.nav-dot {
+  width: 7px;
+  height: 7px;
+  margin-left: auto;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
 .sidebar-footer {
   margin-top: auto;
   display: flex;
@@ -403,6 +412,15 @@ img {
 .callout-error {
   border-color: var(--danger-border);
   background: var(--danger-bg);
+}
+
+.callout-info {
+  border-color: var(--info-border);
+  background: var(--info-bg);
+}
+
+.callout-info span {
+  color: var(--info-text);
 }
 
 .banner {
@@ -1006,6 +1024,70 @@ input[type="checkbox"] {
 .about-card p {
   margin: 0;
   font-size: 12px;
+}
+
+.update-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface-soft);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.update-status.is-error {
+  border-color: var(--danger-border);
+  background: var(--danger-bg);
+  color: var(--danger-text);
+}
+
+.update-progress-text {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.progress {
+  height: 7px;
+  margin-top: 10px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 0.2s ease;
+}
+
+.release-notes {
+  max-height: 180px;
+  overflow: auto;
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.update-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 .about-footer {

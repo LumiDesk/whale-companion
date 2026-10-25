@@ -26,6 +26,7 @@ import {
   appendText,
   ensureDir,
   fileExists,
+  fileSize,
   findNode,
   getAppDataPath,
   getAppRoot,
@@ -61,6 +62,26 @@ import {
   systemPrefersDark,
   watchSystemTheme,
 } from "../lib/theme";
+import {
+  CHECKSUM_ASSET_NAME,
+  RELEASES_API,
+  RELEASES_PAGE,
+  buildApplyCommand,
+  buildDownloadCommand,
+  buildExtractCommand,
+  buildHashCommand,
+  buildPowerShellDownloadCommand,
+  buildUpdateScript,
+  formatBytes,
+  isNewerVersion,
+  parseChecksumFile,
+  parseHashOutput,
+  parseRelease,
+  parseUpdateResult,
+  progressPercent,
+  validateDownloadUrl,
+} from "../lib/update";
+import type { IUpdateState } from "../lib/update";
 import type {
   BotState,
   IAppConfig,
@@ -108,6 +129,10 @@ export interface IController {
   packaged: boolean;
   message: IMessage | null;
   dismissMessage: () => void;
+  update: IUpdateState;
+  checkUpdate: (silent?: boolean) => Promise<void>;
+  installUpdate: () => Promise<void>;
+  openReleasePage: () => Promise<void>;
   saveConfig: (next: IAppConfig) => Promise<boolean>;
   importEnv: () => Promise<IAppConfig | null>;
   startBot: () => Promise<boolean>;
@@ -135,6 +160,39 @@ const waitFor = (check: () => boolean, timeoutMs: number): Promise<boolean> =>
       }
     }, 100);
   });
+
+/** 解压后的便携包根目录：兼容 zip 里带一层 WhaleCompanion 目录的布局 */
+const findPayloadDir = async (root: string): Promise<string | null> => {
+  const candidates = [root, joinPath(root, "WhaleCompanion")];
+
+  for (const dir of candidates) {
+    if (await fileExists(joinPath(dir, "WhaleCompanion.exe"))) return dir;
+  }
+
+  return null;
+};
+
+/** 下载 GitHub 资源：优先 curl，系统没有 curl 时退回 PowerShell */
+const runDownload = async (url: string, destination: string): Promise<void> => {
+  let result = await os.execCommand(
+    buildDownloadCommand(url, destination),
+  );
+
+  if (result.exitCode === 9009) {
+    result = await os.execCommand(
+      buildPowerShellDownloadCommand(url, destination),
+    );
+  }
+
+  if (result.exitCode !== 0) {
+    const detail = (
+      result.stdErr ||
+      result.stdOut ||
+      `退出码 ${result.exitCode}`
+    ).trim();
+    throw new Error(`下载失败：${detail.slice(0, 300)}`);
+  }
+};
 
 const writeConfigFile = async (
   file: string,
@@ -188,6 +246,7 @@ export const useController = (): IController => {
   const [nodePath, setNodePath] = useState("");
   const [packaged, setPackaged] = useState(false);
   const [message, setMessage] = useState<IMessage | null>(null);
+  const [update, setUpdate] = useState<IUpdateState>({ status: "idle" });
 
   const configRef = useRef(DEFAULT_CONFIG);
   const pathsRef = useRef<IAppPaths | null>(null);
@@ -206,6 +265,8 @@ export const useController = (): IController => {
   const startTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bootSeenRef = useRef(false);
   const orphanEventsRef = useRef(new Map<number, ISpawnDetail[]>());
+  const updateRef = useRef<IUpdateState>({ status: "idle" });
+  const updateBusyRef = useRef(false);
 
   const updateBotState = (next: BotState) => {
     botStateRef.current = next;
@@ -215,6 +276,11 @@ export const useController = (): IController => {
   const updateQqState = (next: QQState) => {
     qqStateRef.current = next;
     setQqState(next);
+  };
+
+  const updateStatus = (next: IUpdateState) => {
+    updateRef.current = next;
+    setUpdate(next);
   };
 
   const addLog = (
@@ -573,6 +639,393 @@ export const useController = (): IController => {
 
   const dismissMessage = () => setMessage(null);
 
+  /** 上一次更新留下的结果：成功就报喜，失败就带着日志路径提醒 */
+  const consumeUpdateResult = async (appPaths: IAppPaths): Promise<void> => {
+    const updatesDir = joinPath(appPaths.root, "updates");
+    const resultFile = joinPath(updatesDir, "update-result.json");
+    const pendingFile = joinPath(updatesDir, "update-pending.json");
+
+    const pendingText = await readText(pendingFile);
+    const resultText = await readText(resultFile);
+
+    let pending: { version?: string; workDir?: string } | null = null;
+    if (pendingText) {
+      try {
+        const parsed = JSON.parse(
+          pendingText.replace(/^\uFEFF/, ""),
+        ) as Record<string, unknown>;
+        pending = {
+          version:
+            typeof parsed.version === "string" ? parsed.version : undefined,
+          workDir:
+            typeof parsed.workDir === "string" ? parsed.workDir : undefined,
+        };
+      } catch {
+        pending = null;
+      }
+    }
+
+    const result = parseUpdateResult(resultText);
+
+    if (result) {
+      if (result.ok && result.version === APP_VERSION) {
+        setMessage({ kind: "ok", text: `已更新到 v${APP_VERSION}。` });
+        addLog("gui", `更新成功：v${APP_VERSION}`);
+        if (pending?.workDir) {
+          await removePath(pending.workDir).catch(() => {});
+        }
+      } else if (result.ok) {
+        setMessage({
+          kind: "error",
+          text: `更新脚本报告成功，但当前版本仍是 v${APP_VERSION}，请手动检查。`,
+        });
+        addLog(
+          "error",
+          `更新结果版本不一致：${result.version} / ${APP_VERSION}`,
+        );
+      } else {
+        setMessage({
+          kind: "error",
+          text: `上次更新失败：${result.error ?? "未知错误"}。日志在 ${joinPath(
+            updatesDir,
+            "update.log",
+          )}`,
+        });
+        addLog("error", `上次更新失败：${result.error ?? "未知错误"}`);
+      }
+
+      await removePath(resultFile).catch(() => {});
+      await removePath(pendingFile).catch(() => {});
+      return;
+    }
+
+    if (pending) {
+      setMessage({
+        kind: "error",
+        text: "上次更新没有完成，可以重试，或从 GitHub 手动下载覆盖。",
+      });
+      addLog("error", "发现未完成的更新记录");
+      await removePath(pendingFile).catch(() => {});
+    }
+  };
+
+  /** 查 GitHub Releases；silent=true 时只更新状态，不弹提示 */
+  const checkUpdate = async (silent = false): Promise<void> => {
+    if (updateBusyRef.current) return;
+
+    const status = updateRef.current.status;
+    if (
+      status === "downloading" ||
+      status === "preparing" ||
+      status === "ready"
+    ) {
+      return;
+    }
+
+    updateBusyRef.current = true;
+    updateStatus({ status: "checking" });
+
+    try {
+      const res = await fetch(RELEASES_API, {
+        headers: {
+          Accept: "application/vnd.github+json",
+          "X-GitHub-Api-Version": "2022-11-28",
+        },
+        signal: AbortSignal.timeout(15_000),
+      });
+
+      if (res.status === 404) {
+        throw new Error("GitHub 上还没有发布版本");
+      }
+      if (res.status === 403) {
+        throw new Error("GitHub 接口被限流了，请稍后再试");
+      }
+      if (!res.ok) {
+        throw new Error(`检查更新失败（HTTP ${res.status}）`);
+      }
+
+      const info = parseRelease(await res.json());
+      const checkedAt = Date.now();
+
+      if (isNewerVersion(info.version, APP_VERSION)) {
+        updateStatus({ status: "available", info, checkedAt });
+        addLog("gui", `发现新版本 ${info.tag}（当前 v${APP_VERSION}）`);
+        if (!silent) {
+          setMessage({
+            kind: "info",
+            text: `发现新版本 ${info.tag}，可以到「关于」页下载更新。`,
+          });
+        }
+      } else {
+        updateStatus({ status: "up-to-date", info, checkedAt });
+        addLog("gui", `检查更新：已是最新版本 v${APP_VERSION}`);
+        if (!silent) {
+          setMessage({
+            kind: "ok",
+            text: `已经是最新版本 v${APP_VERSION} 啦。`,
+          });
+        }
+      }
+    } catch (error) {
+      const text = errText(error);
+      updateStatus({ status: "error", error: text, checkedAt: Date.now() });
+      addLog("error", `检查更新失败：${text}`);
+      if (!silent) {
+        setMessage({ kind: "error", text: `检查更新失败：${text}` });
+      }
+    } finally {
+      updateBusyRef.current = false;
+    }
+  };
+
+  const openReleasePage = async (): Promise<void> => {
+    const url = updateRef.current.info?.htmlUrl ?? RELEASES_PAGE;
+    try {
+      await os.open(url);
+    } catch (error) {
+      addLog("error", `打开发布页失败：${errText(error)}`);
+      window.open(url, "_blank");
+    }
+  };
+
+  /**
+   * 下载 → 校验 → 解压 → 写更新脚本 → 退出。
+   * 脚本会等当前进程退出后再覆盖便携目录，最后重新启动 exe。
+   */
+  const installUpdate = async (): Promise<void> => {
+    if (updateBusyRef.current) return;
+
+    const current = updateRef.current;
+    const info = current.info;
+    if (current.status !== "available" || !info) {
+      setMessage({ kind: "info", text: "先检查更新，确认有新版本再安装。" });
+      return;
+    }
+
+    if (!packagedRef.current) {
+      setMessage({
+        kind: "info",
+        text: "开发模式不支持自动安装，请使用打包版或手动替换文件。",
+      });
+      return;
+    }
+
+    const asset = info.asset;
+    if (!asset) {
+      setMessage({
+        kind: "error",
+        text: `${info.tag} 没有提供 Windows 便携包。`,
+      });
+      return;
+    }
+
+    if (!validateDownloadUrl(asset.browserDownloadUrl)) {
+      setMessage({ kind: "error", text: "安装包下载地址不在 GitHub 域名内。" });
+      return;
+    }
+
+    const targetDir = normalizePath(getAppRoot());
+    if (!(await fileExists(joinPath(targetDir, "WhaleCompanion.exe")))) {
+      setMessage({
+        kind: "error",
+        text: "当前程序不是便携版目录结构，无法自动更新。",
+      });
+      return;
+    }
+
+    const currentPaths = pathsRef.current;
+    if (!currentPaths) return;
+
+    updateBusyRef.current = true;
+    let workDir = "";
+    let pendingFile = "";
+    let stoppedForUpdate = false;
+
+    try {
+      const updatesDir = joinPath(currentPaths.root, "updates");
+      await ensureDir(updatesDir);
+
+      const safeVersion =
+        info.version.replace(/[^0-9A-Za-z._-]/g, "_") || "unknown";
+      workDir = joinPath(updatesDir, `${safeVersion}-${Date.now()}`);
+      await ensureDir(workDir);
+
+      const zipFile = joinPath(workDir, asset.name);
+      const partFile = `${zipFile}.part`;
+      await removePath(partFile);
+      await removePath(zipFile);
+
+      updateStatus({
+        status: "downloading",
+        info,
+        progress: asset.size > 0 ? 0 : null,
+      });
+      addLog(
+        "gui",
+        `开始下载 ${asset.name}（${formatBytes(asset.size)}）`,
+      );
+
+      let lastSize = -1;
+      const progressTimer = setInterval(() => {
+        void fileSize(partFile).then((size) => {
+          if (size === null || size === lastSize) return;
+          lastSize = size;
+
+          const state = updateRef.current;
+          if (state.status !== "downloading") return;
+
+          updateStatus({
+            ...state,
+            progress: progressPercent(size, asset.size),
+          });
+        });
+      }, 400);
+
+      try {
+        await runDownload(asset.browserDownloadUrl, partFile);
+      } finally {
+        clearInterval(progressTimer);
+      }
+
+      const downloaded = await fileSize(partFile);
+      if (downloaded === null || downloaded <= 0) {
+        throw new Error("下载完成但文件是空的");
+      }
+      if (asset.size > 0 && downloaded !== asset.size) {
+        throw new Error(
+          `下载大小不一致（期望 ${asset.size} 字节，实际 ${downloaded} 字节）`,
+        );
+      }
+
+      await removePath(zipFile);
+      await movePath(partFile, zipFile);
+
+      updateStatus({ status: "preparing", info, progress: 100 });
+
+      const checksumAsset = info.checksumAsset;
+      if (checksumAsset) {
+        if (!validateDownloadUrl(checksumAsset.browserDownloadUrl)) {
+          throw new Error("校验文件地址不在 GitHub 域名内");
+        }
+
+        const sumsFile = joinPath(workDir, CHECKSUM_ASSET_NAME);
+        await runDownload(checksumAsset.browserDownloadUrl, sumsFile);
+
+        const expected = parseChecksumFile(
+          (await readText(sumsFile)) ?? "",
+          asset.name,
+        );
+        if (!expected) throw new Error("校验文件里没有这个安装包");
+
+        const hashResult = await os.execCommand(buildHashCommand(zipFile));
+        if (hashResult.exitCode !== 0) {
+          throw new Error("计算安装包 SHA256 失败");
+        }
+
+        const actual = parseHashOutput(hashResult.stdOut);
+        if (actual !== expected) {
+          throw new Error("安装包 SHA256 校验失败，已停止更新");
+        }
+
+        addLog("gui", "安装包 SHA256 校验通过");
+      } else {
+        addLog("gui", "这个版本没有 SHA256SUMS.txt，跳过校验");
+      }
+
+      const extractDir = joinPath(workDir, "extract");
+      await ensureDir(extractDir);
+
+      const extractResult = await os.execCommand(
+        buildExtractCommand(zipFile, extractDir),
+      );
+      if (extractResult.exitCode !== 0) {
+        const detail = (
+          extractResult.stdErr ||
+          extractResult.stdOut ||
+          `退出码 ${extractResult.exitCode}`
+        ).trim();
+        throw new Error(`解压失败：${detail.slice(0, 300)}`);
+      }
+
+      const payloadDir = await findPayloadDir(extractDir);
+      if (
+        !payloadDir ||
+        !(await fileExists(joinPath(payloadDir, "resources.neu")))
+      ) {
+        throw new Error("解压后的安装包不完整（缺少 resources.neu）");
+      }
+
+      const wasRunning =
+        botStateRef.current === "running" ||
+        botStateRef.current === "starting";
+
+      if (wasRunning) {
+        stoppedForUpdate = await stopBot();
+        if (!stoppedForUpdate) {
+          throw new Error("Bot 没有停下来，请稍后重试");
+        }
+      }
+
+      const scriptPath = joinPath(
+        updatesDir,
+        `apply-update-${Date.now()}.ps1`,
+      );
+      const resultFile = joinPath(updatesDir, "update-result.json");
+      pendingFile = joinPath(updatesDir, "update-pending.json");
+      const logFile = joinPath(updatesDir, "update.log");
+
+      const script = buildUpdateScript({
+        parentPid: getOwnPid(),
+        sourceDir: payloadDir,
+        targetDir,
+        resultFile,
+        logFile,
+        version: info.version,
+      });
+
+      // 带 BOM，Windows PowerShell 5.1 才会按 UTF-8 读脚本
+      await writeText(scriptPath, `\uFEFF${script}`);
+      await writeText(
+        pendingFile,
+        JSON.stringify(
+          {
+            version: info.version,
+            workDir,
+            script: scriptPath,
+            startedAt: Date.now(),
+          },
+          null,
+          2,
+        ),
+      );
+      await removePath(resultFile);
+
+      addLog("gui", `更新器已启动，准备重启安装 ${info.tag}`);
+      await os.spawnProcess(buildApplyCommand(scriptPath), {
+        cwd: updatesDir,
+      });
+
+      updateStatus({ status: "ready", info, progress: 100 });
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      await quitApp();
+    } catch (error) {
+      const text = errText(error);
+      updateStatus({
+        status: "error",
+        info,
+        error: text,
+        checkedAt: Date.now(),
+      });
+      addLog("error", `更新失败：${text}`);
+      setMessage({ kind: "error", text: `更新失败：${text}` });
+
+      if (pendingFile) await removePath(pendingFile).catch(() => {});
+      if (stoppedForUpdate) void startBot();
+    } finally {
+      updateBusyRef.current = false;
+    }
+  };
+
   /**
    * 主题只改外观，不需要重启 Bot；单独写一次 config.json。
    * 先应用再落盘，写失败就回滚到上一份配置。
@@ -825,6 +1278,9 @@ export const useController = (): IController => {
         setConfig(loaded);
         setConfigLoaded(true);
 
+        // 上次更新脚本留下的结果（成功/失败）在这里消费一次
+        await consumeUpdateResult(appPaths);
+
         setBootMessage("检查是否已有实例…");
         const lock = await acquireLock(appPaths.lockFile);
         if (!lock.ok) {
@@ -873,7 +1329,18 @@ export const useController = (): IController => {
           }
         }
 
-        if (!cancelled) setReady(true);
+        if (!cancelled) {
+          setReady(true);
+
+          // 后台静默查一次；隐藏启动（开机自启）时不打扰网络
+          if (
+            !startHidden &&
+            isPackagedApp &&
+            validateConfig(loaded).length === 0
+          ) {
+            void checkUpdate(true);
+          }
+        }
       } catch (error) {
         await revealIfHidden("初始化失败");
         addLog("error", `初始化失败：${errText(error)}`);
@@ -952,6 +1419,10 @@ export const useController = (): IController => {
     packaged,
     message,
     dismissMessage,
+    update,
+    checkUpdate,
+    installUpdate,
+    openReleasePage,
     saveConfig,
     importEnv,
     startBot,

@@ -24,6 +24,7 @@ const App = () => {
         page={controller.page}
         onNavigate={controller.setPage}
         botState={controller.botState}
+        hasUpdate={controller.update.status === "available"}
       />
 
       <main className="main">
