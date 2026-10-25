@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import { config } from "../../config.js";
 import { generateReply } from "../../core/chat.js";
+import { parseReply } from "../../core/reply.js";
 import { tagImage } from "../../core/tagger.js";
 import { ingestSticker, pickSticker, readSticker } from "../../store/stickers.js";
 import { touchUser } from "../../store/users.js";
@@ -59,10 +60,31 @@ export const createQQHandler = (getToken: () => Promise<string>) => {
       return;
     }
 
-    // 3) 正常回复
+    // 3) 正常回复：先说话，想发就再跟一张表情包
     try {
-      const reply = await generateReply(batch.userId, text, batch.images);
-      await sendC2C(batch.userId, batch.msgId, token, reply);
+      const raw = await generateReply(batch.userId, text, batch.images);
+      const { text: clean, sticker: requested } = parseReply(raw);
+
+      const wantSticker =
+        requested ??
+        (Math.random() < config.sticker.spontaneousChance ? clean : undefined);
+      const picked = wantSticker ? pickSticker(wantSticker) : undefined;
+
+      const safeText = clean || (picked ? "" : "……哼，没什么好说的。");
+
+      if (safeText) {
+        await sendC2C(batch.userId, batch.msgId, token, safeText, 1);
+      }
+
+      if (picked) {
+        await sendImageC2C(
+          batch.userId,
+          batch.msgId,
+          token,
+          readSticker(picked),
+          safeText ? 2 : 1,
+        );
+      }
     } catch (e) {
       slog("回复失败", e);
       await sendC2C(

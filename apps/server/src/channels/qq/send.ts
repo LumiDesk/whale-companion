@@ -20,17 +20,23 @@ const callQQ = async (path: string, token: string, init: RequestInit) => {
   return res.json().catch(() => ({}));
 };
 
-/** 发一条纯文本（被动回复，必须带 msg_id） */
+/** 发一条纯文本（被动回复，必须带 msg_id；同一 msg_id 的多条回复用 msgSeq 区分） */
 export const sendC2C = async (
   userId: string,
   msgId: string,
   token: string,
   text: string,
+  msgSeq?: number,
 ) => {
   await callQQ(`/v2/users/${userId}/messages`, token, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content: text, msg_type: 0, msg_id: msgId }),
+    body: JSON.stringify({
+      content: text,
+      msg_type: 0,
+      msg_id: msgId,
+      ...(msgSeq ? { msg_seq: msgSeq } : {}),
+    }),
   });
 };
 
@@ -57,6 +63,7 @@ export const sendImageC2C = async (
   msgId: string,
   token: string,
   bytes: Uint8Array,
+  msgSeq?: number,
 ) => {
   const uploaded = await callQQ(`/v2/users/${userId}/files`, token, {
     method: "POST",
@@ -79,6 +86,7 @@ export const sendImageC2C = async (
       msg_type: 7,
       media: { file_info: fileInfo },
       msg_id: msgId,
+      ...(msgSeq ? { msg_seq: msgSeq } : {}),
     }),
   });
 };

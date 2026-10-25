@@ -52,6 +52,12 @@ export const config = {
     maxIdleDays: 7,
   },
 
+  /** 表情包行为 */
+  sticker: {
+    /** 模型没要、正文也没提，也有这么大概率跟一张（0~1） */
+    spontaneousChance: Number(process.env.STICKER_CHANCE ?? 0.15),
+  },
+
   /** 消息聚合：用户停口多久后统一回复；一次最多攒多少 */
   batch: {
     silenceMs: Number(process.env.BATCH_SILENCE_MS ?? 2500),
