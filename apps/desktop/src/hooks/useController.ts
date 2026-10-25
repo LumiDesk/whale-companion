@@ -202,7 +202,9 @@ const writeConfigFile = async (
   file: string,
   config: IAppConfig,
 ): Promise<void> => {
-  const tmp = `${file}.tmp`;
+  const tmp = `${file}.${Date.now()}.${Math.random()
+    .toString(36)
+    .slice(2, 8)}.tmp`;
   await writeText(tmp, JSON.stringify(config, null, 2));
 
   try {
@@ -277,6 +279,7 @@ export const useController = (): IController => {
   const orphanEventsRef = useRef(new Map<number, ISpawnDetail[]>());
   const updateRef = useRef<IUpdateState>({ status: "idle" });
   const updateBusyRef = useRef(false);
+  const configWriteRef = useRef<Promise<void>>(Promise.resolve());
 
   const updateBotState = (next: BotState) => {
     botStateRef.current = next;
@@ -291,6 +294,18 @@ export const useController = (): IController => {
   const updateStatus = (next: IUpdateState) => {
     updateRef.current = next;
     setUpdate(next);
+  };
+
+  /** 主题和设置页可能同时写 config.json，串起来避免后写被先写覆盖 */
+  const persistConfig = (
+    file: string,
+    config: IAppConfig,
+  ): Promise<void> => {
+    const next = configWriteRef.current.then(() =>
+      writeConfigFile(file, config),
+    );
+    configWriteRef.current = next.catch(() => {});
+    return next;
   };
 
   const addLog = (
@@ -1076,9 +1091,12 @@ export const useController = (): IController => {
     if (!currentPaths) return;
 
     try {
-      await writeConfigFile(currentPaths.configFile, next);
+      await persistConfig(currentPaths.configFile, next);
       addLog("gui", `外观已切换为${themeLabel(theme)}`);
     } catch (error) {
+      // 用户可能已经又切了别的主题；不要用旧失败覆盖新选择
+      if (configRef.current.appearance.theme !== theme) return;
+
       configRef.current = previous;
       setConfig(previous);
       addLog("error", `保存外观设置失败：${errText(error)}`);
@@ -1131,7 +1149,7 @@ export const useController = (): IController => {
     if (!currentPaths) return false;
 
     try {
-      await writeConfigFile(currentPaths.configFile, normalized);
+      await persistConfig(currentPaths.configFile, normalized);
     } catch (error) {
       addLog("error", `保存配置失败：${errText(error)}`);
       setMessage({ kind: "error", text: `保存失败：${errText(error)}` });
