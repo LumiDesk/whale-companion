@@ -13,8 +13,8 @@ export interface ICommandSpec {
 const helpText = () =>
   [
     "我会这些：",
-    "/new      清空对话重新开始（还留着对你的记忆）",
-    "/forget   连记忆一起清空",
+    "/new      清空对话重新开始（记忆和表情包都留着）",
+    "/forget   连记忆一起清空（表情包会保留）",
     "/memory   看看我记住了什么",
     "/remember 内容 —— 让我记住一件事",
     "/status   我的状态",
@@ -97,7 +97,7 @@ export const runCommand = async (
   if (out === "__FORGET__") {
     saveHistory(userId, []);
     saveMemory(userId, { summary: "", facts: [], updatedAt: Date.now() });
-    return "……你确定要我忘掉？哼，好吧，那就从陌生开始。";
+    return "……你确定要我忘掉？哼，好吧，那就从陌生开始。\n（表情包我都留着呢，这点没舍得删）";
   }
 
   return out;
