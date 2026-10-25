@@ -1,4 +1,5 @@
 import { handler } from "./handler.js";
+import { downloadImage } from "./media.js";
 import { getAccessToken } from "./token.js";
 import { slog } from "./util.js";
 
@@ -46,7 +47,17 @@ const connect = async (token: string) => {
       }
 
       // 收到了用户的消息
-      if (data.t === "C2C_MESSAGE_CREATE")
+      if (data.t === "C2C_MESSAGE_CREATE") {
+        // 读取附件图片
+        const img = data.d.attachments?.find((a: any) =>
+          a.content_type?.startsWith("image"),
+        );
+        if (img) {
+          const { data, mime } = await downloadImage(img.url);
+          slog("image", mime, data.byteLength);
+        }
+
+        // handler 流程
         try {
           await handler(
             data.d.author.user_openid,
@@ -57,7 +68,7 @@ const connect = async (token: string) => {
         } catch (e) {
           slog("消息解析失败", e);
         }
-
+      }
       // 日志输出
       switch (data.op) {
         case 10: {
