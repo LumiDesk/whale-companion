@@ -177,11 +177,16 @@ const findPayloadDir = async (root: string): Promise<string | null> => {
  * 退回 PowerShell（会走系统代理）。
  */
 const runDownload = async (url: string, destination: string): Promise<void> => {
-  let result = await os.execCommand(
-    buildDownloadCommand(url, destination),
-  );
+  let result: Awaited<ReturnType<typeof os.execCommand>> | null = null;
 
-  if (result.exitCode !== 0) {
+  try {
+    result = await os.execCommand(buildDownloadCommand(url, destination));
+  } catch {
+    // curl 不存在或被策略拦截时 execCommand 可能直接 reject，走下面的兜底
+    result = null;
+  }
+
+  if (!result || result.exitCode !== 0) {
     const fallback = await os.execCommand(
       buildPowerShellDownloadCommand(url, destination),
     );
