@@ -3,6 +3,7 @@ import { createQQHandler } from "./handler.js";
 import { downloadImage } from "./media.js";
 import { cleanQQContent } from "./text.js";
 import { getAccessToken } from "./token.js";
+import { reportStatus } from "../../status.js";
 import { slog } from "../../util.js";
 import type { IImageInput } from "../../types/message.js";
 
@@ -43,6 +44,8 @@ const handleC2CMessage = async (d: any, push: PushFn): Promise<void> => {
 };
 
 const connect = async (push: PushFn): Promise<number> => {
+  reportStatus({ type: "qq", state: "connecting" });
+
   const token = await getAccessToken();
 
   const gateway = await fetch("https://api.sgroup.qq.com/gateway", {
@@ -91,6 +94,11 @@ const connect = async (push: PushFn): Promise<number> => {
       if (data.op === 11) return; // 心跳 ACK，不刷日志
       if (data.op === 0 && data.t === "READY") {
         slog(`QQ 已上线 bot=${data.d?.user?.id ?? "?"}`);
+        reportStatus({
+          type: "qq",
+          state: "online",
+          botId: data.d?.user?.id ?? null,
+        });
         delay = 3000;
         return;
       }
@@ -109,11 +117,18 @@ const connect = async (push: PushFn): Promise<number> => {
         heartbeatTimer = null;
       }
       slog(`QQ 连接关闭 code=${e.code} reason=${e.reason || "(空)"}`);
+      reportStatus({
+        type: "qq",
+        state: "closed",
+        code: e.code,
+        reason: e.reason || "",
+      });
       resolve(e.code);
     };
 
     ws.onerror = (e) => {
       slog("QQ 连接错误", e);
+      reportStatus({ type: "qq", state: "error" });
     };
   });
 };
@@ -128,10 +143,12 @@ export const startQQ = async () => {
       code = await connect(aggregator.push);
     } catch (e) {
       slog("连接失败", e);
+      reportStatus({ type: "qq", state: "error" });
     }
 
     if (code === 4009 || code === 4006 || code === 4007 || code === 4008) {
       slog(`关闭码 ${code}：不再重连（需要人工处理）`);
+      reportStatus({ type: "qq", state: "stopped", code });
       return;
     }
 

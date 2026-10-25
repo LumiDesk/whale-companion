@@ -1,8 +1,48 @@
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+
+/**
+ * 桌面端会把配置写到临时 JSON，并用 --config=<path> 传进来。
+ * 这里先合并进 process.env，后面的 环境变量 / 路径逻辑就都能复用。
+ */
+const configArg =
+  process.argv
+    .find((arg) => arg.startsWith("--config="))
+    ?.slice("--config=".length) ??
+  (process.argv.includes("--config")
+    ? process.argv[process.argv.indexOf("--config") + 1]
+    : undefined);
+
+if (configArg) {
+  try {
+    const raw = JSON.parse(readFileSync(configArg, "utf8")) as Record<
+      string,
+      unknown
+    >;
+
+    for (const [key, value] of Object.entries(raw)) {
+      if (
+        typeof value === "string" ||
+        typeof value === "number" ||
+        typeof value === "boolean"
+      ) {
+        process.env[key] = String(value);
+      }
+    }
+  } catch (error) {
+    throw new Error(
+      `读取桌面端配置失败：${configArg}（${error instanceof Error ? error.message : String(error)}）`,
+    );
+  }
+}
 
 const need = (name: string): string => {
   const v = process.env[name];
-  if (!v) throw new Error(`缺少环境变量 ${name}（检查 apps/server/.env）`);
+  if (!v) {
+    throw new Error(
+      `缺少环境变量 ${name}（检查 apps/server/.env 或桌面端设置）`,
+    );
+  }
   return v;
 };
 
@@ -36,8 +76,9 @@ export const config = {
   },
 
   paths: {
-    persona: pathOf("../persona.md"),
-    dataDir: pathOf("../data"),
+    /** GUI 打包后由桌面端注入；CLI 模式用仓库内的默认位置 */
+    persona: process.env.WHALE_PERSONA_FILE ?? pathOf("../persona.md"),
+    dataDir: process.env.WHALE_DATA_DIR ?? pathOf("../data"),
   },
 
   /** 历史与记忆 */

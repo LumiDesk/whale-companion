@@ -9,6 +9,7 @@ import { ingestSticker, listStickers, readSticker } from "../../store/stickers.j
 import { touchUser } from "../../store/users.js";
 import { sendC2C, sendImageC2C } from "./send.js";
 import type { IBatch } from "./aggregator.js";
+import { reportStatus } from "../../status.js";
 import { slog } from "../../util.js";
 
 /** 发过表情包的时间（进程内即可，不需要持久化） */
@@ -28,6 +29,11 @@ export const createQQHandler = (getToken: () => Promise<string>) => {
     const text = batch.texts.join("\n").trim();
 
     touchUser(batch.userId, "qq");
+    reportStatus({
+      type: "activity",
+      texts: batch.texts.length,
+      images: batch.images.length,
+    });
 
     if (batch.texts.length + batch.images.length > 1) {
       slog(
