@@ -178,7 +178,11 @@ const runDownload = async (url: string, destination: string): Promise<void> => {
     buildDownloadCommand(url, destination),
   );
 
-  if (result.exitCode === 9009) {
+  const missingCurl =
+    result.exitCode === 9009 ||
+    /not recognized|不是内部或外部命令/i.test(result.stdErr);
+
+  if (missingCurl) {
     result = await os.execCommand(
       buildPowerShellDownloadCommand(url, destination),
     );
@@ -727,10 +731,8 @@ export const useController = (): IController => {
 
     try {
       const res = await fetch(RELEASES_API, {
-        headers: {
-          Accept: "application/vnd.github+json",
-          "X-GitHub-Api-Version": "2022-11-28",
-        },
+        // 只带 Accept（CORS 安全头），避免触发 GitHub API 的预检请求
+        headers: { Accept: "application/vnd.github+json" },
         signal: AbortSignal.timeout(15_000),
       });
 
