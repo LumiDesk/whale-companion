@@ -39,7 +39,7 @@
 <p align="center">
   <img src="docs/screenshots/console-settings.png" alt="桌面控制台 · 设置页" />
   <br />
-  <sub>设置页：QQ / DeepSeek 配置、关窗行为、开机自启，支持从 .env 导入</sub>
+  <sub>设置页：外观主题、QQ / DeepSeek 配置（含模型与接口地址）、关窗行为、开机自启</sub>
 </p>
 
 <p align="center">
