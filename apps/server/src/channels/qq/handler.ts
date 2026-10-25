@@ -15,6 +15,16 @@ import { slog } from "../../util.js";
 
 const STICKER_CMD = /表情包|发图|来张图|贴图/;
 
+/** 发过表情包的时间（进程内即可，不需要持久化） */
+const lastStickerAt = new Map<string, number>();
+
+const stickerCooling = (userId: string): boolean =>
+  Date.now() - (lastStickerAt.get(userId) ?? 0) < config.sticker.cooldownMs;
+
+const markSticker = (userId: string) => {
+  lastStickerAt.set(userId, Date.now());
+};
+
 /** QQ 通道的批次处理：一批消息 → 一次（可能分几条）回复 */
 export const createQQHandler = (getToken: () => Promise<string>) => {
   return async (batch: IBatch): Promise<void> => {
@@ -42,9 +52,11 @@ export const createQQHandler = (getToken: () => Promise<string>) => {
       }
     }
 
-    // 2) 「发个表情包」：按这句话的语义去挑
+    // 2) 「发个表情包」：用户明确要 → 语义命中优先，没命中就随机给一张
     if (STICKER_CMD.test(text) && text.length <= 12) {
-      const pick = pickStickerSmart(listStickers(), text);
+      const pick = pickStickerSmart(listStickers(), text, {
+        allowRandom: true,
+      });
 
       if (pick) {
         await sendImageC2C(
@@ -54,6 +66,7 @@ export const createQQHandler = (getToken: () => Promise<string>) => {
           readSticker(pick.sticker),
           1,
         );
+        markSticker(batch.userId);
         return;
       }
 
@@ -79,9 +92,13 @@ export const createQQHandler = (getToken: () => Promise<string>) => {
         requested ??
         (Math.random() < config.sticker.spontaneousChance ? clean : undefined);
 
-      const pick = wantSticker
-        ? pickStickerSmart(listStickers(), wantSticker)
-        : undefined;
+      // 模型主动要图 / 自发跟图：只发语义命中的，冷期内一律不发
+      const pick =
+        wantSticker && !stickerCooling(batch.userId)
+          ? pickStickerSmart(listStickers(), wantSticker, {
+              allowRandom: false,
+            })
+          : undefined;
 
       if (chunks.length === 0 && !pick) {
         chunks.push("……哼，没什么好说的。");
@@ -101,6 +118,7 @@ export const createQQHandler = (getToken: () => Promise<string>) => {
           readSticker(pick.sticker),
           seq,
         );
+        markSticker(batch.userId);
       }
     } catch (e) {
       slog("回复失败", e);

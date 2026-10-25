@@ -51,3 +51,33 @@ test("分条：按 || 拆开，最多三条", () => {
   assert.deepEqual(splitReply("只有一句"), ["只有一句"]);
   assert.deepEqual(splitReply("   "), []);
 });
+
+test("分条：空行也会拆", () => {
+  assert.deepEqual(splitReply("第一段\n\n第二段"), ["第一段", "第二段"]);
+});
+
+test("分条：超长单段在句号处断一刀", () => {
+  const long =
+    "今天其实挺想你的，就是没好意思说出口，毕竟我这么傲娇对吧。" +
+    "你要是忙完了就回我一句嘛，我保证不闹，也就哼一声装装样子。" +
+    "真的，就哼一声。";
+  const parts = splitReply(long);
+  assert.equal(parts.length, 2);
+  assert.ok(parts[0].endsWith("。"));
+});
+
+test("挑图：没命中且不允许随机 → 不发", async () => {
+  const { pickStickerSmart } = await import("../src/core/sticker-pick.js");
+  const list = [sticker("a", ["沙滩", "热到虚脱"])];
+  assert.equal(pickStickerSmart(list, "完全不相干的词"), undefined);
+});
+
+test("挑图：允许随机时兜底一张", async () => {
+  const { pickStickerSmart } = await import("../src/core/sticker-pick.js");
+  const list = [sticker("a", ["沙滩", "热到虚脱"])];
+  assert.equal(
+    pickStickerSmart(list, "完全不相干的词", { allowRandom: true })?.sticker
+      .id,
+    "a",
+  );
+});

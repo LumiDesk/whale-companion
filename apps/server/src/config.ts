@@ -55,7 +55,9 @@ export const config = {
   /** 表情包行为 */
   sticker: {
     /** 模型没要、正文也没提，也有这么大概率跟一张（0~1） */
-    spontaneousChance: Number(process.env.STICKER_CHANCE ?? 0.15),
+    spontaneousChance: Number(process.env.STICKER_CHANCE ?? 0.05),
+    /** 同一个人两次发表情包的最短间隔 */
+    cooldownMs: Number(process.env.STICKER_COOLDOWN_MS ?? 8 * 60 * 1000),
   },
 
   /** 消息聚合：用户停口多久后统一回复；一次最多攒多少 */

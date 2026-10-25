@@ -10,14 +10,20 @@ export interface IPickResult {
   matched: boolean;
 }
 
+export interface IPickOptions {
+  /** 没命中时要不要随机兜底（模型主动要图时不应该开） */
+  allowRandom?: boolean;
+}
+
 /**
  * 挑一张图：
- * 1. 有查询、且最高分过阈值 → 用最像的
- * 2. 否则随机（保持"随手甩一张"的随机感）
+ * - 有查询且过了阈值 → 最像的那张
+ * - 没命中：allowRandom 才随机，否则返回 undefined（宁可不发）
  */
 export const pickStickerSmart = (
   stickers: ISticker[],
   query = "",
+  options: IPickOptions = {},
 ): IPickResult | undefined => {
   if (stickers.length === 0) return undefined;
 
@@ -28,6 +34,8 @@ export const pickStickerSmart = (
       return { sticker: best.sticker, matched: true };
     }
   }
+
+  if (!options.allowRandom) return undefined;
 
   const random = stickers[Math.floor(Math.random() * stickers.length)];
   return { sticker: random, matched: false };
