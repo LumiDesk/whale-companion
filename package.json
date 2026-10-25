@@ -21,6 +21,7 @@
     }
   },
   "packageManager": "pnpm@12.15.0",
+  "engines": { "node": ">=22" },
   "type": "module",
   "devDependencies": {
     "prettier": "^3.9.10"

@@ -1,6 +1,9 @@
 {
   "name": "@apps/server",
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "tsx watch --env-file=.env src/index.ts",
     "build": "tsc",
