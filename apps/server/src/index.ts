@@ -2,6 +2,7 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { getPersona } from "./persona.js";
 import { AIReply } from "./llm.js";
+import { startQQ } from "./qq/gateway.js";
 
 interface IMessage {
   role: "user" | "assistant" | "system";
@@ -61,3 +62,5 @@ serve(
     console.log(`Server is running on http://localhost:${info.port}`);
   },
 );
+
+await startQQ();
