@@ -3,6 +3,7 @@ import { serve } from "@hono/node-server";
 import { config } from "./config.js";
 import { createWebApp } from "./channels/web/routes.js";
 import { startQQ } from "./channels/qq/gateway.js";
+import { startProactive } from "./core/proactive.js";
 import { slog } from "./util.js";
 
 const app = createWebApp();
@@ -13,3 +14,6 @@ serve({ fetch: app.fetch, port: config.server.port }, (info) => {
 
 // QQ 长连接与 HTTP 并行跑；内部自带重连，不会阻塞启动
 void startQQ();
+
+// 主动消息（平台不允许时只打日志）
+startProactive();

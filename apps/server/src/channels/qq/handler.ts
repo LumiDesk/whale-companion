@@ -5,6 +5,7 @@ import { config } from "../../config.js";
 import { generateReply } from "../../core/chat.js";
 import { tagImage } from "../../core/tagger.js";
 import { ingestSticker, pickSticker, readSticker } from "../../store/stickers.js";
+import { touchUser } from "../../store/users.js";
 import { sendC2C, sendImageC2C } from "./send.js";
 import type { IBatch } from "./aggregator.js";
 import { slog } from "../../util.js";
@@ -18,6 +19,9 @@ export const createQQHandler = (getToken: () => Promise<string>) => {
   return async (batch: IBatch): Promise<void> => {
     const token = await getToken();
     const text = batch.texts.join("\n").trim();
+
+    // 记录"这个人来过"，主动消息要用
+    touchUser(batch.userId, "qq");
 
     // 1) 收货：这一批里的图片都存进图库（顺便打标签）
     for (const img of batch.images) {

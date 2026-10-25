@@ -34,6 +34,19 @@ export const sendC2C = async (
   });
 };
 
+/** 主动消息（不带 msg_id）：能不能发出去取决于平台额度，失败要兜住 */
+export const sendC2CProactive = async (
+  userId: string,
+  token: string,
+  text: string,
+) => {
+  await callQQ(`/v2/users/${userId}/messages`, token, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content: text, msg_type: 0 }),
+  });
+};
+
 /**
  * 发一张图片（两步）：
  * 1. JSON + file_data(base64) 换 file_info（C2C 不吃 multipart）

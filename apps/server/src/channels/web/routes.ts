@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 
 import { generateReply } from "../../core/chat.js";
+import { touchUser } from "../../store/users.js";
 import { slog } from "../../util.js";
 
 interface IChatBody {
@@ -34,6 +35,7 @@ export const createWebApp = () => {
     }
 
     try {
+      touchUser("web", "web");
       const reply = await generateReply("web", String(lastUser.content));
       return c.json({ reply });
     } catch (e) {

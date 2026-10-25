@@ -40,6 +40,18 @@ export const config = {
     keepAfterSummarize: Number(process.env.HISTORY_KEEP_AFTER ?? 20),
   },
 
+  /** 主动消息：她先开口 */
+  proactive: {
+    enabled: process.env.PROACTIVE_ENABLED !== "false",
+    intervalMs: Number(process.env.PROACTIVE_INTERVAL_MS ?? 45 * 60 * 1000),
+    /** 免打扰时段（整点，含起点不含终点，可跨零点） */
+    quietStart: Number(process.env.PROACTIVE_QUIET_START ?? 23),
+    quietEnd: Number(process.env.PROACTIVE_QUIET_END ?? 9),
+    /** 至少多久没说话才打扰 */
+    minIdleMs: Number(process.env.PROACTIVE_MIN_IDLE_MS ?? 3 * 60 * 60 * 1000),
+    maxIdleDays: 7,
+  },
+
   /** 消息聚合：用户停口多久后统一回复；一次最多攒多少 */
   batch: {
     silenceMs: Number(process.env.BATCH_SILENCE_MS ?? 2500),
