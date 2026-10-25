@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import { config } from "../../config.js";
 import { generateReply } from "../../core/chat.js";
+import { parseCommand, runCommand } from "../../core/commands.js";
 import { parseReply } from "../../core/reply.js";
 import { tagImage } from "../../core/tagger.js";
 import { ingestSticker, pickSticker, readSticker } from "../../store/stickers.js";
@@ -23,6 +24,14 @@ export const createQQHandler = (getToken: () => Promise<string>) => {
 
     // 记录"这个人来过"，主动消息要用
     touchUser(batch.userId, "qq");
+
+    // 0) 斜杠命令：/help /new /forget /memory /remember /status
+    const cmd = parseCommand(text);
+    if (cmd) {
+      const out = await runCommand(cmd.name, cmd.args, batch.userId);
+      await sendC2C(batch.userId, batch.msgId, token, out, 1);
+      return;
+    }
 
     // 1) 收货：这一批里的图片都存进图库（顺便打标签）
     for (const img of batch.images) {
