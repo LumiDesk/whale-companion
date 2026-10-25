@@ -49,7 +49,8 @@ export const readText = async (path: string): Promise<string | null> => {
 export const fileSize = async (path: string): Promise<number | null> => {
   try {
     const stats = await filesystem.getStats(path);
-    return Number.isFinite(stats.size) ? stats.size : null;
+    const size = Number(stats.size);
+    return Number.isFinite(size) ? size : null;
   } catch {
     return null;
   }

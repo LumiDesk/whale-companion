@@ -409,9 +409,17 @@ img {
   background: var(--warn-bg);
 }
 
+.callout-warn span {
+  color: var(--warn-text);
+}
+
 .callout-error {
   border-color: var(--danger-border);
   background: var(--danger-bg);
+}
+
+.callout-error span {
+  color: var(--danger-text);
 }
 
 .callout-info {
@@ -821,6 +829,11 @@ input:focus,
 .select:focus {
   border-color: var(--focus-border);
   box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+::placeholder {
+  color: var(--faint);
+  opacity: 1;
 }
 
 .input-with-action {

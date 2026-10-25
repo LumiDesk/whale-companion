@@ -204,8 +204,14 @@ const writeConfigFile = async (
 ): Promise<void> => {
   const tmp = `${file}.tmp`;
   await writeText(tmp, JSON.stringify(config, null, 2));
-  await removePath(file);
-  await movePath(tmp, file);
+
+  try {
+    // 大多数 Windows 环境下 move 会直接覆盖，尽量缩短旧配置缺失的窗口
+    await movePath(tmp, file);
+  } catch {
+    await removePath(file);
+    await movePath(tmp, file);
+  }
 };
 
 const themeLabel = (theme: ThemeMode): string => {
@@ -734,11 +740,15 @@ export const useController = (): IController => {
     updateBusyRef.current = true;
     updateStatus({ status: "checking" });
 
+    // 不用 AbortSignal.timeout：部分旧 WebView2 没有这个静态方法
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15_000);
+
     try {
       const res = await fetch(RELEASES_API, {
         // 只带 Accept（CORS 安全头），避免触发 GitHub API 的预检请求
         headers: { Accept: "application/vnd.github+json" },
-        signal: AbortSignal.timeout(15_000),
+        signal: controller.signal,
       });
 
       if (res.status === 404) {
@@ -774,13 +784,17 @@ export const useController = (): IController => {
         }
       }
     } catch (error) {
-      const text = errText(error);
+      const text =
+        error instanceof Error && error.name === "AbortError"
+          ? "检查更新超时，请检查网络后重试"
+          : errText(error);
       updateStatus({ status: "error", error: text, checkedAt: Date.now() });
       addLog("error", `检查更新失败：${text}`);
       if (!silent) {
         setMessage({ kind: "error", text: `检查更新失败：${text}` });
       }
     } finally {
+      clearTimeout(timeout);
       updateBusyRef.current = false;
     }
   };
@@ -1014,9 +1028,12 @@ export const useController = (): IController => {
       await removePath(resultFile);
 
       addLog("gui", `更新器已启动，准备重启安装 ${info.tag}`);
-      await os.spawnProcess(buildApplyCommand(scriptPath), {
+      const helper = await os.spawnProcess(buildApplyCommand(scriptPath), {
         cwd: updatesDir,
       });
+      if (!helper || helper.pid <= 0) {
+        throw new Error("更新器进程没有启动");
+      }
 
       updateStatus({ status: "ready", info, progress: 100 });
       await new Promise((resolve) => setTimeout(resolve, 600));
