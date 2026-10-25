@@ -39,7 +39,7 @@ const writeIndex = (list: ISticker[]) => {
 const extOf = (mime: string) =>
   mime.includes("png") ? "png" : mime.includes("gif") ? "gif" : "jpg";
 
-/** 收一张图进图库 */
+/** 收一张图进图库（标签可以先空着，后台补） */
 export const ingestSticker = (
   bytes: Uint8Array,
   mime: string,
@@ -61,17 +61,18 @@ export const ingestSticker = (
 
 export const listStickers = (): ISticker[] => readIndex();
 
-/** 按提示词挑一张：标签命中优先，否则随机 */
-export const pickSticker = (hint = ""): ISticker | undefined => {
+/** 后台打标完成后回填；图已经被删了就静默跳过 */
+export const updateStickerTags = (id: string, tags: string[]): void => {
   const list = readIndex();
-  if (list.length === 0) return undefined;
+  const found = list.find((s) => s.id === id);
+  if (!found) return;
 
-  const hit = hint
-    ? list.find((s) => s.tags.some((t) => t && hint.includes(t)))
-    : undefined;
-
-  return hit ?? list[Math.floor(Math.random() * list.length)];
+  found.tags = tags;
+  writeIndex(list);
 };
+
+export const listUntaggedStickers = (): ISticker[] =>
+  readIndex().filter((s) => s.tags.length === 0);
 
 export const readSticker = (sticker: ISticker): Buffer =>
   readFileSync(join(dir, sticker.file));

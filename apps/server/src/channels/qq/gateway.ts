@@ -1,6 +1,7 @@
 import { createAggregator } from "./aggregator.js";
 import { createQQHandler } from "./handler.js";
 import { downloadImage } from "./media.js";
+import { cleanQQContent } from "./text.js";
 import { getAccessToken } from "./token.js";
 import { slog } from "../../util.js";
 import type { IImageInput } from "../../types/message.js";
@@ -13,6 +14,33 @@ type PushFn = (msg: {
   text: string;
   images: IImageInput[];
 }) => void;
+
+/**
+ * 处理一条 C2C 消息：先下载图片，再交给聚合器。
+ * 串行执行，保证"先发的消息先聚合"，不会因为某张图下载慢而乱序。
+ */
+const handleC2CMessage = async (d: any, push: PushFn): Promise<void> => {
+  const userId: string | undefined = d.author?.user_openid;
+  if (!userId || !d.id) return;
+
+  const images: IImageInput[] = [];
+  for (const att of d.attachments ?? []) {
+    if (!String(att.content_type ?? "").startsWith("image/")) continue;
+
+    try {
+      images.push(await downloadImage(att.url));
+    } catch (err) {
+      slog("图片下载失败（跳过这张）", err);
+    }
+  }
+
+  push({
+    userId,
+    msgId: d.id,
+    text: cleanQQContent(String(d.content ?? "")),
+    images,
+  });
+};
 
 const connect = async (push: PushFn): Promise<number> => {
   const token = await getAccessToken();
@@ -29,8 +57,10 @@ const connect = async (push: PushFn): Promise<number> => {
 
     let lastSeq: number | null = null;
     let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+    /** 消息处理串行链 */
+    let inbound: Promise<void> = Promise.resolve();
 
-    ws.onmessage = async (e) => {
+    ws.onmessage = (e) => {
       let data: any;
       try {
         data = JSON.parse(e.data);
@@ -68,25 +98,9 @@ const connect = async (push: PushFn): Promise<number> => {
       if (data.t !== "C2C_MESSAGE_CREATE") return;
 
       const d = data.d ?? {};
-      const userId: string | undefined = d.author?.user_openid;
-      if (!userId || !d.id) return;
-
-      const images: IImageInput[] = [];
-      for (const att of d.attachments ?? []) {
-        if (!String(att.content_type ?? "").startsWith("image/")) continue;
-        try {
-          images.push(await downloadImage(att.url));
-        } catch (err) {
-          slog("图片下载失败", err);
-        }
-      }
-
-      push({
-        userId,
-        msgId: d.id,
-        text: String(d.content ?? ""),
-        images,
-      });
+      inbound = inbound
+        .then(() => handleC2CMessage(d, push))
+        .catch((err) => slog("消息处理失败", err));
     };
 
     ws.onclose = (e) => {
