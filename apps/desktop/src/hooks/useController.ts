@@ -816,6 +816,11 @@ export const useController = (): IController => {
 
   const openReleasePage = async (): Promise<void> => {
     const url = updateRef.current.info?.htmlUrl ?? RELEASES_PAGE;
+    if (!/^https:\/\/github\.com\//i.test(url)) {
+      setMessage({ kind: "error", text: "发布页地址不是 GitHub 域名。" });
+      return;
+    }
+
     try {
       await os.open(url);
     } catch (error) {
