@@ -33,7 +33,7 @@ export const loadHistory = (userId: string): IMessage[] => {
 export const saveHistory = (userId: string, messages: IMessage[]): void => {
   const trimmed = messages
     .filter((m) => m.role !== "system")
-    .slice(-config.historyWindow);
+    .slice(-config.history.store);
 
   const all = readAll();
   all[userId] = trimmed;
