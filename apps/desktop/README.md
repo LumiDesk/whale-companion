@@ -49,16 +49,39 @@ WhaleCompanion/
   README.txt
 ```
 
+## 主题
+
+- 设置页「外观」可选 **跟随系统 / 浅色 / 深色**，默认跟随系统；主题即时生效，不需要重启 Bot。
+- 保存位置是 `config.json` 的 `appearance.theme`，旧配置没有这一项时按 `system` 处理。
+- 颜色都在 `src/styles.css` 顶部的 CSS 变量里（`:root` 与 `:root[data-theme="dark"]`），
+  新增样式不要写死颜色；日志面板固定深色。
+- 跟随系统时用 `window.matchMedia("(prefers-color-scheme: dark)")` 监听系统切换。
+
+## 自动更新
+
+- 「关于」页会检查 `https://api.github.com/repos/Talyra42/whale-companion/releases/latest`；
+  启动时也会在后台静默检查一次（打包版且配置完整时）。
+- 发现新版本后点「下载并更新」：下载 zip → 校验 `SHA256SUMS.txt`（有就校验）→ 解压 →
+  生成 `updates/apply-update-*.ps1` → 退出当前进程。
+- PowerShell 脚本会等 GUI 进程退出，把解压后的文件覆盖到便携目录，再启动 `WhaleCompanion.exe`。
+  结果写到 `%APPDATA%\whale-companion\updates\update-result.json`，下次启动时提示成功或失败。
+- **二进制下载必须走 `curl.exe`（没有则 PowerShell）**：GitHub Release 资源所在的 Azure Blob
+  不返回 CORS 头，WebView 里 `fetch` 拿不到安装包。
+- 开发模式只能检查更新，不能自动安装；自动安装要求目录里有 `WhaleCompanion.exe` 且目录可写。
+- 发布工作流会生成 `SHA256SUMS.txt` 并随 Release 上传；手动发版时不要漏。
+
 ## 关键约定
 
 - **不要给 `Neutralino.os.spawnProcess` 传 `envs`**：Windows 上会替换环境块，
   丢失 `=C:`/`=D:` 这类隐藏盘符变量，`CreateProcess` 直接失败。
   配置写到 `%APPDATA%\whale-companion\bot.json`，用 `--config` 传给 Node。
+- **开机自启**：注册表值带 `--hidden`，`hasHiddenFlag(window.NL_ARGS)` 识别后隐藏窗口；
+  配置不完整或 Bot 启动失败时会自动显示窗口。
 - Bot 进程是 `cmd.exe /c node ...`，停止时用 `taskkill /PID <pid> /T /F` 杀进程树，
   不要只杀 cmd。
 - 单实例：`app.lock` 存 PID + 心跳。先用 `tasklist` 查 PID；查不出来时看心跳（3 分钟内视为在运行）。
   第二个实例只显示一句提示然后退出，不抢 QQ 连接。
-- 配置、日志、数据都在 `%APPDATA%\whale-companion`；开发模式的数据目录是
+- 配置、日志、数据、更新缓存都在 `%APPDATA%\whale-companion`；开发模式的数据目录是
   `apps/server/data`，方便复用现有对话。
 - `persona.md` 通过 `WHALE_PERSONA_FILE` 注入；打包版从 `server/persona.md` 读。
 - 窗口关闭行为默认「最小化到托盘」；托盘菜单在 `useController` 的 `updateTray`。
@@ -72,7 +95,8 @@ pnpm --filter @apps/desktop test
 pnpm --filter @apps/desktop typecheck
 ```
 
-纯函数（配置解析、路径、日志、锁、进程命令）有单测；Neutralino 窗口/托盘需要手动冒烟。
+纯函数（配置解析、路径、日志、锁、进程命令、主题解析、版本比较/更新脚本）有单测；
+Neutralino 窗口/托盘、真实下载与自动更新需要手动冒烟。
 
 遇到 Bot 起不来、托盘不显示、单实例卡住等问题，先看根 [`AGENTS.md`](../../AGENTS.md)
 的「排障索引」，再查 `%APPDATA%\whale-companion\logs`。

@@ -52,8 +52,8 @@ apps/server/
 
 apps/desktop/
   neutralino.config.json  窗口、托盘图标、native API 白名单
-  src/lib/                配置/路径/锁/日志/进程命令（纯函数，有单测）
-  src/hooks/useController 托盘、子进程、单实例、状态与日志编排
+  src/lib/                配置/路径/锁/日志/进程/主题/更新（纯函数，有单测）
+  src/hooks/useController 托盘、子进程、单实例、主题、更新、状态与日志编排
   src/components/         状态页 / 设置页 / 日志页 / 关于
 
 scripts/release.mjs      pnpm release：bump + tag + push
@@ -94,7 +94,9 @@ QQ 事件 → cleanQQContent 清洗 <faceType>/<@...> → 串行下载图片（�
 - 同一用户同时只压一次（`summarize.ts` 里的 `inFlight`），避免并发覆盖；
 - `facts` 可被用户用 `/remember` 直接写入；
 - **system 不落盘**，每轮由 `core/prompt.ts` 现拼（人设 + 记忆 + 此刻 + 心情 + 表情包可用性）；
-- 主动消息发出后也要写进历史，否则下一轮她不知道自己说过。
+- 主动消息发出后也要写进历史，否则下一轮她不知道自己说过；
+- 所有 JSON 写入都走 `store/atomic.ts`（临时文件 + fsync + rename），别再用 `writeFileSync` 直接覆盖；
+- 启动时 `channels/qq/migrate.ts` 会清掉旧历史里的 `<faceType>` / `<@...>`，改动前备份为 `history.json.bak-*`。
 
 ## 6. 表情包机制
 
@@ -137,8 +139,8 @@ QQ 事件 → cleanQQContent 清洗 <faceType>/<@...> → 串行下载图片（�
 
 - 服务端纯函数（切分、标记解析、相似度、命令解析、要图识别、平台标记清洗）必须有单测；
 - 聚合器的停口/最长等待/上限用 `node:test` 的 mock timers 测；
-- 桌面端纯函数（配置、路径、锁、日志解析、进程命令）有单测；托盘/窗口需手动冒烟；
-- 存储层与真实 QQ 链路仍无测试（已知缺口）。
+- 桌面端纯函数（配置、路径、锁、日志解析、进程命令、主题、更新）有单测；托盘/窗口需手动冒烟；
+- 存储层的原子写与历史迁移有单测；真实 QQ 链路、真实更新链路仍无自动化测试（已知缺口）。
 - 提交前跑：`pnpm typecheck` + `pnpm test`。
 - commit message 用 `feat: / fix: / docs: / refactor: / chore:` 前缀，中文描述。
 
@@ -154,6 +156,9 @@ QQ 事件 → cleanQQContent 清洗 <faceType>/<@...> → 串行下载图片（�
 | 调表情包频率 | `config.ts` 的 `sticker` |
 | 加新渠道（如微信/CLI） | 新建 `channels/xxx/`，调用 `core/chat.ts` 的 `generateReply`；主动消息在 `index.ts` 注入发送回调，**不要改 core** |
 | 改主动消息策略 | `core/proactive.ts` + `config.proactive` |
+| 改主题/配色 | `apps/desktop/src/lib/theme.ts` + `styles.css` 顶部 CSS 变量 + 设置页外观卡片 |
+| 改自动更新 | `apps/desktop/src/lib/update.ts` + `useController` 的 `checkUpdate/installUpdate` + 发布工作流的校验文件 |
+| 改 JSON 持久化/迁移 | `apps/server/src/store/atomic.ts`、`store/history.ts` 的 `sanitizeHistoryFile`、`channels/qq/migrate.ts` |
 | 改桌面端页面 | `apps/desktop/src/components/` |
 | 改托盘菜单/关闭行为 | `apps/desktop/src/hooks/useController.ts` |
 | 改桌面端打包 | `apps/desktop/scripts/pack.mjs` |
@@ -163,10 +168,12 @@ QQ 事件 → cleanQQContent 清洗 <faceType>/<@...> → 串行下载图片（�
 
 - 桌面版只有便携 zip，没有安装包；exe 未签名，可能触发 SmartScreen。
 - 第二个实例只提示并退出，不会把已有窗口调到前台。
-- 单测覆盖纯函数与聚合器；存储读写、真实 WS 链路、Neutralino 托盘没有自动化测试。
+- 单测覆盖纯函数、聚合器、原子写与历史迁移；真实存储读写、WS 链路、Neutralino 托盘没有自动化测试。
 - 挑图依赖标签质量；同义不同词（"高兴" vs "开心"）靠二元组会漏，可换向量模型。
 - 主动消息受平台限制，不能保证送达。
-- `history.json` 每次全量重写，无原子写；单用户小规模没问题，并发写入会丢数据。
+- 自动更新只支持便携版，整包替换，没有增量；GitHub 不可达或安装目录不可写时只能手动更新。
+- 自动更新的真实链路（下载/解压/替换/重启）没有自动化测试；改动后至少手动跑一次
+  `buildUpdateScript` 的沙盒脚本，再在打包版上冒烟。
 - 服务端没有优雅退出（SIGINT 清理定时器/WS）；桌面端退出时会 taskkill 进程树。
 
 ## 13. 环境变量
@@ -191,13 +198,27 @@ QQ 事件 → cleanQQContent 清洗 <faceType>/<@...> → 串行下载图片（�
 - **单实例**：`app.lock` 存 PID + 心跳；先 `tasklist` 查 PID，查不出来再看 3 分钟内的最近心跳。
   第二个实例显示一句提示后退出，不抢 QQ 连接。模态框在部分环境会卡住，所以单实例提示不走 `showMessageBox`。
 - **关闭行为**：默认隐藏到托盘；设置里可改为退出。退出时停 Bot、释放锁。
-- **路径**：配置 `config.json`、Bot 启动配置 `bot.json`、数据 `data/`、日志 `logs/`、锁 `app.lock`
-  都在 `%APPDATA%\whale-companion`。开发态数据目录仍是 `apps/server/data`，便于复用现有对话。
+- **主题**：`config.appearance.theme` 为 `system | light | dark`，默认 `system`；
+  `lib/theme.ts` 解析后写到 `<html data-theme>`，颜色全部用 `styles.css` 顶部的 CSS 变量。
+  新增颜色不要再写死；日志面板固定深色，不跟随主题。
+- **隐藏启动**：`setAutostart` 往注册表写 `--hidden`，`hasHiddenFlag(window.NL_ARGS)` 在初始化时识别并
+  `hideWindow()`；配置不完整或 Bot 启动失败要 `showWindow()` 露脸，否则用户以为程序没启动。
+- **自动更新**：`lib/update.ts` 只放纯函数（版本比较、Release 解析、校验、脚本生成）；
+  编排在 `useController` 的 `checkUpdate` / `installUpdate`。
+  GitHub Release 资源所在的 Azure Blob **不返回 CORS 头**，二进制下载必须走 `curl.exe`
+  （没有 curl 时退回 PowerShell），不要用 WebView 的 `fetch` 下载安装包。
+- **更新脚本**：`buildUpdateScript` 生成 PowerShell，等当前 PID 退出后覆盖便携目录，
+  结果写 `updates/update-result.json`，下次启动由 `consumeUpdateResult` 消费；
+  脚本要带 UTF-8 BOM，Windows PowerShell 5.1 才会按中文路径正确解析。
+- **校验文件**：CI 生成 `SHA256SUMS.txt` 并随 Release 上传；更新时如果存在就校验，
+  旧版本没有这个文件则跳过。发布工作流别漏传它。
+- **路径**：配置 `config.json`、Bot 启动配置 `bot.json`、数据 `data/`、日志 `logs/`、锁 `app.lock`、
+  更新缓存 `updates/` 都在 `%APPDATA%\whale-companion`。开发态数据目录仍是 `apps/server/data`，便于复用现有对话。
 - **打包**：`pnpm desktop:pack` 会构建 server + 前端、`neu build`、复制 `node.exe` 和 `server/`、
   用 rcedit 写图标/版本，最后 `Compress-Archive` 成 `apps/desktop/dist/whale-companion-*-win-x64.zip`。
   `neu build` 的输出在 `dist/<binaryName>/`，里面才是 exe + `resources.neu`。
 - **CI**：`.github/workflows/desktop.yml` 在 Windows runner 上跑 typecheck、测试、打包并上传 artifact；
-  推 `v*` tag 时额外创建 GitHub Release 并附上 zip。
+  推 `v*` tag 时额外创建 GitHub Release 并附上 zip 与 `SHA256SUMS.txt`。
 - **测试**：`pnpm --filter @apps/desktop test`；托盘/窗口/单实例仍需手动冒烟（用 UIA 或肉眼）。
 
 ## 15. 发版
@@ -209,8 +230,10 @@ QQ 事件 → cleanQQContent 清洗 <faceType>/<@...> → 串行下载图片（�
 - 脚本会先 `git pull --ff-only`，跑 `pnpm typecheck` + `pnpm test`，然后提交
   `chore: release vX.Y.Z`、打 annotated tag、推 `main` 和 tag。
 - 推送失败时本地 commit/tag 会保留，按提示手动 `git push origin main && git push origin vX.Y.Z` 即可。
-- tag 触发 CI：构建 zip → 上传 artifact → `gh release create`（已存在则 `upload --clobber`）。
+- tag 触发 CI：构建 zip → 生成 `SHA256SUMS.txt` → 上传 artifact →
+  `gh release create`（已存在则 `upload --clobber`）。
   所以 workflow 需要 `permissions: contents: write`。
+- 自动更新依赖 Release 里的 zip 与校验文件；发版后可以在「关于」页手动检查一次。
 - 不要在 CI 里跑 release 脚本；它只给本地维护者用。
 - `CHANGELOG.md` 目前手工维护：发版前补一条并先提交（release 脚本要求工作区干净）。
 
@@ -225,6 +248,10 @@ QQ 事件 → cleanQQContent 清洗 <faceType>/<@...> → 串行下载图片（�
 | 回复发不出去 | `channels/qq/send.ts` 的 `msg_seq` 和 QQ 返回体 |
 | 表情包不发 / 不匹配 | 标签质量、`MIN_SCORE`、冷却和 `allowRandom` |
 | 记忆没生效 | `history.json` / `memory`、`prompt.ts` 的拼接、摘要阈值 |
+| 检查更新失败 | GitHub 是否可达、`api.github.com` 是否被代理拦、是否触发限流（403） |
+| 更新安装失败 | `%APPDATA%\whale-companion\updates\update.log` / `update-result.json`；安装目录是否可写；Bot 是否已停 |
+| 主题切换无效 / 颜色错 | `config.appearance.theme`、`<html data-theme>`、`styles.css` 变量是否覆盖到；别写死颜色 |
+| 开机自启仍然弹窗 | 注册表值是否带 `--hidden`、`window.NL_ARGS` 是否包含它、`hasHiddenFlag` 是否命中 |
 | 打包失败 | `neu build` 的 `dist/<binaryName>/`、`resources/js/neutralino.js`、rcedit |
 | CI Release 失败 | workflow 的 `contents: write`、`gh` 是否可用、tag 是否已存在 |
 | 发版脚本中止 | 是否在 `main`、工作区是否干净、tag 是否重复、远程是否可推 |

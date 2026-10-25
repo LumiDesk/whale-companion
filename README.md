@@ -80,11 +80,14 @@
 **桌面控制台**
 
 - 状态页、设置页、日志页、关于页，配色和文案都是照着「养成」的感觉做的
+- **深浅色主题**：默认跟随 Windows，也可以固定为浅色或深色，切换即时生效
+- 设置页可改 **模型名称 / 接口地址**，换成其他 OpenAI 兼容接口；也支持从 `.env` 导入
+- **检查更新**：从 GitHub Releases 检查新版本，在「关于」页下载并安装，自动重启
 - 托盘菜单：显示主界面、暂停 / 启动、重启、打开日志 / 数据目录、退出
 - 单实例锁，不会两个进程抢同一条 QQ 连接
 - 关窗默认最小化到托盘；也可设为直接退出
 - GUI 崩溃时 Bot 会自己退出（父进程看门狗），不留孤儿进程占着连接
-- 开机自启（写 `HKCU\...\Run`）
+- 开机自启（写 `HKCU\...\Run`，启动后直接隐藏到托盘）
 
 ## 技术栈
 
@@ -118,10 +121,11 @@
 数据都在 `%APPDATA%\whale-companion`：
 
 ```
-config.json     桌面端设置
+config.json     桌面端设置（含外观主题）
 bot.json        启动 Bot 用的临时配置（含密钥）
 data/           聊天记录、记忆、表情包
 logs/           每日日志
+updates/        自动更新缓存与安装日志
 app.lock        单实例锁
 ```
 
@@ -186,7 +190,8 @@ docs/
 - `apps/server/data/`、`.env` 全部 gitignore；聊天记录、图片、记忆都只在本机
 - 桌面版把密钥明文存在 `%APPDATA%\whale-companion\config.json`（和原来的 `.env` 一致）
 - 图片上传走 QQ 官方接口，不经过第三方图床
-- 服务端没有对外 HTTP 端口；除了 QQ 官方 API 和模型接口，不主动连任何地方
+- 检查更新只访问 GitHub 的公开 API；安装包下载后先校验 SHA256（Release 带 `SHA256SUMS.txt` 时）
+- 服务端没有对外 HTTP 端口；除了 QQ 官方 API、模型接口和 GitHub 更新，不主动连任何地方
 
 ## 常用命令
 
@@ -211,6 +216,9 @@ pnpm release patch    # 发版：bump + tag + push（触发 CI）
 | 她从不主动说话 | 主动消息受平台额度限制，失败只记日志；再确认 `PROACTIVE_ENABLED` 和免打扰时段（默认 23:00–9:00） |
 | 表情包不发或很离谱 | 看图库标签质量、`MIN_SCORE` 阈值、8 分钟冷却；模型主动要图时只发语义命中的 |
 | 记忆像没生效 | `data/history.json` 与 `memory/<userId>.json` 是否在写；压缩阈值 `HISTORY_SUMMARIZE_AT` |
+| 检查更新失败 | GitHub 是否可达；自动更新需要能访问 `api.github.com` 和 `github.com` |
+| 更新安装失败 | 看 `%APPDATA%\whale-companion\updates\update.log`；程序目录要可写，Bot 要先停掉 |
+| 深色模式没生效 | 设置页「外观」是否选了深色；选「跟随系统」时由 Windows 主题决定 |
 | exe 被 SmartScreen 拦 | 未签名，点「更多信息 → 仍要运行」；介意的话自己 `pnpm desktop:pack` 重新构建 |
 | 桌面端 Bot 起不来 | `%APPDATA%\whale-companion\logs`、`bot.json`；开发态先 `pnpm build` |
 
@@ -220,11 +228,11 @@ pnpm release patch    # 发版：bump + tag + push（触发 CI）
 
 - 只有 QQ 私聊，没有群聊，也没有 Web 调试台
 - 主动消息不保证送达（平台限制）
-- 桌面版只有便携 zip，没有安装包；exe 未签名
+- 桌面版只有便携 zip，没有安装包；exe 未签名，更新后仍可能触发 SmartScreen
+- 自动更新依赖 GitHub 可达，且便携目录可写；没有增量更新，每次下载完整 zip
 - 第二个实例只提示并退出，不会把已有窗口调到前台
 - 挑图依赖标签质量，同义不同词（「高兴」vs「开心」）可能漏
-- `history.json` 每次全量重写，没有原子写；单用户小规模够用，并发写会丢
-- 存储读写、真实 QQ 链路、Neutralino 托盘目前没有自动化测试
+- 真实存储读写、真实 QQ 链路、Neutralino 托盘和真实更新链路目前没有自动化测试
 
 ## 文档与参与
 
