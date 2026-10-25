@@ -10,6 +10,10 @@
 - 新增 `docs/`：控制台截图（`docs/screenshots/`）与图标、架构图、GitHub 社交预览图（`docs/assets/`）
 - AGENTS.md 文档地图与「常见维护任务」补充 `docs/` 与截图维护
 
+### 其他
+
+- `LICENSE` 改为标准 AGPL-3.0 全文，版权声明移到 README，GitHub 可正确识别许可证
+
 ## [0.1.1] - 2026-10-25
 
 首个带桌面控制台的正式版本。

@@ -240,6 +240,6 @@ pnpm release patch    # 发版：bump + tag + push（触发 CI）
 
 ## License
 
-[AGPL-3.0-only](LICENSE) © 2026 Talyra42
+[AGPL-3.0-only](LICENSE) · Copyright (C) 2026 Talyra42
 
 简单说：你可以改、可以自己跑，但如果拿它（或改过的版本）对外提供网络服务，必须把源码同样以 AGPL 开放。想闭源商用是不行的。
