@@ -4,7 +4,29 @@
 
 ## [Unreleased]
 
-（暂无）
+私聊 Agent 与人格系统版本。
+
+### 新增
+
+- 人格卡系统：内置「DeepSeek 小鲸鱼」「傲娇助手」，支持新建、复制、编辑、删除、
+  导入 qq-bridge 的 `roles/*.md`；`active.json` 切换人格，下一条消息生效
+- Agent 回合：模型通过 `send_message` / `wait_for_messages` / `send_sticker` /
+  `stay_silent` / `remember` / `set_next_wake` 自己决定说什么、发几条、等多久、要不要沉默
+- 三档行为风格：标准 / 克制 / 话痨；提示词分为人格 / 行为 / 此刻三层
+- 记忆 v2：在摘要与 facts 之外增加「进行中的话题」和「想说但还没说的话」
+- 主动性：模型可以安排下一次开口，60 秒精查；没有显式安排时保留 45 分钟兜底 tick
+- 桌面端「人格」页与「对话引擎」设置；数据备份包含 `personas/`
+
+### 改进
+
+- 单聊被动回复按 `msg_id` 记账，硬限制 4 条；Agent 默认 1–3 条，条间随机间隔
+- 回复前可以等待对方补充；直接提问、连续沉默 3 次、危机关键词会拒绝沉默
+- 旧 `persona.md` 升级时删除，人格内容迁到 `personas/deepseek-whale.md`
+
+### 文档
+
+- 新增 [`AGENT_REDESIGN.md`](AGENT_REDESIGN.md)，记录 Agent / 人格系统的完整规格
+- 更新 README、AGENTS、桌面端 README 的目录、设置项与数据位置
 
 ## [0.3.0] - 2026-10-26
 

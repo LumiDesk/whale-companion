@@ -1,6 +1,6 @@
 # 私聊 Agent 与人格系统改造方案
 
-> 状态：评审稿（未开工）
+> 状态：已实现（2026-10-26）
 > 日期：2026-10-26
 > 范围：`apps/server` + `apps/desktop`
 > 参考：qq-bridge（MIT）的 `roles/*.md` 与 `qq-chat-v2` 仿真预设、DeepSeek Harness 的 agent-loop 模式

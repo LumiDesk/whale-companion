@@ -17,14 +17,16 @@
 ```
 apps/
 ├── server/                     # Bot 本体（tsx 直跑，tsc 构建到 dist/）
-│   ├── persona.md              # 默认人设（随版本更新，用户覆盖在 APPDATA）
+│   ├── personas/               # 内置人格卡（deepseek-whale / tsundere-assistant）
+│   ├── prompts/behavior/       # 内置行为提示词（base / 三档风格 / legacy）
 │   └── src/
-│       ├── core/               # 对话、提示词、记忆压缩、心情、表情包、主动消息、命令
+│       ├── core/agent/         # Agent 回合循环、工具、提示词、时间感
+│       ├── core/               # 人格卡、记忆、心情、表情包、主动消息、命令
 │       ├── store/              # history / memory / stickers / users / atomic（只碰 data/）
-│       ├── channels/qq/        # gateway / aggregator / handler / send / media / token / reconnect
+│       ├── channels/qq/        # gateway / session-hub / handler / reply-session / send / media / token
 │       ├── settings.ts         # 配置契约（纯函数，桌面端只读复用）
 │       ├── config.ts           # env / --config → runtime config
-│       ├── types/              # 消息与多模态类型
+│       ├── types/              # 消息、工具调用与多模态类型
 │       └── index.ts            # 组合根
 └── desktop/                    # Windows 控制台
     └── src/
@@ -33,7 +35,7 @@ apps/
         ├── components/         # 通用组件：Sidebar / MessageBanner / ErrorBoundary
         │   └── ui/             # 基础控件：Icons / Switch
         ├── hooks/              # useController（组装）+ useConfig / useBotProcess / useUpdate / useDataActions / useLogs
-        ├── lib/                # 纯函数：config / paths / lock / logs / process / theme / update
+        ├── lib/                # 纯函数：config / personas / paths / lock / logs / process / theme / update
         └── styles.css          # 色板与全部样式（CSS 变量在顶部）
 
 docs/                           # 截图、架构图（见 docs/README.md）
@@ -53,34 +55,43 @@ scripts/release.mjs             # 发版脚本（用户决定）
 
 ```
 QQ 事件 → cleanQQContent 清洗 → 串行下载图（单张 8MB）
-        → 聚合（停口 3s / 最长 10s / 10 条或 6 图）
-        → 命令？ → 收图入库（打标丢后台）→ core.generateReply
-        → 剥 [表情包:关键词] → 整条发送（>500 字才切）→ 想发就跟一张图
+        → SessionHub 聚合（停口 3s / 最长 10s / 10 条或 6 图）
+        → 命令？ → 收图入库（打标丢后台）
+        → Agent 回合（模型 ⇄ send_message / wait_for_messages / send_sticker / stay_silent / remember / set_next_wake）
+        → 整条或最多 3 条发出（同一 msg_id 最多 4 条）
 ```
 
-关键文件：`channels/qq/aggregator.ts`、`channels/qq/handler.ts`、`core/chat.ts`、`core/reply.ts`、`core/prompt.ts`。
+关键文件：`channels/qq/session-hub.ts`、`channels/qq/handler.ts`、`channels/qq/reply-session.ts`、`core/agent/loop.ts`、`core/agent/tools.ts`、`core/agent/prompt.ts`、`core/persona-store.ts`。
 
 ## Domain Notes
 
-- **记忆两级**：`history.json`（落盘 200 / 每轮发 40）+ `memory/<userId>.json`（摘要 ≤200 字 + facts ≤20 条）；
-  150 条触发压缩，压缩期间有新消息 / `/new` / `/forget` 就丢弃快照
-- **system 不落盘**，每轮由 `core/prompt.ts` 现拼（人设 + 记忆 + 此刻 + 心情 + 图库可用性）
+- **人格**：内置 `apps/server/personas/*.md` + 用户 `%APPDATA%/whale-companion/personas/*.md`；
+  `active.json` 决定当前人格，每轮现读，切换下一条生效；旧 `persona.md` 升级时直接删除
+- **提示词三层**：人格卡（是谁）+ 行为规则（怎么说话/用工具）+ 此刻（时间、记忆、预算）；
+  行为规则在 `apps/server/prompts/behavior/`，三档风格（标准 / 克制 / 话痨）
+- **Agent 回合**：模型文本只是思考，发言必须调 `send_message`；可以 `wait_for_messages`、`stay_silent`、
+  `send_sticker`、`remember`、`set_next_wake`；每轮最多 6 步 / 3 条 / 120 秒
+- **沉默**：显式 `stay_silent`；直接提问、连续 3 次、危机关键词会被拒绝；没有发送也没有沉默时走兜底
+- **记忆两级**：`history.json`（落盘 200 / 每轮发 40）+ `memory/<userId>.json`（摘要 ≤300 字 +
+  facts ≤20 + topics/thoughts ≤20）；150 条触发压缩，压缩期间有新消息 / `/new` / `/forget` 就丢弃快照
+- **system 不落盘**，每轮由 `core/agent/prompt.ts` 现拼；旧 `core/prompt.ts` 只服务无工具回退
 - **表情包**：收图即入库、后台打标；挑图用字符二元组 + 余弦（阈值 0.12）；模型主动要图只发命中的；
   同一用户 8 分钟冷却
-- **主动消息**：45 分钟 tick，闲置 3 小时–7 天，免打扰 23–9，失败只记日志
+- **主动消息**：模型可用 `set_next_wake` 指定下一次开口；60 秒精查 + 45 分钟兜底 tick；
+  闲置 3 小时–7 天，免打扰 23–9，失败只记日志
 - **命令**：`core/commands.ts` 的数组驱动（`/help /new /forget /memory /remember /status`）
 
 ## QQ Pitfalls
 
 1. **发图必须 JSON + `file_data` base64**；multipart 会 `40093007`，base64 不能带 `data:` 前缀
-2. **同一 `msg_id` 多次回复要带递增 `msg_seq`**，否则后一条被丢
+2. **同一 `msg_id` 多次回复要带递增 `msg_seq`**，否则后一条被丢；单聊被动回复 60 分钟内最多 4 条
 3. **一个 AppID 只能一条 WS 连接**；`4009` = 会话过期，**必须重连**（策略在 `channels/qq/reconnect.ts`），
    连续「刚连上就被踢」才放慢到 5 分钟，永不永久退出
 4. intents 用 `1 << 25`；token 两小时过期，重连时自然刷新
 5. 入历史前必须 `cleanQQContent`，否则模型看到 `<faceType=...>` 这类 base64
 6. **WS 事件处理要串行**（`gateway.ts` 的 `inbound` 链），否则顺序和 `msg_id` 会错
 7. 单张图片上限 8MB，超了跳过并记日志
-8. 回复默认一条发完，别恢复「拆三条」
+8. 回复默认 1–3 条；同一 `msg_id` 最多 4 条，别恢复「一口气拆很多条」
 
 ## Coding Style
 
@@ -147,15 +158,15 @@ pnpm desktop:pack           # 打 Windows 便携 zip（用户决定）
 
 ## Troubleshooting
 
-| 症状 | 先看 |
-|---|---|
+| 症状                  | 先看                                                                            |
+| --------------------- | ------------------------------------------------------------------------------- |
 | Bot 起不来 / 立刻退出 | `%APPDATA%\whale-companion\logs`、`bot.json`；确认没给 `spawnProcess` 传 `envs` |
-| QQ 连不上 / 4009 | `gateway` 日志；4009 会自动重连，连续被踢说明双开 |
-| 托盘没图标 | Windows 隐藏图标区；`/resources/icons/tray.png` |
-| 检查更新失败 | GitHub 可达性、`api.github.com` 是否被代理拦、是否 403 限流 |
-| 更新安装失败 | `updates/update.log`、`update-result.json`；安装目录可写、Bot 已停 |
-| 表情包不发 | 标签质量、`STICKER_MIN_SCORE`、冷却、`allowRandom` |
-| 记忆没生效 | `history.json` / `memory/`、`prompt.ts` 拼接、压缩阈值 |
+| QQ 连不上 / 4009      | `gateway` 日志；4009 会自动重连，连续被踢说明双开                               |
+| 托盘没图标            | Windows 隐藏图标区；`/resources/icons/tray.png`                                 |
+| 检查更新失败          | GitHub 可达性、`api.github.com` 是否被代理拦、是否 403 限流                     |
+| 更新安装失败          | `updates/update.log`、`update-result.json`；安装目录可写、Bot 已停              |
+| 表情包不发            | 标签质量、`STICKER_MIN_SCORE`、冷却、`allowRandom`                              |
+| 记忆没生效            | `history.json` / `memory/`、`prompt.ts` 拼接、压缩阈值                          |
 
 ## License
 
