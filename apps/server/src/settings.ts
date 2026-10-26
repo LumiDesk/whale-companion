@@ -9,6 +9,7 @@
 
 export type ThinkingEffort = "off" | "low" | "high" | "max";
 export type LogLevel = "debug" | "info" | "warn" | "error";
+export type AgentStyle = "standard" | "restrained" | "chatty";
 
 export type SettingKind =
   | "text"
@@ -23,6 +24,7 @@ export type SettingGroup =
   | "llm"
   | "conversation"
   | "batching"
+  | "agent"
   | "stickers"
   | "proactive"
   | "media"
@@ -94,6 +96,20 @@ export interface IBatchingSettings {
   maxImages: number;
 }
 
+export interface IAgentSettings {
+  enabled: boolean;
+  style: AgentStyle;
+  maxSteps: number;
+  maxMessages: number;
+  replyDelayMs: number;
+  gapMinMs: number;
+  gapMaxMs: number;
+  waitMaxMs: number;
+  silenceEnabled: boolean;
+  maxSilentStreak: number;
+  turnTimeoutMs: number;
+}
+
 export interface IStickerSettings {
   enabled: boolean;
   spontaneousChance: number;
@@ -128,6 +144,7 @@ export interface ISettings {
   llm: ILLMSettings;
   conversation: IConversationSettings;
   batching: IBatchingSettings;
+  agent: IAgentSettings;
   stickers: IStickerSettings;
   proactive: IProactiveSettings;
   media: IMediaSettings;
@@ -157,6 +174,12 @@ const LOG_OPTIONS: readonly ISettingOption[] = [
   { value: "info", label: "信息" },
   { value: "warn", label: "警告" },
   { value: "error", label: "错误" },
+];
+
+const STYLE_OPTIONS: readonly ISettingOption[] = [
+  { value: "standard", label: "标准" },
+  { value: "restrained", label: "克制" },
+  { value: "chatty", label: "话痨" },
 ];
 
 /**
@@ -445,6 +468,144 @@ export const SETTINGS: readonly ISettingSpec[] = [
     min: 0,
     max: 10,
     step: 1,
+    advanced: true,
+  },
+
+  {
+    env: "AGENT_ENABLED",
+    path: "agent.enabled",
+    group: "agent",
+    label: "启用 Agent 对话",
+    kind: "boolean",
+    default: "true",
+    help: "关闭后回退为单次生成，仅用于排查问题",
+  },
+  {
+    env: "AGENT_STYLE",
+    path: "agent.style",
+    group: "agent",
+    label: "行为风格",
+    kind: "select",
+    default: "standard",
+    options: STYLE_OPTIONS,
+    help: "影响一次发几条、等多久、多主动",
+  },
+  {
+    env: "AGENT_MAX_MESSAGES",
+    path: "agent.maxMessages",
+    group: "agent",
+    label: "每轮最多发送",
+    kind: "number",
+    default: "3",
+    min: 1,
+    max: 4,
+    step: 1,
+    unit: "条",
+    help: "QQ 单条用户消息最多回 4 条",
+  },
+  {
+    env: "AGENT_SILENCE_ENABLED",
+    path: "agent.silenceEnabled",
+    group: "agent",
+    label: "允许沉默",
+    kind: "boolean",
+    default: "true",
+    help: "模型可以选择这次不回；直接提问和连续沉默仍会被拒绝",
+  },
+  {
+    env: "AGENT_MAX_STEPS",
+    path: "agent.maxSteps",
+    group: "agent",
+    label: "最多模型步数",
+    kind: "number",
+    default: "6",
+    min: 3,
+    max: 10,
+    step: 1,
+    unit: "步",
+    advanced: true,
+  },
+  {
+    env: "AGENT_REPLY_DELAY_MS",
+    path: "agent.replyDelayMs",
+    group: "agent",
+    label: "首条前延迟",
+    kind: "number",
+    default: "800",
+    min: 0,
+    max: 3000,
+    step: 100,
+    unit: "秒",
+    scale: 0.001,
+    advanced: true,
+  },
+  {
+    env: "AGENT_GAP_MIN_MS",
+    path: "agent.gapMinMs",
+    group: "agent",
+    label: "条间最小间隔",
+    kind: "number",
+    default: "800",
+    min: 300,
+    max: 3000,
+    step: 100,
+    unit: "秒",
+    scale: 0.001,
+    advanced: true,
+  },
+  {
+    env: "AGENT_GAP_MAX_MS",
+    path: "agent.gapMaxMs",
+    group: "agent",
+    label: "条间最大间隔",
+    kind: "number",
+    default: "2500",
+    min: 800,
+    max: 5000,
+    step: 100,
+    unit: "秒",
+    scale: 0.001,
+    advanced: true,
+  },
+  {
+    env: "AGENT_WAIT_MAX_MS",
+    path: "agent.waitMaxMs",
+    group: "agent",
+    label: "单次等待上限",
+    kind: "number",
+    default: "20000",
+    min: 5000,
+    max: 60000,
+    step: 1000,
+    unit: "秒",
+    scale: 0.001,
+    advanced: true,
+  },
+  {
+    env: "AGENT_MAX_SILENT_STREAK",
+    path: "agent.maxSilentStreak",
+    group: "agent",
+    label: "连续沉默上限",
+    kind: "number",
+    default: "3",
+    min: 1,
+    max: 5,
+    step: 1,
+    unit: "次",
+    advanced: true,
+  },
+  {
+    env: "AGENT_TURN_TIMEOUT_MS",
+    path: "agent.turnTimeoutMs",
+    group: "agent",
+    label: "单轮硬超时",
+    kind: "number",
+    default: "120000",
+    min: 30000,
+    max: 180000,
+    step: 5000,
+    unit: "秒",
+    scale: 0.001,
     advanced: true,
   },
 
@@ -827,6 +988,8 @@ const RESERVED_BODY_KEYS = new Set([
   "reasoning_effort",
   "temperature",
   "max_tokens",
+  "tools",
+  "tool_choice",
 ]);
 
 /** 返回给人看的中文错误；空数组表示通过 */
@@ -934,6 +1097,36 @@ export const validateSettings = (settings: Partial<ISettings>): string[] => {
     const worst = l.timeoutMs * (l.retries + 1) + b.maxWaitMs;
     if (worst > 240_000) {
       issues.push("超时 × 重试 + 聚合等待超过了 QQ 被动回复的安全时长");
+    }
+  }
+
+  const a = settings.agent;
+  if (a) {
+    if (
+      Number.isFinite(a.maxMessages) &&
+      (a.maxMessages < 1 || a.maxMessages > 4)
+    ) {
+      issues.push("每轮最多发送需在 1–4 条之间");
+    }
+    if (
+      Number.isFinite(a.gapMinMs) &&
+      Number.isFinite(a.gapMaxMs) &&
+      a.gapMinMs > a.gapMaxMs
+    ) {
+      issues.push("条间最小间隔不能大于最大间隔");
+    }
+    if (
+      Number.isFinite(a.replyDelayMs) &&
+      Number.isFinite(a.waitMaxMs) &&
+      Number.isFinite(a.gapMaxMs) &&
+      Number.isFinite(a.maxMessages) &&
+      Number.isFinite(a.turnTimeoutMs)
+    ) {
+      const worst =
+        a.replyDelayMs + a.waitMaxMs + a.maxMessages * a.gapMaxMs;
+      if (worst > a.turnTimeoutMs) {
+        issues.push("首条延迟 + 等待 + 分条间隔可能超过单轮超时");
+      }
     }
   }
 

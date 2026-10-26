@@ -79,13 +79,11 @@ export const sendC2CProactive = async (
  * 1. JSON + file_data(base64) 换 file_info（C2C 不吃 multipart）
  * 2. msg_type=7 发富媒体消息
  */
-export const sendImageC2C = async (
+const uploadImage = async (
   userId: string,
-  msgId: string,
   token: string,
   bytes: Uint8Array,
-  msgSeq?: number,
-) => {
+): Promise<string> => {
   const uploaded = await callQQ(`/v2/users/${userId}/files`, token, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -98,6 +96,18 @@ export const sendImageC2C = async (
 
   const fileInfo = (uploaded as { file_info?: string })?.file_info;
   if (!fileInfo) throw new Error("上传成功但没拿到 file_info");
+  return fileInfo;
+};
+
+/** 被动回复一张图；msgSeq 与文字共用同一条消息的 4 条预算 */
+export const sendImageC2C = async (
+  userId: string,
+  msgId: string,
+  token: string,
+  bytes: Uint8Array,
+  msgSeq?: number,
+) => {
+  const fileInfo = await uploadImage(userId, token, bytes);
 
   await callQQ(`/v2/users/${userId}/messages`, token, {
     method: "POST",
@@ -108,6 +118,25 @@ export const sendImageC2C = async (
       media: { file_info: fileInfo },
       msg_id: msgId,
       ...(msgSeq ? { msg_seq: msgSeq } : {}),
+    }),
+  });
+};
+
+/** 主动发一张图（不带 msg_id）；受平台主动消息额度限制 */
+export const sendImageProactive = async (
+  userId: string,
+  token: string,
+  bytes: Uint8Array,
+) => {
+  const fileInfo = await uploadImage(userId, token, bytes);
+
+  await callQQ(`/v2/users/${userId}/messages`, token, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      content: "",
+      msg_type: 7,
+      media: { file_info: fileInfo },
     }),
   });
 };

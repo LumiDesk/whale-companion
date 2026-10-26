@@ -84,6 +84,8 @@ export const summarizeIfNeeded = async (
     saveMemory(userId, {
       summary: text,
       facts: mem.facts,
+      topics: mem.topics,
+      thoughts: mem.thoughts,
       updatedAt: Date.now(),
     });
     saveHistory(userId, history.slice(-keep));

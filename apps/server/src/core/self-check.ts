@@ -1,10 +1,10 @@
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { getAccessToken } from "../channels/qq/token.js";
 import { config } from "../config.js";
 import { buildModelBody } from "./llm.js";
-import { getPersona } from "./persona.js";
+import { getPersonaInfo } from "./persona.js";
 import { listStickers } from "../store/stickers.js";
 
 export interface ICheckResult {
@@ -50,22 +50,14 @@ const checkDataDir = (): ICheckResult => {
 };
 
 const checkPersona = (): ICheckResult => {
-  const override = config.paths.persona;
-  const fallback = config.paths.defaultPersona;
-
   try {
-    const persona = getPersona();
-    const source =
-      override !== fallback && existsSync(override)
-        ? "自定义"
-        : existsSync(fallback)
-          ? "默认"
-          : "兜底";
+    const info = getPersonaInfo();
+    const source = info.source === "user" ? "自定义" : "内置";
 
     return {
       name: "persona",
-      ok: persona.trim().length > 0,
-      detail: `${source}人设 / ${persona.length} 字`,
+      ok: info.text.trim().length > 0,
+      detail: `${source}「${info.name}」/ ${info.chars} 字`,
     };
   } catch (error) {
     return { name: "persona", ok: false, detail: errorText(error) };

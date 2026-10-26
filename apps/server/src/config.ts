@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { fromEnv, validateSettings } from "./settings.js";
@@ -49,17 +50,26 @@ if (issues.length > 0) {
   );
 }
 
+const dataDir = process.env.WHALE_DATA_DIR ?? pathOf("../data");
+const userPersonaDir =
+  process.env.WHALE_USER_PERSONA_DIR ?? join(dataDir, "personas");
+
 export const config = {
   llm: { ...settings.llm },
   qq: { ...settings.qq },
 
   paths: {
-    /** 桌面端传 APPDATA 覆盖文件；CLI 模式仍指向仓库内 persona.md */
-    persona: process.env.WHALE_PERSONA_FILE ?? pathOf("../persona.md"),
-    /** 安装目录里的默认人设，升级时会被替换 */
-    defaultPersona:
-      process.env.WHALE_DEFAULT_PERSONA_FILE ?? pathOf("../persona.md"),
-    dataDir: process.env.WHALE_DATA_DIR ?? pathOf("../data"),
+    /** 内置人格卡目录（随安装包更新） */
+    personaDir: process.env.WHALE_PERSONA_DIR ?? pathOf("../personas"),
+    /** 用户人格卡目录 */
+    userPersonaDir,
+    /** 当前人格 ID */
+    activePersonaFile:
+      process.env.WHALE_ACTIVE_PERSONA_FILE ??
+      join(userPersonaDir, "active.json"),
+    /** 行为提示词目录 */
+    promptsDir: process.env.WHALE_PROMPTS_DIR ?? pathOf("../prompts"),
+    dataDir,
   },
 
   /** 历史与记忆 */
@@ -87,6 +97,9 @@ export const config = {
 
   /** 消息聚合：用户停口多久后统一回复；一次最多攒多少 */
   batch: { ...settings.batching },
+
+  /** Agent 回合：步数、条数、等待、沉默与节奏 */
+  agent: { ...settings.agent },
 
   reply: {
     /** 正常回复一条发完；超过这个长度才在自然停顿处切开 */

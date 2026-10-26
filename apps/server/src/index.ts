@@ -2,10 +2,12 @@
 import { config } from "./config.js";
 
 import { startQQ } from "./channels/qq/gateway.js";
+import { createQQHandler } from "./channels/qq/handler.js";
+import { createSessionHub } from "./channels/qq/session-hub.js";
 import { cleanLegacyHistory } from "./channels/qq/migrate.js";
 import { getAccessToken } from "./channels/qq/token.js";
-import { sendC2CProactive } from "./channels/qq/send.js";
 import { listModels } from "./core/models.js";
+import { ensurePersonaLayout } from "./core/persona.js";
 import { runSelfCheck } from "./core/self-check.js";
 import { startProactive } from "./core/proactive.js";
 import { retagAllNow, retagUntaggedStickers } from "./core/tagger.js";
@@ -107,14 +109,19 @@ const main = (): void => {
     slog("历史清理失败（不影响启动）", e);
   }
 
-  // QQ 长连接（内部自带重连，不会阻塞启动）
-  void startQQ().catch((e) => slog("QQ 通道异常退出", e));
+  ensurePersonaLayout();
 
-  // 主动消息：渠道发送方式由这里注入，core 不直接碰 QQ
-  startProactive(async (userId, text) => {
-    const token = await getAccessToken();
-    await sendC2CProactive(userId, token, text);
+  const handler = createQQHandler(getAccessToken);
+  const hub = createSessionHub({
+    onTurn: handler.onTurn,
+    onCommand: handler.onCommand,
   });
+
+  // QQ 长连接（内部自带重连，不会阻塞启动）
+  void startQQ(hub.push).catch((e) => slog("QQ 通道异常退出", e));
+
+  // 主动消息：回合由渠道层执行，core 不直接碰 QQ
+  startProactive(handler.runProactive);
 
   // 上次没打完标签的图，启动后补上
   retagUntaggedStickers();

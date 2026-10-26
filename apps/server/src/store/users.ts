@@ -12,6 +12,17 @@ export interface IKnownUser {
   /** 本地日期 YYYY-MM-DD，用来实现“每天最多 N 次” */
   proactiveDate?: string;
   proactiveCount?: number;
+  /** 最近一次成功发送 */
+  lastReplyAt?: number;
+  /** 最近一次主动沉默 */
+  lastSilentAt?: number;
+  lastSilentReason?: string;
+  /** 连续沉默次数；发送消息后清零 */
+  silentStreak?: number;
+  /** 模型设置的主动唤醒时间 */
+  nextWakeAt?: number;
+  wakeIntent?: string;
+  wakeAllowSilent?: boolean;
 }
 
 const filePath = join(config.paths.dataDir, "users.json");
@@ -109,6 +120,77 @@ export const touchUser = (userId: string, channel: "qq" | "web") => {
 };
 
 export const listUsers = (): IKnownUser[] => load();
+
+const findOrCreate = (
+  userId: string,
+  channel: "qq" | "web",
+): IKnownUser => {
+  const list = load();
+  let found = list.find((u) => u.userId === userId && u.channel === channel);
+
+  if (!found) {
+    found = { userId, channel, lastSeen: Date.now() };
+    list.push(found);
+  }
+
+  return found;
+};
+
+/** 成功发送一条消息：记录时间并清零连续沉默 */
+export const recordReply = (
+  userId: string,
+  channel: "qq" | "web" = "qq",
+  now = Date.now(),
+): void => {
+  const user = findOrCreate(userId, channel);
+  user.lastReplyAt = now;
+  user.silentStreak = 0;
+  flushUsers();
+};
+
+/** 选择沉默：记录原因并递增连续沉默 */
+export const recordSilence = (
+  userId: string,
+  reason: string,
+  channel: "qq" | "web" = "qq",
+  now = Date.now(),
+): void => {
+  const user = findOrCreate(userId, channel);
+  user.lastSilentAt = now;
+  user.lastSilentReason = reason;
+  user.silentStreak = (user.silentStreak ?? 0) + 1;
+  flushUsers();
+};
+
+/** 模型设置下一次主动开口 */
+export const setNextWake = (
+  userId: string,
+  at: number,
+  intent: string,
+  allowSilent: boolean,
+  channel: "qq" | "web" = "qq",
+): void => {
+  const user = findOrCreate(userId, channel);
+  user.nextWakeAt = at;
+  user.wakeIntent = intent;
+  user.wakeAllowSilent = allowSilent;
+  flushUsers();
+};
+
+export const clearNextWake = (
+  userId: string,
+  channel: "qq" | "web" = "qq",
+): void => {
+  const user = load().find(
+    (item) => item.userId === userId && item.channel === channel,
+  );
+  if (!user) return;
+
+  delete user.nextWakeAt;
+  delete user.wakeIntent;
+  delete user.wakeAllowSilent;
+  flushUsers();
+};
 
 export const markProactive = (
   userId: string,

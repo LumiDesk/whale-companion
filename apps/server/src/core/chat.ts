@@ -108,3 +108,6 @@ export const generateReply = async (
 
   return reply;
 };
+
+/** 无工具回退路径；Agent 关闭时使用 */
+export const generateReplyLegacy = generateReply;

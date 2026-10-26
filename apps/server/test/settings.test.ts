@@ -22,6 +22,10 @@ test("默认设置与必填项", () => {
   assert.equal(DEFAULT_SETTINGS.conversation.historySend, 40);
   assert.equal(DEFAULT_SETTINGS.proactive.maxPerDay, 1);
   assert.equal(DEFAULT_SETTINGS.stickers.minScore, 0.12);
+  assert.equal(DEFAULT_SETTINGS.agent.enabled, true);
+  assert.equal(DEFAULT_SETTINGS.agent.style, "standard");
+  assert.equal(DEFAULT_SETTINGS.agent.maxMessages, 3);
+  assert.equal(DEFAULT_SETTINGS.agent.turnTimeoutMs, 120000);
 
   const errors = validateSettings(DEFAULT_SETTINGS);
   assert.equal(errors.length, 3);
@@ -35,6 +39,10 @@ test("env 往返：默认值、布尔、数字、JSON、可选温度", () => {
   assert.equal(env.DEEPSEEK_THINKING_EFFORT, "high");
   assert.equal(env.VISION_ENABLED, "true");
   assert.equal(env.BATCH_SILENCE_MS, "3000");
+  assert.equal(env.AGENT_ENABLED, "true");
+  assert.equal(env.AGENT_STYLE, "standard");
+  assert.equal(env.AGENT_MAX_MESSAGES, "3");
+  assert.equal(env.AGENT_MAX_STEPS, "6");
   assert.equal(env.DEEPSEEK_EXTRA_BODY, "{}");
   assert.equal("DEEPSEEK_TEMPERATURE" in env, false);
 
@@ -72,6 +80,25 @@ test("extraBody 不能覆盖程序控制的字段", () => {
 
   const errors = validateSettings(settings);
   assert.ok(errors.some((error) => error.includes("不能覆盖 model")));
+
+  settings.llm.extraBody = { tools: [] };
+  assert.ok(
+    validateSettings(settings).some((error) => error.includes("不能覆盖 tools")),
+  );
+});
+
+test("agent 交叉规则：间隔与单轮预算", () => {
+  const settings = complete();
+  settings.agent.gapMinMs = 3000;
+  settings.agent.gapMaxMs = 1000;
+  settings.agent.replyDelayMs = 3000;
+  settings.agent.waitMaxMs = 60000;
+  settings.agent.maxMessages = 4;
+  settings.agent.turnTimeoutMs = 30000;
+
+  const errors = validateSettings(settings);
+  assert.ok(errors.some((error) => error.includes("条间最小间隔")));
+  assert.ok(errors.some((error) => error.includes("单轮超时")));
 });
 
 test("空模型名会回退默认，非法类型不会变成字符串", () => {

@@ -56,6 +56,8 @@ const statusText = (userId: string): string => {
     `对话记录：${history.length} 条（每次只带最近 ${config.history.send} 条给我看）`,
     `记忆摘要：${mem.summary ? `${mem.summary.length} 字` : "还没有"}`,
     `记住的事：${mem.facts.length} 条`,
+    `没聊完的话题：${mem.topics.length} 条`,
+    `还没说的话：${mem.thoughts.length} 条`,
     `表情包：${stickers.length} 张`,
     me?.lastProactiveAt
       ? `上次主动找你：${new Date(me.lastProactiveAt).toLocaleString("zh-CN")}`
@@ -116,10 +118,16 @@ export const runCommand = async (
 
   if (out.action === "new") {
     saveHistory(userId, []);
-    return "好，刚才那些都翻篇了。重新开始吧，主人 🐋";
+    return `好，刚才那些都翻篇了。重新开始吧，${config.persona.ownerName} 🐋`;
   }
 
   saveHistory(userId, []);
-  saveMemory(userId, { summary: "", facts: [], updatedAt: Date.now() });
+  saveMemory(userId, {
+    summary: "",
+    facts: [],
+    topics: [],
+    thoughts: [],
+    updatedAt: Date.now(),
+  });
   return "……好吧，那就从陌生开始。\n（表情包我都留着呢，这点没舍得删）";
 };

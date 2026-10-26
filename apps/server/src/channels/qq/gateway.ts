@@ -1,5 +1,3 @@
-import { createAggregator } from "./aggregator.js";
-import { createQQHandler } from "./handler.js";
 import { downloadImage } from "./media.js";
 import {
   canResumeSession,
@@ -36,6 +34,8 @@ type PushFn = (msg: {
   text: string;
   images: IImageInput[];
 }) => void;
+
+export type QQPush = PushFn;
 
 /**
  * 处理一条 C2C 消息：先下载图片，再交给聚合器。
@@ -334,8 +334,7 @@ const sleep = (ms: number) =>
  * QQ 通道主循环：断了就按策略重连，只有「配置/权限」类错误才停。
  * 会话过期（4009）之类的平台动作不再让机器人永久离线。
  */
-export const startQQ = async () => {
-  const aggregator = createAggregator(createQQHandler(getAccessToken));
+export const startQQ = async (push: PushFn) => {
   let state: IReconnectState = initialReconnectState();
   /** 跨连接保留的会话，用来在断线后 resume，避免丢消息 */
   let session: ISessionSnapshot | null = null;
@@ -344,7 +343,7 @@ export const startQQ = async () => {
     let result: IConnectionResult;
 
     try {
-      result = await connect(aggregator.push, session);
+      result = await connect(push, session);
     } catch (e) {
       slog("连接失败", e);
       reportStatus({ type: "qq", state: "error" });
