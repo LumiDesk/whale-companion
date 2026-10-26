@@ -38,6 +38,7 @@ export const createQQHandler = (getToken: () => Promise<string>) => {
     }
 
     const text = batch.texts.join("\n").trim();
+    const startedAt = Date.now();
 
     touchUser(batch.userId, "qq");
     reportStatus({
@@ -58,6 +59,7 @@ export const createQQHandler = (getToken: () => Promise<string>) => {
       try {
         const out = await runCommand(cmd.name, cmd.args, batch.userId);
         await sendC2C(batch.userId, batch.msgId, token, out, 1);
+        slog(`已回复命令 /${cmd.name}（${Date.now() - startedAt}ms）`);
       } catch (e) {
         slog("命令执行失败", e);
         await sendC2C(
@@ -117,6 +119,10 @@ export const createQQHandler = (getToken: () => Promise<string>) => {
           );
           lastExplicitAt.set(batch.userId, Date.now());
           markSticker(batch.userId);
+          slog(
+            `已按要求发表情包（${pick.matched ? "语义命中" : "随机兜底"}，` +
+              `${Date.now() - startedAt}ms）`,
+          );
           return;
         }
 
@@ -177,6 +183,11 @@ export const createQQHandler = (getToken: () => Promise<string>) => {
         );
         markSticker(batch.userId);
       }
+
+      slog(
+        `已回复（${chunks.length} 条文字${pick ? " + 1 张表情包" : ""}，` +
+          `${Date.now() - startedAt}ms）`,
+      );
     } catch (e) {
       slog("回复失败", e);
       await sendC2C(

@@ -252,7 +252,7 @@ pnpm release patch    # 发版：bump + tag + push（CI 默认发 pre-release）
 | 现象 | 先看这里 |
 | --- | --- |
 | 手机私聊没反应 | q.qq.com 的事件订阅是不是 **WebSocket**；QQ 号在不在「内部体验号码」；是不是同时开了两个 Bot |
-| 日志里出现 `4009` | 同一个 AppID 只允许一条 WebSocket 连接，把另一个实例 / 客户端关掉 |
+| 日志里出现 `4009` | 多是服务端会话过期，会自动退避重连；连续出现「刚连上就被断开」才说明有另一个客户端在用同一 AppID |
 | 她从不主动说话 | 主动消息受平台额度限制，失败只记日志；再确认 `PROACTIVE_ENABLED` 和免打扰时段（默认 23:00–9:00） |
 | 表情包不发或很离谱 | 看图库标签质量、`STICKER_MIN_SCORE` 阈值、8 分钟冷却；模型主动要图时只发语义命中的 |
 | 记忆像没生效 | `data/history.json` 与 `memory/<userId>.json` 是否在写；压缩阈值 `HISTORY_SUMMARIZE_AT` |

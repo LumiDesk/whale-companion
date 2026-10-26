@@ -122,7 +122,13 @@ QQ 事件 → cleanQQContent 清洗 <faceType>/<@...> → 串行下载图片（�
 1. **发图上传必须 JSON + `file_data` base64**。multipart 会返回 `40093007 富媒体文件下载失败`；base64 不能带 `data:` 前缀。
 2. **同一条 `msg_id` 多次回复要带递增的 `msg_seq`**，否则后一条会被丢。
 3. **主动消息不带 `msg_id`** 需要平台额度，可能直接拒绝 → 现在只记日志，不许让它拖垮主流程。
-4. **一个 AppID 只能有一条 WS 连接**，重复连接会 `4009` 互踢；代码里 4009/4006/4007/4008 一律不重连。
+4. **一个 AppID 只能有一条 WS 连接**，重复连接会互踢，表现是「刚连上几秒就断」。
+   但 `4009` 也代表**服务端会话过期**：日志里常见 `op 7`（要求重连）紧跟 `4009 Session timed out`，
+   间隔约一小时一次——这时**必须重连**，不能当致命错误。
+   处置策略集中在 `channels/qq/reconnect.ts`：`4006/4007/4008/4009` 和未知码一律退避重连，
+   只有 `4010/4012/4013/4014/4914/4915`（分片 / 协议 / 权限 / 下架 / 封禁）才停；
+   连续 3 次「连上不到 10 秒就被踢」才判定为双开互踢，把重连间隔放慢到 5 分钟，仍然不永久退出。
+   **别改回「4009 不重连」**：2026-10-26 就是这个策略让机器人静默离线了 2.5 小时。
 5. intents 用 `1 << 25`（群 + C2C）；token 两小时过期，`channels/qq/token.ts` 有缓存，重连时自然刷新。
 6. 服务端推的一切都可能是「非预期 op」，解析必须 try/catch。
 7. **正文里会混进 `<faceType=...,ext="...">` 和 `<@!...>`**：入历史前必须 `cleanQQContent`，否则模型看到的是 base64。
@@ -191,6 +197,7 @@ QQ 事件 → cleanQQContent 清洗 <faceType>/<@...> → 串行下载图片（�
 - 从 0.1.x 首次升到 0.2.0 时，执行更新的是旧版更新器，旧版没有失败自动还原；0.2.0 之后才有。
 - 自定义斜杠命令、心情列表、表情包缩略图未实现；图库目前只能看标签、删除、重打标。
 - 服务端只有简单的 SIGINT/SIGTERM 退出（不做 WS 优雅关闭）；桌面端退出时会 taskkill 进程树。
+- QQ 断线重连没实现 RESUME（op 6）：重连本身已能自愈，但重连那几秒里用户发的消息会丢。
 
 ## 13. 环境变量
 
@@ -284,7 +291,7 @@ QQ 事件 → cleanQQContent 清洗 <faceType>/<@...> → 串行下载图片（�
 | 桌面端 Bot 起不来 / 立刻退出 | `%APPDATA%\whale-companion\logs`、`bot.json`、`server/index.js`、`node.exe`；确认没有给 `spawnProcess` 传 `envs` |
 | 托盘图标找不到 | Windows 隐藏图标区；`setTray` 是否报错；`/resources/icons/tray.png` 是否存在 |
 | 第二个实例卡住 | 单实例提示不要用 `showMessageBox`；看 `app.lock`、心跳、`tasklist` |
-| QQ 连接失败 / 4009 | `gateway` / `token` 日志；确认没有第二个 Bot 进程；检查 AppID/Secret |
+| QQ 连接失败 / 4009 | `gateway` 日志：4009 会自动退避重连；连续出现「刚连上就被断开」说明有另一个客户端在用同一 AppID（双开），关掉它 |
 | 回复发不出去 | `channels/qq/send.ts` 的 `msg_seq` 和 QQ 返回体 |
 | 表情包不发 / 不匹配 | 标签质量、`STICKER_MIN_SCORE`、冷却和 `allowRandom` |
 | 记忆没生效 | `history.json` / `memory`、`prompt.ts` 的拼接、摘要阈值 |

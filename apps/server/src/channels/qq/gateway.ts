@@ -1,13 +1,17 @@
 import { createAggregator } from "./aggregator.js";
 import { createQQHandler } from "./handler.js";
 import { downloadImage } from "./media.js";
+import {
+  initialReconnectState,
+  planReconnect,
+  RAPID_KICK_LIMIT,
+  type IReconnectState,
+} from "./reconnect.js";
 import { cleanQQContent } from "./text.js";
 import { getAccessToken } from "./token.js";
 import { reportStatus } from "../../status.js";
 import { slog } from "../../util.js";
 import type { IImageInput } from "../../types/message.js";
-
-let delay = 3000;
 
 const HANDSHAKE_TIMEOUT_MS = 10_000;
 const MIN_HEARTBEAT_MS = 1000;
@@ -50,12 +54,20 @@ const handleC2CMessage = async (d: any, push: PushFn): Promise<void> => {
     }
   }
 
-  push({
-    userId,
-    msgId: d.id,
-    text: cleanQQContent(String(d.content ?? "")),
-    images,
-  });
+  const text = cleanQQContent(String(d.content ?? ""));
+
+  // 每收到一条就记一行：没有这行日志时，"机器人是不是没收到消息"只能靠猜
+  slog(
+    `收到消息 ${String(d.id).slice(0, 8)}：${text.length} 字` +
+      `${images.length > 0 ? ` / ${images.length} 图` : ""}`,
+  );
+
+  if (!text && images.length === 0) {
+    slog("这条消息既没有文字也没有图片（可能是语音/卡片），已跳过");
+    return;
+  }
+
+  push({ userId, msgId: d.id, text, images });
 };
 
 const fetchGatewayUrl = async (token: string): Promise<string> => {
@@ -82,13 +94,19 @@ const fetchGatewayUrl = async (token: string): Promise<string> => {
   return url;
 };
 
-const connect = async (push: PushFn): Promise<number> => {
+/** 一次 WebSocket 连接的结局：关闭码 + READY 之后活了多久（负值表示没连上） */
+export interface IConnectionResult {
+  code: number;
+  sessionMs: number;
+}
+
+const connect = async (push: PushFn): Promise<IConnectionResult> => {
   reportStatus({ type: "qq", state: "connecting" });
 
   const token = await getAccessToken();
   const url = await fetchGatewayUrl(token);
 
-  return new Promise<number>((resolve) => {
+  return new Promise<IConnectionResult>((resolve) => {
     const ws = new WebSocket(url);
 
     let lastSeq: number | null = null;
@@ -96,6 +114,7 @@ const connect = async (push: PushFn): Promise<number> => {
     let ackTimer: ReturnType<typeof setInterval> | null = null;
     let handshakeTimer: ReturnType<typeof setTimeout> | null = null;
     let lastAckAt = Date.now();
+    let readyAt: number | null = null;
     let settled = false;
     /** 消息处理串行链 */
     let inbound: Promise<void> = Promise.resolve();
@@ -119,7 +138,10 @@ const connect = async (push: PushFn): Promise<number> => {
       if (settled) return;
       settled = true;
       cleanup();
-      resolve(code);
+      resolve({
+        code,
+        sessionMs: readyAt === null ? -1 : Date.now() - readyAt,
+      });
     };
 
     const closeQuietly = () => {
@@ -200,9 +222,12 @@ const connect = async (push: PushFn): Promise<number> => {
 
         if (ackTimer) clearInterval(ackTimer);
         ackTimer = setInterval(() => {
-          if (Date.now() - lastAckAt <= Math.max(interval * 2, 30_000)) return;
+          const silentMs = Date.now() - lastAckAt;
+          if (silentMs <= Math.max(interval * 2, 30_000)) return;
 
-          slog("QQ 心跳无响应，主动重连");
+          slog(
+            `QQ 心跳 ${Math.round(silentMs / 1000)} 秒没有响应，主动重连`,
+          );
           closeQuietly();
           finish(-1);
         }, Math.max(interval, 10_000));
@@ -215,13 +240,13 @@ const connect = async (push: PushFn): Promise<number> => {
       }
 
       if (data.op === 0 && data.t === "READY") {
+        readyAt = Date.now();
         slog(`QQ 已上线 bot=${payload.user?.id ?? "?"}`);
         reportStatus({
           type: "qq",
           state: "online",
           botId: payload.user?.id ?? null,
         });
-        delay = 3000;
         return;
       }
 
@@ -253,26 +278,57 @@ const connect = async (push: PushFn): Promise<number> => {
   });
 };
 
+const sleep = (ms: number) =>
+  new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/**
+ * QQ 通道主循环：断了就按策略重连，只有「配置/权限」类错误才停。
+ * 会话过期（4009）之类的平台动作不再让机器人永久离线。
+ */
 export const startQQ = async () => {
   const aggregator = createAggregator(createQQHandler(getAccessToken));
+  let state: IReconnectState = initialReconnectState();
 
-  while (true) {
-    let code: number | undefined;
+  for (;;) {
+    let result: IConnectionResult;
 
     try {
-      code = await connect(aggregator.push);
+      result = await connect(aggregator.push);
     } catch (e) {
       slog("连接失败", e);
       reportStatus({ type: "qq", state: "error" });
+      result = { code: -1, sessionMs: -1 };
     }
 
-    if (code === 4009 || code === 4006 || code === 4007 || code === 4008) {
-      slog(`关闭码 ${code}：不再重连（需要人工处理）`);
-      reportStatus({ type: "qq", state: "stopped", code });
+    const plan = planReconnect(state, result.code, result.sessionMs);
+    state = plan.state;
+
+    if (plan.decision === "fatal") {
+      slog(
+        `QQ 连接无法恢复（${plan.reason}），请检查机器人配置或平台权限；` +
+          "改好后在控制台重启 Bot 即可",
+      );
+      reportStatus({
+        type: "qq",
+        state: "stopped",
+        code: result.code,
+        reason: plan.reason,
+      });
       return;
     }
 
-    await new Promise((r) => setTimeout(r, delay));
-    delay = Math.min(delay * 2, 60_000);
+    const seconds = Math.round(plan.delayMs / 1000);
+    slog(
+      `QQ ${plan.reason}，${seconds} 秒后重连（第 ${state.attempt} 次` +
+        `${state.rapidKicks >= RAPID_KICK_LIMIT ? "，连续被顶号，已放慢" : ""}）`,
+    );
+    reportStatus({
+      type: "qq",
+      state: "connecting",
+      code: result.code,
+      reason: plan.reason,
+    });
+
+    await sleep(plan.delayMs);
   }
 };
