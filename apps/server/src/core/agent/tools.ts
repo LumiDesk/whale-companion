@@ -47,7 +47,8 @@ const randomBetween = (min: number, max: number): number =>
   Math.round(min + Math.random() * Math.max(0, max - min));
 
 const CRISIS_RE = /想死|不想活|自残|自杀|活不下去/;
-const EXPLICIT_STOP_RE = /别回|不用回|不要回|晚安|睡了|拜拜|下线/;
+const HARD_STOP_RE = /别回|不用回|不要回/;
+const SOFT_STOP_RE = /晚安|睡了|拜拜|下线|先忙/;
 const MUST_REPLY_RE =
   /[?？]|在吗|理我|说话|回我|帮我看|怎么办|你觉得|你能不能|你是不是/;
 
@@ -268,10 +269,12 @@ const staySilent = async (
   if (CRISIS_RE.test(text)) {
     return error("他听起来很难受，这次不能沉默，认真回一句");
   }
-  if (EXPLICIT_STOP_RE.test(text)) {
+  if (HARD_STOP_RE.test(text)) {
     // 明确说不用回，允许沉默
   } else if (MUST_REPLY_RE.test(text)) {
     return error("对方在直接问你，这次不能沉默；回一句或先等");
+  } else if (SOFT_STOP_RE.test(text)) {
+    // 晚安 / 先忙这类结束语，允许沉默
   }
   if (ctx.silentStreak >= ctx.config.maxSilentStreak) {
     return error(`已经连续沉默 ${ctx.silentStreak} 次了，这次至少回一句`);
