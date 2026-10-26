@@ -56,7 +56,7 @@ const ModelPicker = ({
         />
         <button
           type="button"
-          className="btn btn-ghost btn-small"
+          className="btn btn-ghost"
           disabled={loading}
           onClick={() => void load()}
         >

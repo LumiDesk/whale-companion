@@ -114,26 +114,7 @@ const Field = ({
     if (spec.kind === "select") {
       const list = options ?? spec.options ?? [];
 
-      // 2–3 个选项做成分段控件（一眼看全）；更多就用下拉，避免按钮铺满一行
-      if (list.length > 3) {
-        return (
-          <div className="select-wrap">
-            <select
-              className="select"
-              value={String(value ?? "")}
-              disabled={disabled}
-              onChange={(event) => onChange(spec.path, event.target.value)}
-            >
-              {list.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        );
-      }
-
+      // 设置项的单选一律用分段控件：一眼看全，不用展开
       return (
         <div className="segmented">
           {list.map((option) => (

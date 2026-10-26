@@ -503,7 +503,7 @@ img {
   gap: 7px;
   height: 38px;
   padding: 0 16px;
-  border-radius: 9px;
+  border-radius: 8px;
   border: 1px solid transparent;
   background: var(--surface);
   color: var(--text);
@@ -811,6 +811,11 @@ img {
   grid-column: 1 / -1;
 }
 
+/* 网格自带 14px 间距，字段自己的下边距会把行距翻倍 */
+.form-grid > .field {
+  margin-bottom: 0;
+}
+
 .field {
   display: flex;
   flex-direction: column;
@@ -973,11 +978,6 @@ input:focus,
   padding-right: 32px;
 }
 
-/* 设置页里的下拉选项都很短，拉满一整列会显空 */
-.field .select-wrap .select {
-  max-width: 260px;
-}
-
 .select-wrap::after {
   content: "";
   position: absolute;
@@ -1045,6 +1045,11 @@ input:focus,
   gap: 8px;
   flex-wrap: wrap;
   margin-bottom: 10px;
+}
+
+/* 工具栏里的按钮和搜索框、下拉保持同一高度 */
+.log-toolbar .btn {
+  height: 34px;
 }
 
 .search {

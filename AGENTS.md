@@ -8,6 +8,7 @@
 
 - [`README.md`](README.md)：用户视角的安装、使用、发版
 - [`AGENTS.md`](AGENTS.md)：本文件，架构、约定、坑、排障
+- [`DESIGN.md`](DESIGN.md)：色板、字号、间距、控件规范（改界面前必读）
 - [`apps/desktop/README.md`](apps/desktop/README.md)：桌面端开发与打包
 - [`apps/server/README.md`](apps/server/README.md)：服务端入口
 - [`CHANGELOG.md`](CHANGELOG.md)：版本记录
@@ -144,6 +145,8 @@ QQ 事件 → cleanQQContent 清洗 <faceType>/<@...> → 串行下载图片（�
 - 拿不准的字段先打印真实结构，再写解析（QQ 接口字段并不稳定）。
 - 时间/心情这类"背景信息"写进 system，但明确告诉模型"不要直说"。
 - 模型请求必须有超时（`DEEPSEEK_TIMEOUT_MS`），网络错误/5xx/429 才重试；401 这类重试没用。
+- **改界面前先读 [`DESIGN.md`](DESIGN.md)**：颜色、字号、间距、控件选择（布尔=开关、单选=分段、
+  工具栏筛选=下拉）都在里面；组件里不要写死颜色，颜色只加在 `:root` / `[data-theme="dark"]` 两处。
 
 ## 9. 数据与隐私
 
@@ -176,7 +179,7 @@ QQ 事件 → cleanQQContent 清洗 <faceType>/<@...> → 串行下载图片（�
 | 调表情包频率 | `config.ts` 的 `sticker` |
 | 加新渠道（如微信/CLI） | 新建 `channels/xxx/`，调用 `core/chat.ts` 的 `generateReply`；主动消息在 `index.ts` 注入发送回调，**不要改 core** |
 | 改主动消息策略 | `core/proactive.ts` + `config.proactive` |
-| 改主题/配色 | `apps/desktop/src/lib/theme.ts` + `styles.css` 顶部 CSS 变量 + 设置页外观卡片 |
+| 改主题/配色 | [`DESIGN.md`](DESIGN.md) 的色板 + `apps/desktop/src/lib/theme.ts` + `styles.css` 顶部 CSS 变量 + 设置页外观卡片 |
 | 改自动更新 | `apps/desktop/src/lib/update.ts` + `useController` 的 `checkUpdate/installUpdate` + 发布工作流的校验文件 |
 | 改 JSON 持久化/迁移 | `apps/server/src/store/atomic.ts`、`store/history.ts` 的 `sanitizeHistoryFile`、`channels/qq/migrate.ts` |
 | 改桌面端页面 | `apps/desktop/src/components/` |
