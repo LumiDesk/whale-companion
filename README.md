@@ -148,7 +148,7 @@
 | QQ 通道    | **QQ 官方机器人 API**              | 原生 `fetch` + `WebSocket`，自带心跳、断线重连、token 缓存                    |
 | 桌面控制台 | **Neutralino 6 · React 19 · Vite** | 用系统 WebView2，仅 Windows；不打包 Chromium                                  |
 | 打包       | `neu build` + 内置 `node.exe`      | 便携 zip，用户不用装 Node                                                     |
-| 测试       | `node:test` + `tsx`                | 纯函数、聚合器、原子写、主题与更新脚本都有单测                                |
+| 测试       | `node:test` + `tsx`                | Agent 循环、SessionHub、人格卡、记忆 v2、原子写与更新脚本都有单测             |
 | CI         | **GitHub Actions**                 | Windows runner 构建；推 `v*` tag 生成 `SHA256SUMS.txt` 并创建 **pre-release** |
 
 几个刻意的取舍：
