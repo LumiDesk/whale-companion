@@ -27,13 +27,22 @@ test("应用目录固定在 whale-companion 下", () => {
     paths.configFile,
     "C:\\Users\\me\\AppData\\Roaming\\whale-companion\\config.json",
   );
+  assert.equal(
+    paths.personaDir,
+    "C:\\Users\\me\\AppData\\Roaming\\whale-companion\\personas",
+  );
+  assert.equal(
+    paths.activePersonaFile,
+    "C:\\Users\\me\\AppData\\Roaming\\whale-companion\\personas\\active.json",
+  );
 });
 
 test("开发态找仓库里的 server", () => {
   const paths = buildServerPaths("C:\\repo\\apps\\desktop", false, "C:\\data");
 
   assert.equal(paths.serverDir, "C:\\repo\\apps\\server\\dist");
-  assert.equal(paths.personaFile, "C:\\repo\\apps\\server\\persona.md");
+  assert.equal(paths.builtinPersonaDir, "C:\\repo\\apps\\server\\personas");
+  assert.equal(paths.promptsDir, "C:\\repo\\apps\\server\\prompts");
   assert.equal(paths.dataDir, "C:\\repo\\apps\\server\\data");
 });
 
@@ -45,5 +54,16 @@ test("打包态 server 在 exe 旁边，数据在 AppData", () => {
   );
 
   assert.equal(paths.serverDir, "C:\\Apps\\WhaleCompanion\\server");
-  assert.equal(paths.dataDir, "C:\\Users\\me\\AppData\\Roaming\\whale-companion\\data");
+  assert.equal(
+    paths.builtinPersonaDir,
+    "C:\\Apps\\WhaleCompanion\\server\\personas",
+  );
+  assert.equal(
+    paths.promptsDir,
+    "C:\\Apps\\WhaleCompanion\\server\\prompts",
+  );
+  assert.equal(
+    paths.dataDir,
+    "C:\\Users\\me\\AppData\\Roaming\\whale-companion\\data",
+  );
 });

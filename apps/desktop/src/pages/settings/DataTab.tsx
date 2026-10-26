@@ -72,7 +72,7 @@ const DataTab = ({ controller, form, patch, onConfigReload }: IProps) => {
     if (!confirmImport) {
       setConfirmImport(true);
       setDataMessage(
-        "再点一次「确认导入」会覆盖当前对话、记忆和表情包（先自动备份）",
+        "再点一次「确认导入」会覆盖当前对话、记忆、表情包与人格卡（先自动备份）",
       );
       return;
     }
@@ -246,7 +246,7 @@ const DataTab = ({ controller, form, patch, onConfigReload }: IProps) => {
           <h2>备份与恢复</h2>
         </div>
         <p className="muted card-desc">
-          导出包含对话、记忆、表情包和自定义人设，不含 config.json 里的密钥。
+          导出包含对话、记忆、表情包和人格卡，不含 config.json 里的密钥。
           导入前会先把当前数据备份到 updates 目录。
         </p>
 

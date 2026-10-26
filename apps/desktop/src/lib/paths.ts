@@ -48,6 +48,8 @@ export const buildAppPaths = (appData: string): IAppPaths => {
     logsDir: joinPath(root, "logs"),
     lockFile: joinPath(root, "app.lock"),
     botConfigFile: joinPath(root, "bot.json"),
+    personaDir: joinPath(root, "personas"),
+    activePersonaFile: joinPath(root, "personas", "active.json"),
   };
 };
 
@@ -64,16 +66,20 @@ export const buildServerPaths = (
     const serverDir = normalizePath(joinPath(nlPath, "server"));
     return {
       serverDir,
-      personaFile: normalizePath(joinPath(serverDir, "persona.md")),
       dataDir: normalizePath(appDataDir),
+      builtinPersonaDir: normalizePath(joinPath(serverDir, "personas")),
+      promptsDir: normalizePath(joinPath(serverDir, "prompts")),
     };
   }
 
   const appRoot = normalizePath(nlPath);
   return {
     serverDir: normalizePath(joinPath(appRoot, "..", "server", "dist")),
-    personaFile: normalizePath(joinPath(appRoot, "..", "server", "persona.md")),
     dataDir: normalizePath(joinPath(appRoot, "..", "server", "data")),
+    builtinPersonaDir: normalizePath(
+      joinPath(appRoot, "..", "server", "personas"),
+    ),
+    promptsDir: normalizePath(joinPath(appRoot, "..", "server", "prompts")),
   };
 };
 

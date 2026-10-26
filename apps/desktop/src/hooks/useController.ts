@@ -47,6 +47,8 @@ import type {
   ICheckResult,
   ILogLine,
   IModelInfo,
+  IPersonaCard,
+  IPersonaSummary,
   IServerPaths,
   IStickerInfo,
   IKnownUser,
@@ -117,13 +119,14 @@ export interface IController {
   clearLogs: () => void;
   fetchModels: (config: IAppConfig) => Promise<IModelInfo[]>;
   runSelfCheck: (config: IAppConfig) => Promise<ICheckResult[]>;
-  readPersona: () => Promise<{
-    text: string;
-    source: "custom" | "default";
-    path: string;
-  }>;
-  savePersona: (text: string) => Promise<void>;
-  resetPersona: () => Promise<void>;
+  listPersonas: () => Promise<IPersonaSummary[]>;
+  readPersonaCard: (id: string) => Promise<IPersonaCard>;
+  getActivePersonaId: () => Promise<string>;
+  setActivePersona: (id: string) => Promise<void>;
+  savePersonaCard: (id: string, text: string) => Promise<void>;
+  createPersona: (name: string) => Promise<string>;
+  deletePersona: (id: string) => Promise<void>;
+  importPersonas: () => Promise<string[]>;
   openPersonaDir: () => Promise<void>;
 }
 
@@ -250,9 +253,14 @@ export const useController = (): IController => {
     clearUserData,
     fetchModels,
     runSelfCheck,
-    readPersona,
-    savePersona,
-    resetPersona,
+    listPersonas,
+    readPersonaCard,
+    getActivePersonaId,
+    setActivePersona,
+    savePersonaCard,
+    createPersona,
+    deletePersona,
+    importPersonas,
     openPersonaDir,
   } = useDataActions({
     pathsRef,
@@ -510,6 +518,14 @@ export const useController = (): IController => {
         await ensureDir(appPaths.root);
         await ensureDir(appPaths.dataDir);
         await ensureDir(appPaths.logsDir);
+        await ensureDir(appPaths.personaDir);
+
+        // 旧版单文件人设：按新方案直接删除，不保留旧卡
+        const legacyPersona = joinPath(appPaths.root, "persona.md");
+        if (await readText(legacyPersona)) {
+          await removePath(legacyPersona).catch(() => {});
+          addLog("gui", "已删除旧版人设文件");
+        }
 
         const isPackagedApp = await isPackaged();
         packagedRef.current = isPackagedApp;
@@ -801,9 +817,14 @@ export const useController = (): IController => {
     clearLogs,
     fetchModels,
     runSelfCheck,
-    readPersona,
-    savePersona,
-    resetPersona,
+    listPersonas,
+    readPersonaCard,
+    getActivePersonaId,
+    setActivePersona,
+    savePersonaCard,
+    createPersona,
+    deletePersona,
+    importPersonas,
     openPersonaDir,
   };
 };

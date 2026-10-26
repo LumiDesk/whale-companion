@@ -248,6 +248,21 @@ export const ChatTab = ({
 
     <div className="card">
       <div className="card-head">
+        <h2>对话引擎</h2>
+        <span className="badge">即时生效</span>
+      </div>
+      <p className="muted card-desc">
+        模型会自己决定发几条、要不要等、要不要沉默；行为风格在「人格」页切换。
+      </p>
+      {renderFields(
+        specsOf("agent", false).filter((spec) => spec.path !== "agent.style"),
+      )}
+      <h3 className="subhead">高级</h3>
+      {renderFields(specsOf("agent", true))}
+    </div>
+
+    <div className="card">
+      <div className="card-head">
         <h2>图片</h2>
       </div>
       {renderFields([

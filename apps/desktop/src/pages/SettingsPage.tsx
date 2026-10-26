@@ -36,7 +36,7 @@ type TabId =
 
 const TABS: Array<{ id: TabId; label: string }> = [
   { id: "basic", label: "基础" },
-  { id: "persona", label: "人设" },
+  { id: "persona", label: "人格" },
   { id: "chat", label: "对话" },
   { id: "proactive", label: "主动" },
   { id: "sticker", label: "表情包" },
@@ -198,7 +198,13 @@ const SettingsPage = ({ controller }: IProps) => {
         />
       )}
 
-      {tab === "persona" && <PersonaEditor controller={controller} />}
+      {tab === "persona" && (
+        <PersonaEditor
+          controller={controller}
+          style={form.agent.style}
+          onStyleChange={(next) => patch("agent.style", next)}
+        />
+      )}
 
       {tab === "chat" && (
         <ChatTab

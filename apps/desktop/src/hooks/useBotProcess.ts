@@ -367,8 +367,10 @@ export const useBotProcess = (deps: IDeps) => {
 
     const botConfig = buildBotConfig(configRef.current, {
       dataDir: currentServer.dataDir,
-      personaFile: joinPath(currentPaths.root, "persona.md"),
-      defaultPersonaFile: currentServer.personaFile,
+      personaDir: currentServer.builtinPersonaDir,
+      userPersonaDir: currentPaths.personaDir,
+      activePersonaFile: currentPaths.activePersonaFile,
+      promptsDir: currentServer.promptsDir,
       parentPid: getOwnPid(),
     });
 

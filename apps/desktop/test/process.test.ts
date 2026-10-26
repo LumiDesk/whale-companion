@@ -43,8 +43,11 @@ test("配置会翻译成机器人需要的环境变量", () => {
 
   const env = buildBotConfig(config, {
     dataDir: "C:\\data",
-    personaFile: "C:\\Users\\me\\AppData\\Roaming\\whale-companion\\persona.md",
-    defaultPersonaFile: "C:\\persona.md",
+    personaDir: "C:\\Apps\\WhaleCompanion\\server\\personas",
+    userPersonaDir: "C:\\Users\\me\\AppData\\Roaming\\whale-companion\\personas",
+    activePersonaFile:
+      "C:\\Users\\me\\AppData\\Roaming\\whale-companion\\personas\\active.json",
+    promptsDir: "C:\\Apps\\WhaleCompanion\\server\\prompts",
     parentPid: 4321,
   });
 
@@ -59,10 +62,21 @@ test("配置会翻译成机器人需要的环境变量", () => {
   assert.equal(env.OWNER_NAME, "主人");
   assert.equal(env.WHALE_DATA_DIR, "C:\\data");
   assert.equal(
-    env.WHALE_PERSONA_FILE,
-    "C:\\Users\\me\\AppData\\Roaming\\whale-companion\\persona.md",
+    env.WHALE_PERSONA_DIR,
+    "C:\\Apps\\WhaleCompanion\\server\\personas",
   );
-  assert.equal(env.WHALE_DEFAULT_PERSONA_FILE, "C:\\persona.md");
+  assert.equal(
+    env.WHALE_USER_PERSONA_DIR,
+    "C:\\Users\\me\\AppData\\Roaming\\whale-companion\\personas",
+  );
+  assert.equal(
+    env.WHALE_ACTIVE_PERSONA_FILE,
+    "C:\\Users\\me\\AppData\\Roaming\\whale-companion\\personas\\active.json",
+  );
+  assert.equal(env.WHALE_PROMPTS_DIR, "C:\\Apps\\WhaleCompanion\\server\\prompts");
+  assert.equal(env.AGENT_ENABLED, "true");
+  assert.equal(env.AGENT_STYLE, "standard");
+  assert.equal(env.AGENT_MAX_MESSAGES, "3");
   assert.equal(env.WHALE_PARENT_PID, "4321");
   assert.equal(env.WHALE_GUI, "1");
   assert.equal(validateConfig(config).length, 0);

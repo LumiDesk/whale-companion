@@ -1,6 +1,8 @@
 import type { ISettings } from "./settings";
 
 export type {
+  AgentStyle,
+  IAgentSettings,
   IConversationSettings,
   ILLMSettings,
   IModelInfo,
@@ -100,6 +102,28 @@ export interface IKnownUser {
   channel?: string;
   lastSeen: number;
   lastProactiveAt?: number;
+  lastReplyAt?: number;
+  lastSilentAt?: number;
+  lastSilentReason?: string;
+  silentStreak?: number;
+  nextWakeAt?: number;
+  wakeIntent?: string;
+  wakeAllowSilent?: boolean;
+}
+
+export type PersonaSource = "builtin" | "user";
+
+export interface IPersonaSummary {
+  id: string;
+  name: string;
+  description: string;
+  source: PersonaSource;
+  path: string;
+  chars: number;
+}
+
+export interface IPersonaCard extends IPersonaSummary {
+  text: string;
 }
 
 export interface IAppPaths {
@@ -109,12 +133,15 @@ export interface IAppPaths {
   logsDir: string;
   lockFile: string;
   botConfigFile: string;
+  personaDir: string;
+  activePersonaFile: string;
 }
 
 export interface IServerPaths {
   serverDir: string;
-  personaFile: string;
   dataDir: string;
+  builtinPersonaDir: string;
+  promptsDir: string;
 }
 
 /** 托盘菜单项（Neutralino setTray 的入参） */

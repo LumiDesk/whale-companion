@@ -73,8 +73,14 @@ cpSync(join(repoRoot, "apps", "server", "dist"), serverDir, {
   recursive: true,
 });
 cpSync(
-  join(repoRoot, "apps", "server", "persona.md"),
-  join(serverDir, "persona.md"),
+  join(repoRoot, "apps", "server", "personas"),
+  join(serverDir, "personas"),
+  { recursive: true },
+);
+cpSync(
+  join(repoRoot, "apps", "server", "prompts"),
+  join(serverDir, "prompts"),
+  { recursive: true },
 );
 cpSync(
   join(repoRoot, "apps", "server", "package.json"),

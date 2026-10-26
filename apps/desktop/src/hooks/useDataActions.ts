@@ -15,6 +15,17 @@ import {
   writeTextAtomic,
 } from "../lib/platform";
 import { buildBotConfig, buildSpawnCommand } from "../lib/process";
+import {
+  activePersonaJson,
+  DEFAULT_PERSONA_ID,
+  isSafePersonaId,
+  normalizePersonaText,
+  parseActivePersonaId,
+  personaTemplate,
+  sortPersonas,
+  summarizePersona,
+  uniquePersonaId,
+} from "../lib/personas";
 import { parseStatusLine } from "../lib/status";
 import { buildExtractCommand, psLiteral } from "../lib/update";
 import { APP_VERSION } from "../lib/version";
@@ -26,6 +37,8 @@ import type {
   IKnownUser,
   ILogLine,
   IModelInfo,
+  IPersonaCard,
+  IPersonaSummary,
   IServerPaths,
   IStickerInfo,
 } from "../lib/types";
@@ -86,7 +99,7 @@ export const useDataActions = (deps: IDeps) => {
     }
   };
 
-  /** 导出 data + 自定义人设；默认不含 config.json 里的密钥 */
+  /** 导出 data + 人格卡；默认不含 config.json 里的密钥 */
   const exportData = async (): Promise<string | null> => {
     const currentPaths = pathsRef.current;
     const server = serverRef.current;
@@ -108,28 +121,25 @@ export const useDataActions = (deps: IDeps) => {
     const staging = joinPath(currentPaths.root, "updates", `export-${stamp}`);
     await ensureDir(staging);
     await ensureDir(server.dataDir);
+    await ensureDir(currentPaths.personaDir);
 
     const manifest = {
       app: "whale-companion",
       version: APP_VERSION,
       exportedAt: new Date().toISOString(),
-      includes: ["data"],
+      includes: ["data", "personas"],
     };
-
-    const personaOverride = joinPath(currentPaths.root, "persona.md");
-    const persona = await readText(personaOverride);
-    if (persona && persona.trim()) {
-      manifest.includes.push("persona");
-      await writeText(joinPath(staging, "persona.md"), persona);
-    }
 
     await writeText(
       joinPath(staging, "manifest.json"),
       JSON.stringify(manifest, null, 2),
     );
 
-    const paths = [server.dataDir, joinPath(staging, "manifest.json")];
-    if (persona && persona.trim()) paths.push(joinPath(staging, "persona.md"));
+    const paths = [
+      server.dataDir,
+      currentPaths.personaDir,
+      joinPath(staging, "manifest.json"),
+    ];
 
     const command =
       "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command " +
@@ -153,7 +163,7 @@ export const useDataActions = (deps: IDeps) => {
     }
   };
 
-  /** 导入 zip：只接受 data/、persona.md、manifest.json，覆盖前先备份当前数据 */
+  /** 导入 zip：只接受 data/、personas/、manifest.json，覆盖前先备份当前数据 */
   const importData = async (): Promise<boolean> => {
     const currentPaths = pathsRef.current;
     const server = serverRef.current;
@@ -207,8 +217,8 @@ export const useDataActions = (deps: IDeps) => {
         throw new Error("备份里没有 data 目录");
       }
 
-      const importedPersona = joinPath(temp, "persona.md");
-      const hasPersona = await fileExists(importedPersona);
+      const importedPersonas = joinPath(temp, "personas");
+      const hasPersonas = await fileExists(importedPersonas);
 
       const wasRunning =
         botStateRef.current === "running" ||
@@ -219,20 +229,20 @@ export const useDataActions = (deps: IDeps) => {
       }
 
       await ensureDir(backup);
-      const currentPersona = joinPath(currentPaths.root, "persona.md");
       const currentData = server.dataDir;
+      const currentPersonas = currentPaths.personaDir;
 
       try {
         if (await fileExists(currentData)) {
           await movePath(currentData, joinPath(backup, "data"));
         }
-        if (await fileExists(currentPersona)) {
-          await movePath(currentPersona, joinPath(backup, "persona.md"));
+        if (hasPersonas && (await fileExists(currentPersonas))) {
+          await movePath(currentPersonas, joinPath(backup, "personas"));
         }
 
         await movePath(importedData, currentData);
-        if (hasPersona) {
-          await movePath(importedPersona, currentPersona);
+        if (hasPersonas) {
+          await movePath(importedPersonas, currentPersonas);
         }
       } catch (error) {
         // 尽量还原；还原本身失败时保留 backup 目录供手动恢复
@@ -241,9 +251,11 @@ export const useDataActions = (deps: IDeps) => {
           if (await fileExists(joinPath(backup, "data"))) {
             await movePath(joinPath(backup, "data"), currentData);
           }
-          await removePath(currentPersona);
-          if (await fileExists(joinPath(backup, "persona.md"))) {
-            await movePath(joinPath(backup, "persona.md"), currentPersona);
+          if (hasPersonas) {
+            await removePath(currentPersonas);
+            if (await fileExists(joinPath(backup, "personas"))) {
+              await movePath(joinPath(backup, "personas"), currentPersonas);
+            }
           }
         } catch {
           // 保留现场
@@ -479,8 +491,10 @@ export const useDataActions = (deps: IDeps) => {
     const tempFile = joinPath(currentPaths.root, fileName);
     const env = buildBotConfig(next, {
       dataDir: server.dataDir,
-      personaFile: joinPath(currentPaths.root, "persona.md"),
-      defaultPersonaFile: server.personaFile,
+      personaDir: server.builtinPersonaDir,
+      userPersonaDir: currentPaths.personaDir,
+      activePersonaFile: currentPaths.activePersonaFile,
+      promptsDir: server.promptsDir,
       parentPid: 0,
     });
 
@@ -565,66 +579,210 @@ export const useDataActions = (deps: IDeps) => {
     return results;
   };
 
-  const personaOverrideFile = (): string => {
+  const personaDirs = (): { user: string; builtin: string; active: string } => {
     const currentPaths = pathsRef.current;
-    if (!currentPaths) throw new Error("还没有准备好配置目录");
-    return joinPath(currentPaths.root, "persona.md");
-  };
-
-  const readPersona = async (): Promise<{
-    text: string;
-    source: "custom" | "default";
-    path: string;
-  }> => {
-    const override = personaOverrideFile();
-    const custom = await readText(override);
-    if (custom && custom.trim()) {
-      return { text: custom, source: "custom", path: override };
+    const server = serverRef.current;
+    if (!currentPaths || !server) {
+      throw new Error("还没有准备好人格目录");
     }
 
-    const server = serverRef.current;
-    const fallback = server ? await readText(server.personaFile) : null;
-
     return {
-      text: fallback ?? "",
-      source: "default",
-      path: server?.personaFile ?? override,
+      user: currentPaths.personaDir,
+      builtin: server.builtinPersonaDir,
+      active: currentPaths.activePersonaFile,
     };
   };
 
-  const savePersona = async (text: string): Promise<void> => {
-    const body = text.trim();
-    if (!body) throw new Error("人设不能为空");
-    if (body.length > 20_000) throw new Error("人设不能超过 20000 字");
+  const readCardsIn = async (
+    dir: string,
+    source: IPersonaCard["source"],
+  ): Promise<IPersonaCard[]> => {
+    const names = await readDir(dir);
+    const cards: IPersonaCard[] = [];
 
-    const override = personaOverrideFile();
-    const existing = await readText(override);
-    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    for (const name of names) {
+      if (!name.toLowerCase().endsWith(".md")) continue;
 
-    if (existing) {
-      await writeText(`${override}.bak-${stamp}`, existing);
+      const id = name.slice(0, -3);
+      if (!isSafePersonaId(id)) continue;
+
+      const path = joinPath(dir, name);
+      const text = await readText(path);
+      if (!text || !text.trim()) continue;
+
+      cards.push(
+        summarizePersona(
+          { id, name: id, text: normalizePersonaText(text) },
+          source,
+          path,
+        ),
+      );
     }
 
-    await writeTextAtomic(override, `${body}\n`);
-    addLog("gui", "人设已保存，下一条消息生效");
+    return cards;
   };
 
-  const resetPersona = async (): Promise<void> => {
-    const override = personaOverrideFile();
-    const existing = await readText(override);
-    if (!existing) return;
+  const listPersonas = async (): Promise<IPersonaSummary[]> => {
+    const dirs = personaDirs();
+    const builtin = await readCardsIn(dirs.builtin, "builtin");
+    const user = await readCardsIn(dirs.user, "user");
+    const map = new Map<string, IPersonaCard>();
+
+    for (const card of [...builtin, ...user]) map.set(card.id, card);
+
+    return sortPersonas([...map.values()]).map(
+      ({ text: _text, ...summary }) => summary,
+    );
+  };
+
+  const readPersonaCard = async (id: string): Promise<IPersonaCard> => {
+    if (!isSafePersonaId(id)) throw new Error("人格 ID 不合法");
+    const dirs = personaDirs();
+
+    const userPath = joinPath(dirs.user, `${id}.md`);
+    const userText = await readText(userPath);
+    if (userText && userText.trim()) {
+      return summarizePersona(
+        { id, name: id, text: normalizePersonaText(userText) },
+        "user",
+        userPath,
+      );
+    }
+
+    const builtinPath = joinPath(dirs.builtin, `${id}.md`);
+    const builtinText = await readText(builtinPath);
+    if (builtinText && builtinText.trim()) {
+      return summarizePersona(
+        { id, name: id, text: normalizePersonaText(builtinText) },
+        "builtin",
+        builtinPath,
+      );
+    }
+
+    throw new Error(`找不到人格卡：${id}`);
+  };
+
+  const getActivePersonaId = async (): Promise<string> => {
+    const dirs = personaDirs();
+    return parseActivePersonaId(await readText(dirs.active));
+  };
+
+  const setActivePersona = async (id: string): Promise<void> => {
+    if (!isSafePersonaId(id)) throw new Error("人格 ID 不合法");
+    await readPersonaCard(id);
+
+    const dirs = personaDirs();
+    await ensureDir(dirs.user);
+    await writeTextAtomic(dirs.active, activePersonaJson(id));
+    addLog("gui", `当前人格已切换为 ${id}`);
+  };
+
+  const savePersonaCard = async (
+    id: string,
+    text: string,
+  ): Promise<void> => {
+    if (!isSafePersonaId(id)) throw new Error("人格 ID 不合法");
+
+    const body = normalizePersonaText(text);
+    if (!body) throw new Error("人格不能为空");
+    if (body.length > 20_000) throw new Error("人格不能超过 20000 字");
+
+    const dirs = personaDirs();
+    const target = joinPath(dirs.user, `${id}.md`);
+    const existing = await readText(target);
+
+    if (!existing) {
+      const builtin = await readText(joinPath(dirs.builtin, `${id}.md`));
+      if (builtin) throw new Error("内置人格不能直接修改，请先复制为自定义");
+    }
+
+    await ensureDir(dirs.user);
+
+    if (existing) {
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+      await writeText(`${target}.bak-${stamp}`, existing);
+    }
+
+    await writeTextAtomic(target, `${body}\n`);
+    addLog("gui", `人格已保存：${id}，下一条消息生效`);
+  };
+
+  const createPersona = async (name: string): Promise<string> => {
+    const dirs = personaDirs();
+    const existing = await listPersonas();
+    const id = uniquePersonaId(
+      name,
+      new Set(existing.map((card) => card.id)),
+    );
+
+    await ensureDir(dirs.user);
+    await writeTextAtomic(
+      joinPath(dirs.user, `${id}.md`),
+      `${normalizePersonaText(personaTemplate(name))}\n`,
+    );
+    addLog("gui", `已新建人格：${id}`);
+    return id;
+  };
+
+  const deletePersona = async (id: string): Promise<void> => {
+    if (!isSafePersonaId(id)) throw new Error("人格 ID 不合法");
+    const dirs = personaDirs();
+    const target = joinPath(dirs.user, `${id}.md`);
+    const existing = await readText(target);
+
+    if (!existing) {
+      const builtin = await readText(joinPath(dirs.builtin, `${id}.md`));
+      if (builtin) throw new Error("内置人格不能删除");
+      throw new Error(`找不到人格卡：${id}`);
+    }
+
+    const active = await getActivePersonaId();
+    if (active === id) await setActivePersona(DEFAULT_PERSONA_ID);
 
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-    await writeText(`${override}.bak-${stamp}`, existing);
-    await removePath(override);
-    addLog("gui", "人设已恢复默认");
+    await writeText(`${target}.bak-${stamp}`, existing);
+    await removePath(target);
+    addLog("gui", `已删除人格：${id}`);
+  };
+
+  const importPersonas = async (): Promise<string[]> => {
+    const selected = await os.showOpenDialog("导入人格卡", {
+      multiSelections: true,
+      filters: [{ name: "Markdown", extensions: ["md"] }],
+    });
+    if (!selected || selected.length === 0) return [];
+
+    const dirs = personaDirs();
+    const existing = await listPersonas();
+    const used = new Set(existing.map((card) => card.id));
+    const created: string[] = [];
+
+    await ensureDir(dirs.user);
+
+    for (const source of selected) {
+      const raw = await readText(source);
+      if (!raw || !raw.trim()) continue;
+
+      const text = normalizePersonaText(raw);
+      const baseName =
+        text.match(/^#\s+(.+)$/m)?.[1] ??
+        source.split(/[\\/]/).pop()?.replace(/\.md$/i, "") ??
+        "自定义人格";
+      const id = uniquePersonaId(String(baseName), used);
+
+      used.add(id);
+      await writeTextAtomic(joinPath(dirs.user, `${id}.md`), `${text}\n`);
+      created.push(id);
+      addLog("gui", `已导入人格：${id}`);
+    }
+
+    return created;
   };
 
   const openPersonaDir = async (): Promise<void> => {
-    const currentPaths = pathsRef.current;
-    if (!currentPaths) return;
-    await ensureDir(currentPaths.root);
-    await openPath(currentPaths.root);
+    const dirs = personaDirs();
+    await ensureDir(dirs.user);
+    await openPath(dirs.user);
   };
 
   return {
@@ -638,9 +796,14 @@ export const useDataActions = (deps: IDeps) => {
     clearUserData,
     fetchModels,
     runSelfCheck,
-    readPersona,
-    savePersona,
-    resetPersona,
+    listPersonas,
+    readPersonaCard,
+    getActivePersonaId,
+    setActivePersona,
+    savePersonaCard,
+    createPersona,
+    deletePersona,
+    importPersonas,
     openPersonaDir,
   };
 };

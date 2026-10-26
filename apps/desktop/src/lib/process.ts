@@ -25,10 +25,13 @@ export const buildSpawnCommand = (
 
 export interface IBotConfigOptions {
   dataDir: string;
-  /** 用户覆盖人设：%APPDATA%\whale-companion\persona.md */
-  personaFile: string;
-  /** 安装目录里的默认人设；升级时替换 */
-  defaultPersonaFile: string;
+  /** 内置人格卡目录 */
+  personaDir: string;
+  /** 用户人格卡目录（%APPDATA%\whale-companion\personas） */
+  userPersonaDir: string;
+  activePersonaFile: string;
+  /** 行为提示词目录 */
+  promptsDir: string;
   parentPid: number;
 }
 
@@ -47,8 +50,10 @@ export const buildBotConfig = (
   const env: Record<string, string> = {
     ...toEnv(config),
     WHALE_DATA_DIR: options.dataDir,
-    WHALE_PERSONA_FILE: options.personaFile,
-    WHALE_DEFAULT_PERSONA_FILE: options.defaultPersonaFile,
+    WHALE_PERSONA_DIR: options.personaDir,
+    WHALE_USER_PERSONA_DIR: options.userPersonaDir,
+    WHALE_ACTIVE_PERSONA_FILE: options.activePersonaFile,
+    WHALE_PROMPTS_DIR: options.promptsDir,
     WHALE_GUI: "1",
   };
 
