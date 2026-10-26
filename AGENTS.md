@@ -248,6 +248,10 @@ QQ 事件 → cleanQQContent 清洗 <faceType>/<@...> → 串行下载图片（�
 
 ## 15. 发版
 
+- **禁止手动修改任何 `version` 字段**：根 `package.json`、`apps/server/package.json`、
+  `apps/desktop/package.json`、`apps/desktop/neutralino.config.json` 都不许手改。
+  版本号只能由 `scripts/release.mjs`（`pnpm release patch|minor|major`）统一修改；
+  手动改会让 tag / CI / Release / 自动更新互相对不上。需要纠正版本时先回退，再走发布脚本。
 - 版本号以根 `package.json` 为准；`scripts/release.mjs` 会同步根、server、desktop 和
   `neutralino.config.json` 的 `version`。
 - 用法：`pnpm release patch|minor|major`，加 `--dry-run` 只预览。
