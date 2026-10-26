@@ -62,7 +62,7 @@
 
 **人格可选**
 
-- 内置「DeepSeek 小鲸鱼」与「傲娇助手」两张人格卡，也可以新建、编辑、导入 qq-bridge 的 `roles/*.md`
+- 内置「DeepSeek 小鲸鱼」「猫娘小咪」两张人格卡，也可以新建、编辑、导入 qq-bridge 的 `roles/*.md`
 - 切换人格下一条消息生效，不用重启；历史与记忆共享
 - 三档行为风格：标准 / 克制 / 话痨
 
@@ -216,7 +216,7 @@ Windows 下也可以直接 `Copy-Item apps/server/.env.example apps/server/.env`
 ```
 apps/
   server/                Bot 本体
-    personas/            内置人格卡（deepseek-whale / tsundere-assistant）
+    personas/            内置人格卡（deepseek-whale / catgirl）
     prompts/behavior/    内置行为提示词（base / 三档风格 / legacy）
     src/config.ts        所有环境变量在此收口
     src/core/agent/      Agent 回合循环 / 工具 / 提示词 / 时间感

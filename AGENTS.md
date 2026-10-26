@@ -17,7 +17,7 @@
 ```
 apps/
 ├── server/                     # Bot 本体（tsx 直跑，tsc 构建到 dist/）
-│   ├── personas/               # 内置人格卡（deepseek-whale / tsundere-assistant）
+│   ├── personas/               # 内置人格卡（deepseek-whale / catgirl）
 │   ├── prompts/behavior/       # 内置行为提示词（base / 三档风格 / legacy）
 │   └── src/
 │       ├── core/agent/         # Agent 回合循环、工具、提示词、时间感
