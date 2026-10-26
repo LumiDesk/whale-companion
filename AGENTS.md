@@ -29,10 +29,10 @@ apps/
 └── desktop/                    # Windows 控制台
     └── src/
         ├── pages/              # 页面：Status / Settings / Logs / About
-        │   └── settings/       # 设置页子组件：Field / ModelPicker / PersonaEditor / SelfCheck
+        │   └── settings/       # 设置页子组件：Field / ModelPicker / PersonaEditor / SelfCheck / DataTab
         ├── components/         # 通用组件：Sidebar / MessageBanner / ErrorBoundary
         │   └── ui/             # 基础控件：Icons / Switch
-        ├── hooks/              # useController（托盘、子进程、更新、状态与日志编排）
+        ├── hooks/              # useController（组装）+ useLogs / useDataActions / useUpdate
         ├── lib/                # 纯函数：config / paths / lock / logs / process / theme / update
         └── styles.css          # 色板与全部样式（CSS 变量在顶部）
 

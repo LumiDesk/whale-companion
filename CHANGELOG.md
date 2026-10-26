@@ -8,6 +8,8 @@
 
 - 桌面端页面移入 `src/pages/`，基础控件（Icons / Switch）移入 `src/components/ui/`，
   与 DESIGN.md 和 AGENTS.md 的目录约定一致
+- `useController` 按职责拆成 `useLogs` / `useDataActions` / `useUpdate`，主 hook 从 2394 行降到 1272 行
+- 设置页「数据」Tab 独立成 `DataTab`，设置页从 864 行降到 492 行
 
 ### 文档
 
