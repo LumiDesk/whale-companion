@@ -1739,6 +1739,22 @@ export const buildServerPaths = (...): IServerPaths => ({
 
 ---
 
+## 18. 实现备注
+
+- **Agent 代码位置**：最终放在 `apps/server/src/core/agent/`，没有单独拆 `packages/agent`。
+  原因是它依赖服务端的 config / store / 提示词文件，而 server 是 `tsc` 直出 + 复制 `dist` 打包；
+  再拆一层 workspace 包会让 `tsx dev`、`tsc build`、便携 zip 三条路径都多一份解析/构建配置。
+  纯函数和可复用 UI 逻辑已经分别放在 `core/agent/` 与 `apps/desktop/src/lib/personas.ts`。
+- **热生效边界**：人格卡切换是每轮现读、下一条生效；行为风格存在 `config.agent.style`，
+  随设置保存（Bot 重启）生效。这样风格三档和其余服务端设置走同一条配置链路，不额外开运行时文件。
+- **真实模型冒烟**：用 `deepseek-flash` 跑过一回合「在吗？今天好累」，模型正确调用 `send_message`
+  发出两条短消息，`reasoning_content` 在同一回合内回传正常；没有走 QQ 网络。
+- **自动化测试**：服务端 133 条（含 Agent loop / tools / SessionHub / persona store / memory v2 /
+  proactive / settings），桌面端 75 条（含 persona 纯函数、路径、进程配置）。
+- **未覆盖**：真实 QQ 收发、托盘、更新链路仍依赖手动验证；Agent 回合的失败兜底已通过假模型覆盖。
+
+---
+
 ## 附录 A：`deepseek-whale.md` 全文
 
 见 §3.2。
