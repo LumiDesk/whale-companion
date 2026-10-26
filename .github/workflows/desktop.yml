@@ -13,18 +13,20 @@ jobs:
   build-windows:
     runs-on: windows-latest
     timeout-minutes: 30
+    env:
+      WHALE_SIGN_PFX_BASE64: ${{ secrets.WINDOWS_SIGN_PFX_BASE64 }}
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 12.15.0
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
@@ -38,7 +40,20 @@ jobs:
       - name: Test
         run: pnpm test
 
+      - name: Prepare code signing certificate
+        if: env.WHALE_SIGN_PFX_BASE64 != ''
+        shell: pwsh
+        run: |
+          $path = Join-Path $env:RUNNER_TEMP "whale-sign.pfx"
+          [IO.File]::WriteAllBytes(
+            $path,
+            [Convert]::FromBase64String($env:WHALE_SIGN_PFX_BASE64)
+          )
+          "WHALE_SIGN_PFX=$path" >> $env:GITHUB_ENV
+
       - name: Build portable package
+        env:
+          WHALE_SIGN_PFX_PASSWORD: ${{ secrets.WINDOWS_SIGN_PFX_PASSWORD }}
         run: pnpm desktop:pack
 
       - name: Generate checksums
@@ -58,7 +73,7 @@ jobs:
           Get-FileHash apps/desktop/dist/*.zip -Algorithm SHA256 | Format-List
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: whale-companion-win-x64
           path: |
@@ -84,5 +99,13 @@ jobs:
           if ($LASTEXITCODE -eq 0) {
             gh release upload $tag $zip $sums --clobber
           } else {
-            gh release create $tag $zip $sums --title "小鲸鱼 $tag" --generate-notes
+            gh release create $tag $zip $sums --title "小鲸鱼 $tag" --generate-notes --prerelease
+          }
+
+      - name: Remove signing certificate
+        if: always()
+        shell: pwsh
+        run: |
+          if ($env:WHALE_SIGN_PFX) {
+            Remove-Item -LiteralPath $env:WHALE_SIGN_PFX -Force -ErrorAction SilentlyContinue
           }

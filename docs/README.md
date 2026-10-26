@@ -21,6 +21,7 @@ assets/
 - 页面：`apps/desktop/src/components/` 里的 StatusPage / SettingsPage / LogsPage
 - 视口：1080×760（和桌面端默认窗口同量级），DPR 2 → 2160×1520 的 PNG
 - 浏览器：Edge headless（`--headless=new --screenshot --force-device-scale-factor=2`）
+- 动画：加 `--virtual-time-budget=2000`，等 `page-in` 动画结束再截，否则整页会半透明
 
 重新生成的做法：临时在 `apps/desktop/preview/` 放一个 `index.html` + `main.tsx`，
 用一个假的 `IController`（状态 running、QQ online、几条像样的日志）渲染上面的组件，

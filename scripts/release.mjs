@@ -144,7 +144,9 @@ try {
     process.exit(1);
   }
 
-  console.log(`\n已推送 ${tag}。CI 会构建便携包并创建 GitHub Release。`);
+  console.log(`\n已推送 ${tag}。CI 会构建便携包并创建 pre-release。`);
+  console.log("确认运行稳定后，在 GitHub Release 页面手动把它改成正式 Release；");
+  console.log("客户端检查更新只认 /releases/latest（正式版），不会看到 pre-release。");
 
   const github = /github\.com[:/]([^/]+)\/(.+?)(?:\.git)?$/.exec(remote);
   if (github) {

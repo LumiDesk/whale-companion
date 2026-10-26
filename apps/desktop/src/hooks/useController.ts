@@ -58,6 +58,7 @@ import {
   hasHiddenFlag,
 } from "../lib/process";
 import { LineBuffer, parseStatusLine } from "../lib/status";
+import { decideAutoRestart, isBotActive } from "../lib/restart";
 import {
   applyTheme,
   resolveTheme,
@@ -493,38 +494,33 @@ export const useController = (): IController => {
     );
     void updateTray();
 
-    if (
-      !wasStopping &&
-      Number.isFinite(code) &&
-      code !== 0 &&
-      configRef.current.behavior.autoRestartOnCrash
-    ) {
-      const now = Date.now();
-      if (now - autoRestartRef.current.lastAt > 10 * 60_000) {
-        autoRestartRef.current.count = 0;
-      }
+    const decision = decideAutoRestart(autoRestartRef.current, {
+      wasStopping,
+      code,
+      enabled: configRef.current.behavior.autoRestartOnCrash,
+    });
 
-      if (autoRestartRef.current.count >= 3) {
-        addLog("error", "Bot 连续异常退出 3 次，停止自动重启");
-        return;
-      }
+    if (decision.kind === "give-up") {
+      addLog("error", "Bot 连续异常退出 3 次，停止自动重启");
+      return;
+    }
 
-      autoRestartRef.current.count += 1;
-      autoRestartRef.current.lastAt = now;
-      const wait = [3000, 10_000, 30_000][
-        Math.min(autoRestartRef.current.count - 1, 2)
-      ];
+    if (decision.kind === "restart") {
+      autoRestartRef.current = {
+        count: decision.count,
+        lastAt: decision.lastAt,
+      };
 
       addLog(
         "gui",
-        `将在 ${Math.round(wait / 1000)} 秒后自动重启 Bot（第 ${autoRestartRef.current.count}/3 次）`,
+        `将在 ${Math.round(decision.wait / 1000)} 秒后自动重启 Bot（第 ${decision.count}/3 次）`,
       );
 
       if (autoRestartTimerRef.current) clearTimeout(autoRestartTimerRef.current);
       autoRestartTimerRef.current = setTimeout(() => {
         autoRestartTimerRef.current = null;
         if (botStateRef.current === "crashed") void startBot();
-      }, wait);
+      }, decision.wait);
     }
   };
 
@@ -1834,8 +1830,7 @@ export const useController = (): IController => {
   };
 
   const saveConfig = async (next: IAppConfig): Promise<boolean> => {
-    const wasRunning =
-      botStateRef.current === "running" || botStateRef.current === "starting";
+    const wasRunning = isBotActive(botStateRef.current);
 
     // 主题已经在设置页即时保存；保存其他字段时不要用表单里的旧值把它覆盖回去
     const normalized = normalizeConfig({

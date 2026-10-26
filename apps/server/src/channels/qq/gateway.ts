@@ -14,6 +14,16 @@ const MIN_HEARTBEAT_MS = 1000;
 const MAX_HEARTBEAT_MS = 120_000;
 const DEFAULT_HEARTBEAT_MS = 41_250;
 
+/** QQ 心跳间隔：只接受 1s–120s，异常值回退默认，避免 0 或超大值把连接拖死 */
+export const resolveHeartbeatInterval = (value: unknown): number => {
+  const requested = Number(value);
+  return Number.isFinite(requested) &&
+    requested >= MIN_HEARTBEAT_MS &&
+    requested <= MAX_HEARTBEAT_MS
+    ? requested
+    : DEFAULT_HEARTBEAT_MS;
+};
+
 type PushFn = (msg: {
   userId: string;
   msgId: string;
@@ -165,13 +175,7 @@ const connect = async (push: PushFn): Promise<number> => {
       }
 
       if (data.op === 10) {
-        const requested = Number(payload.heartbeat_interval);
-        const interval =
-          Number.isFinite(requested) &&
-          requested >= MIN_HEARTBEAT_MS &&
-          requested <= MAX_HEARTBEAT_MS
-            ? requested
-            : DEFAULT_HEARTBEAT_MS;
+        const interval = resolveHeartbeatInterval(payload.heartbeat_interval);
 
         ws.send(
           JSON.stringify({

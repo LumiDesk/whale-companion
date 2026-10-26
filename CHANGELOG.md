@@ -4,6 +4,22 @@
 
 ## [Unreleased]
 
+### 工程
+
+- CI 新建 Release 默认标记为 pre-release；手动确认稳定后再改成正式 Release
+- 客户端检查更新只读 `/releases/latest`，不会检查 pre-release
+- GitHub Actions 升级到 checkout/setup-node/upload-artifact v7、pnpm/action-setup v6
+- 增加可选 Authenticode 签名：配置 `WINDOWS_SIGN_PFX_BASE64` / `WINDOWS_SIGN_PFX_PASSWORD`
+  后自动签 `WhaleCompanion.exe`；没有证书时仍产出未签名包
+- 补充命令执行、心跳间隔、崩溃重启策略与正式 Release 检查的测试
+
+### 文档
+
+- 三张控制台截图更新到 v0.2.0 界面
+- README / AGENTS / 已知限制同步 pre-release、签名和内容层现状
+- 删除已完成的开发计划与实施状态文档，文档只保留当前状态
+
+
 ## [0.2.0] - 2026-10-26
 
 可配置化、自检与稳定性版本。

@@ -60,7 +60,7 @@ apps/desktop/
 
 scripts/release.mjs      pnpm release：bump + tag + push
 .github/workflows/        CI（typecheck/test/build）/ Windows 构建 / GitHub Release
-docs/                    方案、截图、架构图、社交预览图（说明见 docs/README.md）
+docs/                    截图、架构图、社交预览图（说明见 docs/README.md）
 ```
 
 **分层铁律**
@@ -180,7 +180,7 @@ QQ 事件 → cleanQQContent 清洗 <faceType>/<@...> → 串行下载图片（�
 
 ## 12. 已知限制与候选升级
 
-- 桌面版只有便携 zip，没有安装包；exe 未签名，可能触发 SmartScreen。
+- 桌面版只有便携 zip，没有安装包；默认未签名，配置 CI 签名证书后才会 Authenticode 签名。
 - 第二个实例只提示并退出，不会把已有窗口调到前台。
 - 单测覆盖纯函数、聚合器、原子写与历史迁移；真实存储读写、WS 链路、Neutralino 托盘没有自动化测试。
 - 挑图依赖标签质量；同义不同词（"高兴" vs "开心"）靠二元组会漏，可换向量模型。
@@ -238,6 +238,10 @@ QQ 事件 → cleanQQContent 清洗 <faceType>/<@...> → 串行下载图片（�
   结果写 `updates/update-result.json`，下次启动由 `consumeUpdateResult` 消费；
   脚本要带 UTF-8 BOM，Windows PowerShell 5.1 才会按中文路径正确解析。
   覆盖前会把 exe/resources.neu/server 备份到 `updates/backup-*`，失败自动还原。
+- **代码签名（可选）**：CI 读取仓库 secrets `WINDOWS_SIGN_PFX_BASE64`（PFX 的 base64）
+  和 `WINDOWS_SIGN_PFX_PASSWORD`；有证书时 `pack.mjs` 调 `scripts/sign-windows.ps1`
+  用 signtool + DigiCert 时间戳签 `WhaleCompanion.exe`，没有证书就产出未签名包。
+  不要把 PFX/密码提交进仓库；**签名失败应让构建失败**，不要静默产出未签名包。
 - **校验文件**：CI 生成 `SHA256SUMS.txt` 并随 Release 上传；更新时如果存在就校验，
   旧版本没有这个文件则跳过。发布工作流别漏传它。
 - **路径**：配置 `config.json`、Bot 启动配置 `bot.json`、数据 `data/`、日志 `logs/`、锁 `app.lock`、
@@ -246,7 +250,7 @@ QQ 事件 → cleanQQContent 清洗 <faceType>/<@...> → 串行下载图片（�
   用 rcedit 写图标/版本，最后 `Compress-Archive` 成 `apps/desktop/dist/whale-companion-*-win-x64.zip`。
   `neu build` 的输出在 `dist/<binaryName>/`，里面才是 exe + `resources.neu`。
 - **CI**：`.github/workflows/desktop.yml` 在 Windows runner 上跑 typecheck、测试、打包并上传 artifact；
-  推 `v*` tag 时额外创建 GitHub Release 并附上 zip 与 `SHA256SUMS.txt`。
+  推 `v*` tag 时额外创建 **pre-release**，附上 zip 与 `SHA256SUMS.txt`。
 - **测试**：`pnpm --filter @apps/desktop test`；托盘/窗口/单实例仍需手动冒烟（用 UIA 或肉眼）。
 
 ## 15. 发版
@@ -263,8 +267,12 @@ QQ 事件 → cleanQQContent 清洗 <faceType>/<@...> → 串行下载图片（�
   `chore: release vX.Y.Z`、打 annotated tag、推 `main` 和 tag。
 - 推送失败时本地 commit/tag 会保留，按提示手动 `git push origin main && git push origin vX.Y.Z` 即可。
 - tag 触发 CI：构建 zip → 生成 `SHA256SUMS.txt` → 上传 artifact →
-  `gh release create`（已存在则 `upload --clobber`）。
+  `gh release create ... --prerelease`（已存在则 `upload --clobber`）。
   所以 workflow 需要 `permissions: contents: write`。
+- **默认发布 pre-release**：CI 新建的 Release 是 pre-release；你确认运行稳定后，
+  在 GitHub Release 页面手动改成正式 Release。
+- **客户端只检查正式 Release**：`RELEASES_API` 用 `/releases/latest`，GitHub 不会返回
+  pre-release；所以 pre-release 不会推给普通用户，手动改成正式后才会被检查到。
 - 自动更新依赖 Release 里的 zip；有 `SHA256SUMS.txt` 时会一并校验。发版后可以在「关于」页手动检查一次。
 - 不要在 CI 里跑 release 脚本；它只给本地维护者用。
 - `CHANGELOG.md` 目前手工维护：发版前补一条并先提交（release 脚本要求工作区干净）。

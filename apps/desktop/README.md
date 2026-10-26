@@ -37,6 +37,12 @@ pnpm desktop:pack
 apps/desktop/dist/whale-companion-<version>-win-x64.zip
 ```
 
+代码签名是可选的：打包前设置 `WHALE_SIGN_PFX`（PFX 路径）和
+`WHALE_SIGN_PFX_PASSWORD`，`pack.mjs` 会调用 `scripts/sign-windows.ps1`，
+用 signtool + DigiCert 时间戳签 `WhaleCompanion.exe`；没设置就产出未签名包。
+CI 用仓库 secrets `WINDOWS_SIGN_PFX_BASE64` / `WINDOWS_SIGN_PFX_PASSWORD` 注入。
+签名失败会让打包失败，不会静默降级。
+
 zip 内是完整的便携目录：
 
 ```

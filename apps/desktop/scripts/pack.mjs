@@ -143,6 +143,42 @@ if (existsSync(rcedit)) {
   console.warn(`没有找到 rcedit：${rcedit}`);
 }
 
+// 可选 Authenticode 签名：配置了证书就签，没配置就产出未签名包
+const signPfx = process.env.WHALE_SIGN_PFX;
+if (signPfx) {
+  console.log("4.5/5 签名 WhaleCompanion.exe…");
+  const signScript = join(appRoot, "scripts", "sign-windows.ps1");
+  if (!existsSync(signScript)) {
+    console.error(`找不到签名脚本：${signScript}`);
+    process.exit(1);
+  }
+
+  const sign = spawnSync(
+    "powershell.exe",
+    [
+      "-NoProfile",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      signScript,
+      "-FilePath",
+      join(staging, "WhaleCompanion.exe"),
+      "-PfxPath",
+      signPfx,
+    ],
+    { stdio: "inherit", env: process.env },
+  );
+
+  if (sign.status !== 0) {
+    console.error("代码签名失败，停止打包");
+    process.exit(sign.status ?? 1);
+  }
+} else {
+  console.warn(
+    "未配置 WHALE_SIGN_PFX，生成未签名便携包（CI 里用 WINDOWS_SIGN_PFX_BASE64 配置）",
+  );
+}
+
 console.log("5/5 压缩便携包…");
 const zip = join(
   dist,

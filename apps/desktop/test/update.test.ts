@@ -16,6 +16,7 @@ const {
   parseRelease,
   parseUpdateResult,
   progressPercent,
+  RELEASES_API,
   validateDownloadUrl,
 } = await import("../src/lib/update");
 
@@ -23,6 +24,10 @@ const hash = "a".repeat(64);
 const zipName = "whale-companion-0.2.0-win-x64.zip";
 const zipUrl =
   "https://github.com/Talyra42/whale-companion/releases/download/v0.2.0/whale-companion-0.2.0-win-x64.zip";
+
+test("更新检查只查正式 Release", () => {
+  assert.ok(RELEASES_API.endsWith("/releases/latest"));
+});
 
 test("版本号比较：数字段、v 前缀、预发布", () => {
   assert.equal(compareVersions("0.1.1", "0.1.2"), -1);

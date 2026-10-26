@@ -88,7 +88,7 @@
   - 历史窗口、压缩阈值、聚合节奏、表情包概率/阈值、主动消息免打扰等
   - 连接自检：检查 QQ token、模型接口、数据目录、人设和图库
   - 数据备份：导出/导入对话、记忆、表情包与自定义人设；图库可删除、重新打标
-- **检查更新**：从 GitHub Releases 检查新版本，在「关于」页下载并安装，自动重启
+- **检查更新**：从 GitHub 正式 Release 检查新版本（pre-release 不会推送），在「关于」页下载并安装，自动重启
 - 托盘菜单：显示主界面、暂停 / 启动、重启、打开日志 / 数据目录、退出
 - 单实例锁，不会两个进程抢同一条 QQ 连接
 - 关窗默认最小化到托盘；也可设为直接退出
@@ -137,7 +137,7 @@
 | 桌面控制台 | **Neutralino 6 · React 19 · Vite** | 用系统 WebView2，仅 Windows；不打包 Chromium |
 | 打包 | `neu build` + 内置 `node.exe` | 便携 zip，用户不用装 Node |
 | 测试 | `node:test` + `tsx` | 纯函数、聚合器、原子写、主题与更新脚本都有单测 |
-| CI | **GitHub Actions** | Windows runner 构建；推 `v*` tag 生成 `SHA256SUMS.txt` 并创建 Release |
+| CI | **GitHub Actions** | Windows runner 构建；推 `v*` tag 生成 `SHA256SUMS.txt` 并创建 **pre-release** |
 
 几个刻意的取舍：
 
@@ -242,7 +242,7 @@ pnpm desktop:dev      # 启动桌面控制台（开发态）
 pnpm desktop:pack     # 打 Windows 便携 zip
 pnpm typecheck        # 两个包都查
 pnpm test             # 两个包的单测
-pnpm release patch    # 发版：bump + tag + push（触发 CI）
+pnpm release patch    # 发版：bump + tag + push（CI 默认发 pre-release）
 ```
 
 打包产物：`apps/desktop/dist/whale-companion-<version>-win-x64.zip`。
@@ -259,7 +259,7 @@ pnpm release patch    # 发版：bump + tag + push（触发 CI）
 | 检查更新失败 | GitHub 是否可达；自动更新需要能访问 `api.github.com` 和 `github.com` |
 | 更新安装失败 | 看 `%APPDATA%\whale-companion\updates\update.log`；程序目录要可写，Bot 要先停掉 |
 | 深色模式没生效 | 设置页「外观」是否选了深色；选「跟随系统」时由 Windows 主题决定 |
-| exe 被 SmartScreen 拦 | 未签名，点「更多信息 → 仍要运行」；介意的话自己 `pnpm desktop:pack` 重新构建 |
+| exe 被 SmartScreen 拦 | 默认未签名，点「更多信息 → 仍要运行」；配置签名证书后 CI 会自动签 |
 | 桌面端 Bot 起不来 | `%APPDATA%\whale-companion\logs`、`bot.json`；开发态先 `pnpm build` |
 
 更细的排障索引在 [`AGENTS.md`](AGENTS.md) 第 16 节。
@@ -268,7 +268,9 @@ pnpm release patch    # 发版：bump + tag + push（触发 CI）
 
 - 只有 QQ 私聊，没有群聊，也没有 Web 调试台
 - 主动消息不保证送达（平台限制）
-- 桌面版只有便携 zip，没有安装包；exe 未签名，更新后仍可能触发 SmartScreen
+- 桌面版只有便携 zip，没有安装包；默认未签名，配置 CI 证书后才会 Authenticode 签名
+- 自动更新只查正式 Release，不检查 pre-release；新版本先由 CI 发成 pre-release，
+  你手动测试后把它改成正式 Release，客户端才会看到
 - 自动更新依赖 GitHub 可达，且便携目录可写；没有增量更新，每次下载完整 zip
 - 第二个实例只提示并退出，不会把已有窗口调到前台
 - 挑图依赖标签质量，同义不同词（「高兴」vs「开心」）可能漏
