@@ -3,6 +3,7 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  rmSync,
   statSync,
 } from "node:fs";
 import { join } from "node:path";
@@ -249,9 +250,30 @@ export const renderPersonaText = (text: string): string => {
 export const getPersonaText = (): string =>
   renderPersonaText(getActivePersonaCard().text);
 
+/**
+ * 已下线的内置卡：老版本更新器只覆盖不删除，会在安装目录留下这些文件。
+ * 启动时清一次，避免它们继续出现在人格列表里。
+ */
+const RETIRED_BUILTIN_PERSONAS = ["tsundere-assistant"];
+
+const removeRetiredBuiltinPersonas = (): void => {
+  for (const id of RETIRED_BUILTIN_PERSONAS) {
+    const file = join(config.paths.personaDir, `${id}.md`);
+    if (!existsSync(file)) continue;
+
+    try {
+      rmSync(file, { force: true });
+      slog(`已清理下线的内置人格卡：${id}`);
+    } catch (error) {
+      slog(`清理下线人格卡失败：${id}`, error);
+    }
+  }
+};
+
 /** 创建用户人格目录，并补齐 active.json；幂等 */
 export const ensurePersonaLayout = (): void => {
   try {
+    removeRetiredBuiltinPersonas();
     mkdirSync(config.paths.userPersonaDir, { recursive: true });
 
     if (!existsSync(config.paths.activePersonaFile)) {
