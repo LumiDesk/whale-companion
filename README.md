@@ -209,9 +209,10 @@ apps/
     src/channels/qq/     token / send / media / text / aggregator / handler / gateway
     src/index.ts         组合根：启动 QQ + 主动消息 + 补齐标签
   desktop/               Windows 控制台（Neutralino + React）
-    src/lib/             配置、路径、锁、日志、进程命令（纯函数 + 单测）
+    src/pages/           状态 / 设置 / 日志 / 关于（settings/ 是设置页子组件）
+    src/components/      侧边栏、消息条、错误边界、通用控件（ui/）
     src/hooks/           托盘、子进程、单实例、状态与日志编排
-    src/components/      状态 / 设置 / 日志 / 关于
+    src/lib/             配置、路径、锁、日志、进程命令（纯函数 + 单测）
 docs/
   screenshots/          README 截图
   assets/               图标 · 架构图 · 社交预览图

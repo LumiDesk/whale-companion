@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { IController } from "../hooks/useController";
 import { formatClock } from "../lib/logs";
-import { IconFolder, IconTrash } from "./Icons";
-import Switch from "./Switch";
+import { IconFolder, IconTrash } from "../components/ui/Icons";
+import Switch from "../components/ui/Switch";
 
 type SourceFilter = "all" | "bot" | "gui" | "error";
 

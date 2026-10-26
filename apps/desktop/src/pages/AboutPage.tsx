@@ -3,8 +3,8 @@ import { formatDateTime } from "../lib/format";
 import { formatBytes } from "../lib/update";
 import type { IUpdateState } from "../lib/update";
 import { APP_VERSION } from "../lib/version";
-import { IconFolder } from "./Icons";
-import Switch from "./Switch";
+import { IconFolder } from "../components/ui/Icons";
+import Switch from "../components/ui/Switch";
 
 interface IProps {
   controller: IController;

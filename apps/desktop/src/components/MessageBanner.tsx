@@ -1,5 +1,5 @@
 import type { IController } from "../hooks/useController";
-import { IconAlert, IconCheck, IconClose, IconInfo } from "./Icons";
+import { IconAlert, IconCheck, IconClose, IconInfo } from "./ui/Icons";
 
 interface IProps {
   controller: IController;

@@ -1,10 +1,10 @@
-import AboutPage from "./components/AboutPage";
-import LogsPage from "./components/LogsPage";
 import MessageBanner from "./components/MessageBanner";
-import SettingsPage from "./components/SettingsPage";
 import Sidebar from "./components/Sidebar";
-import StatusPage from "./components/StatusPage";
 import { useController } from "./hooks/useController";
+import AboutPage from "./pages/AboutPage";
+import LogsPage from "./pages/LogsPage";
+import SettingsPage from "./pages/SettingsPage";
+import StatusPage from "./pages/StatusPage";
 
 const App = () => {
   const controller = useController();

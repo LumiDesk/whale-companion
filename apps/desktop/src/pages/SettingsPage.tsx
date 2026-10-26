@@ -16,8 +16,8 @@ import type {
   IStickerInfo,
   ThemeMode,
 } from "../lib/types";
-import { IconFolder } from "./Icons";
-import Switch from "./Switch";
+import { IconFolder } from "../components/ui/Icons";
+import Switch from "../components/ui/Switch";
 import Field from "./settings/Field";
 import ModelPicker from "./settings/ModelPicker";
 import PersonaEditor from "./settings/PersonaEditor";

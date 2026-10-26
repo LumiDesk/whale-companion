@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 
 import type { ISettingOption, ISettingSpec } from "../../lib/settings";
-import { IconEye, IconEyeOff } from "../Icons";
-import Switch from "../Switch";
+import { IconEye, IconEyeOff } from "../../components/ui/Icons";
+import Switch from "../../components/ui/Switch";
 
 interface IProps {
   spec: ISettingSpec;

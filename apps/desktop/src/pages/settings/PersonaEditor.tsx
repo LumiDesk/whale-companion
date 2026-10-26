@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import type { IController } from "../../hooks/useController";
-import { IconFolder, IconRestart } from "../Icons";
+import { IconFolder, IconRestart } from "../../components/ui/Icons";
 
 interface IProps {
   controller: IController;

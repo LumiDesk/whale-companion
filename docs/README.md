@@ -18,7 +18,7 @@ assets/
 
 截图用的是**真实组件 + 演示数据**，不是手绘的效果图：
 
-- 页面：`apps/desktop/src/components/` 里的 StatusPage / SettingsPage / LogsPage
+- 页面：`apps/desktop/src/pages/` 里的 StatusPage / SettingsPage / LogsPage
 - 视口：1080×760（和桌面端默认窗口同量级），DPR 2 → 2160×1520 的 PNG
 - 浏览器：Edge headless（`--headless=new --screenshot --force-device-scale-factor=2`）
 - 动画：加 `--virtual-time-budget=2000`，等 `page-in` 动画结束再截，否则整页会半透明

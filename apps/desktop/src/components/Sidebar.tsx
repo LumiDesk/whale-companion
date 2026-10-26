@@ -7,7 +7,7 @@ import {
   IconLogs,
   IconSettings,
   IconStatus,
-} from "./Icons";
+} from "./ui/Icons";
 
 interface IProps {
   page: PageId;

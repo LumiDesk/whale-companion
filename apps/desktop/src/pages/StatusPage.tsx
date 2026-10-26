@@ -5,7 +5,7 @@ import { validateConfig } from "../lib/config";
 import { formatDateTime, formatDuration } from "../lib/format";
 import type { BotState, QQState } from "../lib/types";
 import { APP_VERSION } from "../lib/version";
-import { IconFolder, IconPause, IconPlay, IconRestart } from "./Icons";
+import { IconFolder, IconPause, IconPlay, IconRestart } from "../components/ui/Icons";
 
 const botLabel = (state: BotState): string => {
   if (state === "running") return "运行中";

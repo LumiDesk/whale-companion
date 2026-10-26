@@ -4,7 +4,15 @@
 
 ## [Unreleased]
 
-（暂无）
+### 重构
+
+- 桌面端页面移入 `src/pages/`，基础控件（Icons / Switch）移入 `src/components/ui/`，
+  与 DESIGN.md 和 AGENTS.md 的目录约定一致
+
+### 文档
+
+- AGENTS.md 按统一模板重写：项目结构、架构规则、编码规范、Never 规则、commit 与发版流程
+- 明确「发版只能由用户执行」，代理只负责代码、结构与提交
 
 ## [0.2.4] - 2026-10-26
 
