@@ -23,10 +23,10 @@ test("人格 ID 校验拒绝路径与保留名", () => {
 });
 
 test("重名时追加序号，中文保留", () => {
-  assert.equal(uniquePersonaId("傲娇助手", new Set()), "傲娇助手");
+  assert.equal(uniquePersonaId("猫娘小咪", new Set()), "猫娘小咪");
   assert.equal(
-    uniquePersonaId("傲娇助手", new Set(["傲娇助手"])),
-    "傲娇助手-2",
+    uniquePersonaId("猫娘小咪", new Set(["猫娘小咪"])),
+    "猫娘小咪-2",
   );
   assert.equal(uniquePersonaId("  ", new Set()), "custom");
 });

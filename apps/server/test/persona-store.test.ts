@@ -33,13 +33,14 @@ const {
 test("内置人格卡可读，默认是 deepseek-whale", () => {
   const cards = listPersonaSummaries();
   assert.ok(cards.some((card) => card.id === DEFAULT_PERSONA_ID));
-  assert.ok(cards.some((card) => card.id === "tsundere-assistant"));
+  assert.ok(cards.some((card) => card.id === "catgirl"));
+  assert.ok(!cards.some((card) => card.id === "tsundere-assistant"));
   assert.equal(getActivePersonaId(), DEFAULT_PERSONA_ID);
 
   const card = getActivePersonaCard();
   assert.equal(card.id, DEFAULT_PERSONA_ID);
+  assert.equal(card.name, "DeepSeek 小鲸鱼");
   assert.ok(card.text.includes("DeepSeek 小鲸鱼"));
-  assert.ok(card.name.includes("DeepSeek 小鲸鱼"));
 });
 
 test("人格 ID 会拒绝路径穿越与 Windows 保留名", () => {
