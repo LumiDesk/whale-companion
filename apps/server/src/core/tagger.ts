@@ -1,4 +1,5 @@
 import { askModel } from "./llm.js";
+import { config } from "../config.js";
 import {
   listUntaggedStickers,
   readSticker,
@@ -43,17 +44,41 @@ export const tagImage = async (
 
 /* ---------------- 后台打标队列：不挡回复 ---------------- */
 
-const MAX_CONCURRENT = 2;
-const jobs: Array<() => Promise<void>> = [];
+/** 队列上限：图库很大时不把内存/任务堆爆 */
+const MAX_QUEUE = 200;
+
+interface IJob {
+  sticker: ISticker;
+  /** 延迟到 job 真正执行时再读文件，避免启动时把全部图片读进内存 */
+  load: () => Uint8Array;
+}
+
+const jobs: IJob[] = [];
 let active = 0;
 
+/** 并发可配，但限制在 1–4，避免把模型接口打满 */
+const concurrency = (): number =>
+  Math.max(1, Math.min(4, Math.floor(config.sticker.tagConcurrency)));
+
 const pump = (): void => {
-  while (active < MAX_CONCURRENT && jobs.length > 0) {
+  while (active < concurrency() && jobs.length > 0) {
     const job = jobs.shift();
     if (!job) return;
 
     active += 1;
-    void job()
+    void (async () => {
+      const data = job.load();
+      if (data.byteLength > config.media.maxBytes) {
+        slog("表情包过大，跳过打标", job.sticker.file);
+        return;
+      }
+
+      const tags = await tagImage(data, job.sticker.mime);
+      if (tags.length === 0) return;
+
+      updateStickerTags(job.sticker.id, tags);
+      slog("表情包已打标", `${job.sticker.id.slice(0, 8)} ${tags.join("/")}`);
+    })()
       .catch((e) => slog("表情包打标签失败", e))
       .finally(() => {
         active -= 1;
@@ -62,34 +87,35 @@ const pump = (): void => {
   }
 };
 
-/** 把一张新入库的图丢进后台队列打标签，立刻返回 */
+/**
+ * 把一张新入库的图丢进后台队列打标签，立刻返回。
+ * load 延迟读文件；调用方可以传闭包，也可以是新收到的字节。
+ */
 export const queueStickerTagging = (
   sticker: ISticker,
-  data: Uint8Array,
+  load: () => Uint8Array,
 ): void => {
-  jobs.push(async () => {
-    const tags = await tagImage(data, sticker.mime);
-    if (tags.length === 0) return;
+  if (!config.sticker.enabled || !config.llm.vision) return;
 
-    updateStickerTags(sticker.id, tags);
-    slog("表情包已打标", `${sticker.id.slice(0, 8)} ${tags.join("/")}`);
-  });
+  if (jobs.length >= MAX_QUEUE) {
+    slog(`打标队列已满（${MAX_QUEUE}），跳过一张`, sticker.id.slice(0, 8));
+    return;
+  }
 
+  jobs.push({ sticker, load });
   pump();
 };
 
 /** 启动时给历史遗留的"无标签图"补标（例如上次打标时进程退出了） */
 export const retagUntaggedStickers = (): void => {
+  if (!config.sticker.enabled || !config.llm.vision) return;
+
   const untagged = listUntaggedStickers();
   if (untagged.length === 0) return;
 
   slog(`发现 ${untagged.length} 张没有标签的表情包，后台补标`);
 
   for (const sticker of untagged) {
-    try {
-      queueStickerTagging(sticker, new Uint8Array(readSticker(sticker)));
-    } catch (e) {
-      slog("补标失败：读不到图片", sticker.file, e);
-    }
+    queueStickerTagging(sticker, () => new Uint8Array(readSticker(sticker)));
   }
 };

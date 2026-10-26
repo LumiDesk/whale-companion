@@ -8,9 +8,10 @@ import {
 import { loadMemory, saveMemory } from "../store/memory.js";
 import { slog } from "../util.js";
 
-const SYSTEM =
-  "你在为一只叫「小鲸鱼」的聊天机器人整理长期记忆。把给定的对话压缩成不超过 200 字的中文摘要，" +
-  "只保留：主人的身份与称呼、偏好与习惯、正在做的事、明确的约定。不要编造，不要客套，不要分点。";
+const systemFor = (owner: string): string =>
+  `你在为一只叫「小鲸鱼」的聊天机器人整理长期记忆。把给定的对话压缩成不超过 200 字的中文摘要，` +
+  `只保留：${owner}的身份与称呼、偏好与习惯、正在做的事、明确的约定。` +
+  "不要编造，不要客套，不要分点。";
 
 /** 一次摘要最多喂给模型多少字符，避免历史很长时把上下文撑爆 */
 const MAX_TRANSCRIPT_CHARS = 24_000;
@@ -50,10 +51,11 @@ export const summarizeIfNeeded = async (
   inFlight.add(userId);
 
   try {
+    const owner = config.persona.ownerName;
     const mem = loadMemory(userId);
     let transcript = old
       .map(
-        (m) => `${m.role === "user" ? "主人" : "小鲸鱼"}：${asText(m.content)}`,
+        (m) => `${m.role === "user" ? owner : "小鲸鱼"}：${asText(m.content)}`,
       )
       .join("\n");
 
@@ -65,7 +67,7 @@ export const summarizeIfNeeded = async (
     }
 
     const summary = await ask([
-      { role: "system", content: SYSTEM },
+      { role: "system", content: systemFor(owner) },
       {
         role: "user",
         content: `已有摘要：\n${mem.summary || "（无）"}\n\n新增对话：\n${transcript}`,

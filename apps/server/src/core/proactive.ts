@@ -3,7 +3,11 @@ import { askModel } from "./llm.js";
 import { buildSystem } from "./prompt.js";
 import { parseReply } from "./reply.js";
 import { loadHistory, saveHistory } from "../store/history.js";
-import { listUsers, markProactive } from "../store/users.js";
+import {
+  listUsers,
+  markProactive,
+  proactiveCountFor,
+} from "../store/users.js";
 import { slog } from "../util.js";
 
 /** 由组合根注入真正的发送方式，core 不直接碰 QQ */
@@ -16,19 +20,14 @@ const inQuietHours = (hour: number): boolean => {
     : hour >= quietStart && hour < quietEnd;
 };
 
-const startOfToday = (): number => {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
-};
-
 let running = false;
 
 const tick = async (send: ProactiveSender): Promise<void> => {
   if (running) return;
 
   const now = Date.now();
-  if (inQuietHours(new Date().getHours())) return;
+  const today = new Date();
+  if (inQuietHours(today.getHours())) return;
 
   const candidates = listUsers()
     .filter(
@@ -36,7 +35,7 @@ const tick = async (send: ProactiveSender): Promise<void> => {
         u.channel === "qq" &&
         now - u.lastSeen > config.proactive.minIdleMs &&
         now - u.lastSeen < config.proactive.maxIdleDays * 86_400_000 &&
-        (!u.lastProactiveAt || u.lastProactiveAt < startOfToday()),
+        proactiveCountFor(u, today) < config.proactive.maxPerDay,
     )
     .sort((a, b) => b.lastSeen - a.lastSeen);
 
@@ -54,7 +53,7 @@ const tick = async (send: ProactiveSender): Promise<void> => {
       {
         role: "user",
         content:
-          `现在是 ${new Date().toLocaleString("zh-CN")}。主人已经 ${hours} 小时没说话了。` +
+          `现在是 ${new Date().toLocaleString("zh-CN")}。${config.persona.ownerName}已经 ${hours} 小时没说话了。` +
           "用一句你自己的话主动打个招呼，可以分享你刚想到的小事。" +
           "不要说“系统”“推送”“有什么可以帮你”这类词，一句话就够。",
       },
@@ -74,7 +73,7 @@ const tick = async (send: ProactiveSender): Promise<void> => {
       { role: "assistant", content: text },
     ]);
 
-    markProactive(user.userId, "qq");
+    markProactive(user.userId, "qq", today);
     slog("主动打招呼成功");
   } catch (e) {
     slog("主动消息失败（平台可能不允许主动推送）", e);

@@ -63,7 +63,7 @@ export const commands: ICommandSpec[] = [
       return "__NEW__"; // 由调用方带上 userId 处理
     },
   },
-  { name: "memory", desc: "看看她记得什么", run: (id) => renderMemory(loadMemory(id)) || "我现在脑子里空空的，还没记住什么呢。" },
+  { name: "memory", desc: "看看她记得什么", run: (id) => renderMemory(loadMemory(id), config.persona.ownerName) || "我现在脑子里空空的，还没记住什么呢。" },
   { name: "remember", desc: "让她记住一件事", run: (id, args) => rememberFact(id, args) },
   { name: "status", desc: "运行状态", run: (id) => statusText(id) },
   { name: "forget", desc: "连记忆一起清空", run: () => "__FORGET__" },

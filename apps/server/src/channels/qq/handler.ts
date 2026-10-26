@@ -25,7 +25,14 @@ const markSticker = (userId: string) => {
 /** QQ 通道的批次处理：一批消息 → 一次（通常一条）回复 */
 export const createQQHandler = (getToken: () => Promise<string>) => {
   return async (batch: IBatch): Promise<void> => {
-    const token = await getToken();
+    let token: string;
+    try {
+      token = await getToken();
+    } catch (e) {
+      slog("获取 QQ token 失败，本轮跳过", e);
+      return;
+    }
+
     const text = batch.texts.join("\n").trim();
 
     touchUser(batch.userId, "qq");
@@ -44,27 +51,43 @@ export const createQQHandler = (getToken: () => Promise<string>) => {
     // 0) 斜杠命令
     const cmd = parseCommand(text);
     if (cmd) {
-      const out = await runCommand(cmd.name, cmd.args, batch.userId);
-      await sendC2C(batch.userId, batch.msgId, token, out, 1);
+      try {
+        const out = await runCommand(cmd.name, cmd.args, batch.userId);
+        await sendC2C(batch.userId, batch.msgId, token, out, 1);
+      } catch (e) {
+        slog("命令执行失败", e);
+        await sendC2C(
+          batch.userId,
+          batch.msgId,
+          token,
+          "这条命令没跑通…等下再试试 🐋",
+          1,
+        ).catch(() => {});
+      }
       return;
     }
 
     // 1) 收货：先入库，打标签丢后台，不挡这一轮回复
-    for (const img of batch.images) {
-      try {
-        const bytes = new Uint8Array(img.data);
-        const sticker = ingestSticker(bytes, img.mime, []);
-        queueStickerTagging(sticker, bytes);
-      } catch (e) {
-        slog("表情包入库失败", e);
+    if (config.sticker.enabled && config.sticker.autoIngest) {
+      for (const img of batch.images) {
+        try {
+          const bytes = new Uint8Array(img.data);
+          const sticker = ingestSticker(bytes, img.mime, []);
+          queueStickerTagging(sticker, () => bytes);
+        } catch (e) {
+          slog("表情包入库失败", e);
+        }
       }
     }
 
-    // 2) 「发个表情包」：用户明确要 → 语义命中优先，没命中就随机给一张
-    const request = detectStickerRequest(text);
+    // 2) 「发个表情包」：用户明确要 → 语义命中优先，没命中才按配置随机
+    const request = config.sticker.enabled
+      ? detectStickerRequest(text)
+      : { requested: false, keyword: "" };
     if (request.requested) {
       const pick = pickStickerSmart(listStickers(), request.keyword, {
-        allowRandom: true,
+        allowRandom: config.sticker.allowRandomOnRequest,
+        minScore: config.sticker.minScore,
       });
 
       try {
@@ -101,15 +124,19 @@ export const createQQHandler = (getToken: () => Promise<string>) => {
       const { text: clean, sticker: requested } = parseReply(raw);
       const chunks = splitReply(clean, config.reply.maxChars);
 
-      const wantSticker =
-        requested ??
-        (Math.random() < config.sticker.spontaneousChance ? clean : undefined);
+      const wantSticker = config.sticker.enabled
+        ? (requested ??
+          (Math.random() < config.sticker.spontaneousChance
+            ? clean
+            : undefined))
+        : undefined;
 
       // 模型主动要图 / 自发跟图：只发语义命中的，冷期内一律不发
       const pick =
         wantSticker && !stickerCooling(batch.userId)
           ? pickStickerSmart(listStickers(), wantSticker, {
               allowRandom: false,
+              minScore: config.sticker.minScore,
             })
           : undefined;
 

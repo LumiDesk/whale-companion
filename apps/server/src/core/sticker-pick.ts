@@ -13,6 +13,8 @@ export interface IPickResult {
 export interface IPickOptions {
   /** 没命中时要不要随机兜底（模型主动要图时不应该开） */
   allowRandom?: boolean;
+  /** 覆盖默认相似度阈值；来自设置 */
+  minScore?: number;
 }
 
 /**
@@ -27,10 +29,15 @@ export const pickStickerSmart = (
 ): IPickResult | undefined => {
   if (stickers.length === 0) return undefined;
 
+  const threshold = Math.min(
+    1,
+    Math.max(0, options.minScore ?? MIN_SCORE),
+  );
+
   const q = query.trim();
   if (q) {
     const [best] = rankStickers(stickers, q);
-    if (best && best.score >= MIN_SCORE) {
+    if (best && best.score >= threshold) {
       return { sticker: best.sticker, matched: true };
     }
   }

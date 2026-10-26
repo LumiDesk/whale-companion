@@ -42,11 +42,16 @@ export const saveMemory = (userId: string, mem: IMemory): void => {
 };
 
 /** 拼进 system 的记忆块；没有就返回空串 */
-export const renderMemory = (mem: IMemory): string => {
+export const renderMemory = (
+  mem: IMemory,
+  ownerName = "主人",
+): string => {
   const parts: string[] = [];
   if (mem.summary.trim()) parts.push(`【你们之前的经历】${mem.summary.trim()}`);
   if (mem.facts.length > 0) {
-    parts.push(`【关于主人】${mem.facts.map((f) => `- ${f}`).join("\n")}`);
+    parts.push(
+      `【关于${ownerName.trim() || "主人"}】${mem.facts.map((f) => `- ${f}`).join("\n")}`,
+    );
   }
   return parts.join("\n");
 };

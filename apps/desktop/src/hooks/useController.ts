@@ -524,17 +524,18 @@ export const useController = (): IController => {
     errBufferRef.current = new LineBuffer();
     orphanEventsRef.current.clear();
 
-    const botConfig = buildBotConfig(configRef.current, {
-      dataDir: currentServer.dataDir,
-      personaFile: currentServer.personaFile,
-      parentPid: getOwnPid(),
-    });
-
     const currentPaths = pathsRef.current;
     if (!currentPaths) {
       addLog("error", "还没有准备好配置目录，无法启动 Bot");
       return false;
     }
+
+    const botConfig = buildBotConfig(configRef.current, {
+      dataDir: currentServer.dataDir,
+      personaFile: joinPath(currentPaths.root, "persona.md"),
+      defaultPersonaFile: currentServer.personaFile,
+      parentPid: getOwnPid(),
+    });
 
     try {
       await writeText(
@@ -1308,12 +1309,17 @@ export const useController = (): IController => {
 
         setBootMessage("读取配置…");
         let loaded: IAppConfig | null = null;
+        let rawConfig = "";
+        let needsMigration = false;
         const configText = await readText(appPaths.configFile);
 
         if (configText) {
+          rawConfig = configText;
           try {
             const json = JSON.parse(configText.replace(/^\uFEFF/, "")) as unknown;
             loaded = normalizeConfig(json);
+            needsMigration =
+              Number((json as { version?: unknown } | null)?.version) !== 2;
           } catch {
             addLog("error", "配置文件不是合法 JSON，已回退到默认值");
           }
@@ -1331,7 +1337,35 @@ export const useController = (): IController => {
             : { ...DEFAULT_CONFIG };
 
           if (envText) addLog("gui", "已从 .env 导入初始配置");
+
+          if (rawConfig) {
+            // 坏 JSON 也别直接覆盖，留一份现场
+            const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+            await writeText(
+              `${appPaths.configFile}.bak-invalid-${stamp}`,
+              rawConfig,
+            ).catch(() => {});
+          }
+
           await writeConfigFile(appPaths.configFile, loaded);
+        } else if (needsMigration) {
+          // v1 → v2：先备份原始 JSON，再写回完整配置
+          const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+          try {
+            await writeText(
+              `${appPaths.configFile}.bak-v1-${stamp}`,
+              rawConfig,
+            );
+          } catch (error) {
+            addLog("error", `备份旧配置失败：${errText(error)}`);
+          }
+
+          try {
+            await writeConfigFile(appPaths.configFile, loaded);
+            addLog("gui", "配置已从 v1 迁移到 v2");
+          } catch (error) {
+            addLog("error", `写回迁移配置失败：${errText(error)}`);
+          }
         }
 
         configRef.current = loaded;

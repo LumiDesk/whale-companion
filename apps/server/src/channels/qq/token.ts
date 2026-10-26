@@ -18,7 +18,7 @@ export const getAccessToken = async (force = false): Promise<string> => {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       appId: config.qq.appId,
-      clientSecret: config.qq.secret,
+      clientSecret: config.qq.appSecret,
     }),
   });
 

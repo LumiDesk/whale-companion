@@ -1,3 +1,17 @@
+import type { ISettings } from "./settings";
+
+export type {
+  IConversationSettings,
+  ILLMSettings,
+  IProactiveSettings,
+  ISettings,
+  IStickerSettings,
+  LogLevel,
+  SettingGroup,
+  SettingKind,
+  ThinkingEffort,
+} from "./settings";
+
 export type PageId = "status" | "settings" | "logs" | "about";
 
 export type CloseAction = "tray" | "exit";
@@ -22,23 +36,24 @@ export type QQState =
   | "error"
   | "stopped";
 
-export interface IAppConfig {
-  version: 1;
-  qq: {
-    appId: string;
-    appSecret: string;
-  };
-  llm: {
-    apiKey: string;
-    model: string;
-    baseUrl: string;
-  };
+export interface IAppConfig extends ISettings {
+  version: 2;
   behavior: {
     closeAction: CloseAction;
     launchAtLogin: boolean;
+    autoStartBot: boolean;
+    autoRestartOnCrash: boolean;
+    checkUpdateOnStartup: boolean;
+    startMinimized: boolean;
   };
   appearance: {
     theme: ThemeMode;
+  };
+  logs: ISettings["logs"] & {
+    /** 桌面端日志文件保留天数 */
+    keepDays: number;
+    /** 桌面端界面最多保留多少行 */
+    maxLines: number;
   };
 }
 
@@ -77,3 +92,5 @@ export interface IServerPaths {
   personaFile: string;
   dataDir: string;
 }
+
+export type { ITrayItem } from "./types-ui";
