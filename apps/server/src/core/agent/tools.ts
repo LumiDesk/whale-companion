@@ -47,7 +47,7 @@ const randomBetween = (min: number, max: number): number =>
   Math.round(min + Math.random() * Math.max(0, max - min));
 
 const CRISIS_RE = /想死|不想活|自残|自杀|活不下去/;
-const ENDED_RE = /别回|不用回|晚安|睡了|先忙|拜拜|下线/;
+const EXPLICIT_STOP_RE = /别回|不用回|不要回|晚安|睡了|拜拜|下线/;
 const MUST_REPLY_RE =
   /[?？]|在吗|理我|说话|回我|帮我看|怎么办|你觉得|你能不能|你是不是/;
 
@@ -268,8 +268,8 @@ const staySilent = async (
   if (CRISIS_RE.test(text)) {
     return error("他听起来很难受，这次不能沉默，认真回一句");
   }
-  if (ENDED_RE.test(text)) {
-    // 对方明确说不用回，允许沉默
+  if (EXPLICIT_STOP_RE.test(text)) {
+    // 明确说不用回，允许沉默
   } else if (MUST_REPLY_RE.test(text)) {
     return error("对方在直接问你，这次不能沉默；回一句或先等");
   }

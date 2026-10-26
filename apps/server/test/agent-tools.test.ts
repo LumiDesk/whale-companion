@@ -201,6 +201,17 @@ test("stay_silent：对方说晚安时允许", async () => {
   assert.deepEqual(fake.silences, ["user_ended"]);
 });
 
+test("stay_silent：说了先忙但仍在求助时不能沉默", async () => {
+  const fake = makeContext({ latestUserText: "先忙，帮我看看这个报错" });
+  const result = await executeTool(
+    call("stay_silent", { reason: "user_ended" }),
+    fake.ctx,
+  );
+
+  assert.equal(result.kind, "error");
+  assert.deepEqual(fake.silences, []);
+});
+
 test("stay_silent：连续沉默达到上限时拒绝", async () => {
   const fake = makeContext({ latestUserText: "嗯", silentStreak: 3 });
   const result = await executeTool(

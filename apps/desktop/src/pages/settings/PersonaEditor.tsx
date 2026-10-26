@@ -273,7 +273,7 @@ const PersonaEditor = ({ controller, style, onStyleChange }: IProps) => {
               ))}
             </div>
             <p className="field-help">
-              影响一次发几条、等多久、多主动；不影响人格内容。
+              影响一次发几条、等多久、多主动；不影响人格内容，改完点页面底部保存。
             </p>
           </div>
 
