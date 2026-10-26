@@ -8,6 +8,7 @@ import {
   listUsers,
   markProactive,
   proactiveCountFor,
+  recordReply,
 } from "../store/users.js";
 import { slog } from "../util.js";
 
@@ -50,7 +51,10 @@ const pickIdleUser = (now: number, today: Date) =>
     )
     .sort((a, b) => b.lastSeen - a.lastSeen)[0];
 
-const runDueWake = async (run: ProactiveRunner, now: number): Promise<boolean> => {
+const runDueWake = async (
+  run: ProactiveRunner,
+  now: number,
+): Promise<boolean> => {
   const user = pickDueWake(now);
   if (!user) return false;
 
@@ -145,8 +149,15 @@ const tick = async (run: ProactiveRunner): Promise<void> => {
   }
 };
 
+/** 测试/手动触发用：跑一次调度检查 */
+export const runProactiveNow = (run: ProactiveRunner): Promise<void> =>
+  tick(run);
+
 /** 旧路径：无 Agent 时的一次性主动消息 */
-const legacyProactive = async (userId: string, hours: number): Promise<boolean> => {
+const legacyProactive = async (
+  userId: string,
+  hours: number,
+): Promise<boolean> => {
   const system = buildSystem(userId);
   const raw = await askModel([
     { role: "system", content: system },
@@ -166,6 +177,7 @@ const legacyProactive = async (userId: string, hours: number): Promise<boolean> 
   const { getAccessToken } = await import("../channels/qq/token.js");
   const token = await getAccessToken();
   await sendC2CProactive(userId, token, text);
+  recordReply(userId);
 
   saveHistory(userId, [
     ...loadHistory(userId),

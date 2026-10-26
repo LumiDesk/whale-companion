@@ -13,7 +13,9 @@ export const formatClock = (at: number, now = Date.now()): string => {
     current.getMonth() === date.getMonth() &&
     current.getDate() === date.getDate();
 
-  return sameDay ? clock : `${pad2(date.getMonth() + 1)}-${pad2(date.getDate())} ${clock}`;
+  return sameDay
+    ? clock
+    : `${pad2(date.getMonth() + 1)}-${pad2(date.getDate())} ${clock}`;
 };
 
 /** 距现在多久：3s / 18m / 2h / 3d；未来时间夹到 0s */

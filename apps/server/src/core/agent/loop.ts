@@ -28,8 +28,7 @@ const historyMessages = (deps: IAgentDeps): IModelMessage[] =>
     if (message.role === "assistant") {
       return {
         role: "assistant",
-        content:
-          typeof message.content === "string" ? message.content : "",
+        content: typeof message.content === "string" ? message.content : "",
       };
     }
 
@@ -65,9 +64,7 @@ const buildBatchUserContent = (batch: IIncomingMessage[]) => {
   return content;
 };
 
-const buildImageOnlyContent = (
-  messages: IIncomingMessage[],
-): IImagePart[] => {
+const buildImageOnlyContent = (messages: IIncomingMessage[]): IImagePart[] => {
   const images = messages.flatMap((message) => message.images);
   const selected = config.llm.vision
     ? selectImagesForModel(
@@ -105,10 +102,7 @@ const transcriptOf = (batch: IIncomingMessage[]): ITurnTranscriptEntry[] => {
     .map((message) => message.text)
     .filter(Boolean)
     .join("\n");
-  const images = batch.reduce(
-    (sum, message) => sum + message.images.length,
-    0,
-  );
+  const images = batch.reduce((sum, message) => sum + message.images.length, 0);
 
   return [
     {
@@ -198,7 +192,8 @@ export const runAgentTurn = async (
         for (const message of waited) {
           transcript.push({
             role: "user",
-            content: message.text || (message.images.length > 0 ? "[图片]" : ""),
+            content:
+              message.text || (message.images.length > 0 ? "[图片]" : ""),
             images: message.images.length,
           });
         }

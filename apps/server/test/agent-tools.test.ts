@@ -13,9 +13,7 @@ process.env.WHALE_DATA_DIR = dataDir;
 
 const { executeTool } = await import("../src/core/agent/tools.js");
 const { DEFAULT_SETTINGS } = await import("../src/settings.js");
-const { ReplySession } = await import(
-  "../src/channels/qq/reply-session.js"
-);
+const { ReplySession } = await import("../src/channels/qq/reply-session.js");
 import type {
   IAgentToolContext,
   IIncomingMessage,

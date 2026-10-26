@@ -67,7 +67,9 @@ const normalizeTopic = (value: unknown): IMemoryTopic | null => {
   return {
     text: text.slice(0, 200),
     lastMentionAt: asTimestamp(raw.lastMentionAt) || Date.now(),
-    ...(pendingQuestion ? { pendingQuestion: pendingQuestion.slice(0, 200) } : {}),
+    ...(pendingQuestion
+      ? { pendingQuestion: pendingQuestion.slice(0, 200) }
+      : {}),
   };
 };
 
@@ -126,14 +128,14 @@ export const pruneMemory = (mem: IMemory, now = Date.now()): boolean => {
   mem.thoughts = mem.thoughts.filter((thought) => thought.expiresAt > now);
 
   return (
-    mem.topics.length !== beforeTopics ||
-    mem.thoughts.length !== beforeThoughts
+    mem.topics.length !== beforeTopics || mem.thoughts.length !== beforeThoughts
   );
 };
 
 export const loadMemory = (userId: string): IMemory => {
   try {
-    if (!existsSync(fileOf(userId))) return { ...EMPTY, topics: [], thoughts: [] };
+    if (!existsSync(fileOf(userId)))
+      return { ...EMPTY, topics: [], thoughts: [] };
 
     const parsed: unknown = JSON.parse(readFileSync(fileOf(userId), "utf8"));
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
@@ -179,20 +181,16 @@ export const renderMemory = (
   if (mem.summary.trim()) parts.push(`【你们之前的经历】${mem.summary.trim()}`);
 
   if (mem.facts.length > 0) {
-    parts.push(
-      `【关于${owner}】${mem.facts.map((f) => `- ${f}`).join("\n")}`,
-    );
+    parts.push(`【关于${owner}】${mem.facts.map((f) => `- ${f}`).join("\n")}`);
   }
 
   if (mem.topics.length > 0) {
-    const lines = mem.topics
-      .slice(-10)
-      .map((topic) => {
-        const pending = topic.pendingQuestion
-          ? `；待追问：${topic.pendingQuestion}`
-          : "";
-        return `- ${topic.text}（${agoText(topic.lastMentionAt, now)}）${pending}`;
-      });
+    const lines = mem.topics.slice(-10).map((topic) => {
+      const pending = topic.pendingQuestion
+        ? `；待追问：${topic.pendingQuestion}`
+        : "";
+      return `- ${topic.text}（${agoText(topic.lastMentionAt, now)}）${pending}`;
+    });
     parts.push(`【进行中的话题】\n${lines.join("\n")}`);
   }
 
@@ -207,7 +205,8 @@ export const renderMemory = (
         return `- ${thought.text}${motivation}`;
       });
 
-    if (lines.length > 0) parts.push(`【你想说但还没说的】\n${lines.join("\n")}`);
+    if (lines.length > 0)
+      parts.push(`【你想说但还没说的】\n${lines.join("\n")}`);
   }
 
   return parts.join("\n");

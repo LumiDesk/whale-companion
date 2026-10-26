@@ -1,10 +1,6 @@
 import { config } from "../config.js";
 import { askModel } from "./llm.js";
-import {
-  historyEpoch,
-  loadHistory,
-  saveHistory,
-} from "../store/history.js";
+import { historyEpoch, loadHistory, saveHistory } from "../store/history.js";
 import { loadMemory, saveMemory } from "../store/memory.js";
 import { slog } from "../util.js";
 

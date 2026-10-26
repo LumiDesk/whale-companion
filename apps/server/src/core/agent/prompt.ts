@@ -49,7 +49,8 @@ const recentTurns = (deps: IAgentDeps): string => {
 };
 
 const stickerLine = (): string => {
-  if (!config.sticker.enabled) return "【图库】表情包功能已关闭，不要调用 send_sticker。";
+  if (!config.sticker.enabled)
+    return "【图库】表情包功能已关闭，不要调用 send_sticker。";
 
   const stickers = listStickers();
   if (stickers.length === 0) return "【图库】还是空的，不要调用 send_sticker。";
@@ -95,7 +96,11 @@ export const buildAgentState = (
 ): string => {
   const now = deps.now();
   const latest = batch[batch.length - 1];
-  const memory = renderMemory(loadMemory(userId), config.persona.ownerName, now);
+  const memory = renderMemory(
+    loadMemory(userId),
+    config.persona.ownerName,
+    now,
+  );
   const age = latest ? now - latest.at : 0;
 
   const clock = `【此刻】${new Date(now).toLocaleString("zh-CN")}，${timeOfDay(new Date(now))}。${toneHint(new Date(now))}。今天的心情：${dailyMood(userId, new Date(now))}。`;
@@ -107,7 +112,8 @@ export const buildAgentState = (
       ? "（这条已经过了一段时间，别用秒回语气。）"
       : "";
   const budgetLine = `【本轮】已发 ${budget.sent} 条，还能发 ${Math.max(0, budget.maxMessages - budget.sent)} 条；等待${budget.waitUsed ? "已用过" : "未使用"}。`;
-  const proactive = mode === "proactive" ? proactiveLine(deps, now, latest) : "";
+  const proactive =
+    mode === "proactive" ? proactiveLine(deps, now, latest) : "";
 
   return [
     clock,
@@ -141,19 +147,17 @@ export const buildAgentSystem = (
 
 /** 无工具回退：人格 + 旧行为 + 记忆/此刻，直接输出文本 */
 export const buildLegacySystem = (userId: string, now = Date.now()): string => {
-  const memory = renderMemory(loadMemory(userId), config.persona.ownerName, now);
+  const memory = renderMemory(
+    loadMemory(userId),
+    config.persona.ownerName,
+    now,
+  );
   const clock = `【此刻】${new Date(now).toLocaleString("zh-CN")}，${timeOfDay(new Date(now))}。${toneHint(new Date(now))}。今天的心情：${dailyMood(userId, new Date(now))}。`;
   const sticker = config.sticker.enabled
     ? "【表情包】图库有货时，想发就在回复最后写 [表情包:关键词]；贴切才发。"
     : "【表情包】表情包功能已关闭，不要写 [表情包:关键词]。";
 
-  return [
-    getPersona(),
-    loadLegacyBehavior(),
-    memory,
-    clock,
-    sticker,
-  ]
+  return [getPersona(), loadLegacyBehavior(), memory, clock, sticker]
     .filter(Boolean)
     .join("\n\n");
 };

@@ -26,7 +26,10 @@ const timeout = async <T>(
   let timer: ReturnType<typeof setTimeout> | undefined;
 
   const guard = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error(`${label}超时（${ms / 1000} 秒）`)), ms);
+    timer = setTimeout(
+      () => reject(new Error(`${label}超时（${ms / 1000} 秒）`)),
+      ms,
+    );
   });
 
   try {

@@ -12,12 +12,7 @@ export type LogLevel = "debug" | "info" | "warn" | "error";
 export type AgentStyle = "standard" | "restrained" | "chatty";
 
 export type SettingKind =
-  | "text"
-  | "password"
-  | "number"
-  | "boolean"
-  | "select"
-  | "json";
+  "text" | "password" | "number" | "boolean" | "select" | "json";
 
 export type SettingGroup =
   | "qq"
@@ -899,15 +894,14 @@ const coerce = (spec: ISettingSpec, raw: unknown): unknown => {
   if (typeof raw !== "string") return spec.default;
 
   const text =
-    spec.path === "llm.baseUrl"
-      ? raw.trim().replace(/\/+$/, "")
-      : raw.trim();
+    spec.path === "llm.baseUrl" ? raw.trim().replace(/\/+$/, "") : raw.trim();
 
   // 空字符串对“有默认值”的字段视为没填，回退默认；密钥默认空就保持空
   return text || spec.default;
 };
 
-const defaultValue = (spec: ISettingSpec): unknown => coerce(spec, spec.default);
+const defaultValue = (spec: ISettingSpec): unknown =>
+  coerce(spec, spec.default);
 
 /** 从 env 读一组设置；withDefaults=false 时只返回 env 里实际出现的字段 */
 export const fromEnv = (
@@ -1122,8 +1116,7 @@ export const validateSettings = (settings: Partial<ISettings>): string[] => {
       Number.isFinite(a.maxMessages) &&
       Number.isFinite(a.turnTimeoutMs)
     ) {
-      const worst =
-        a.replyDelayMs + a.waitMaxMs + a.maxMessages * a.gapMaxMs;
+      const worst = a.replyDelayMs + a.waitMaxMs + a.maxMessages * a.gapMaxMs;
       if (worst > a.turnTimeoutMs) {
         issues.push("首条延迟 + 等待 + 分条间隔可能超过单轮超时");
       }

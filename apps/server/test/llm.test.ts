@@ -7,6 +7,7 @@ process.env.QQBOT_SECRET ??= "test-secret";
 
 const { buildModelBody } = await import("../src/core/llm.js");
 const { DEFAULT_SETTINGS } = await import("../src/settings.js");
+const { TOOL_SCHEMAS } = await import("../src/core/agent/schemas.js");
 
 const messages = [{ role: "user" as const, content: "你好" }];
 
@@ -72,4 +73,39 @@ test("max_tokens 与额外参数会被合并", () => {
 
   assert.equal(body.max_tokens, 256);
   assert.equal(body.top_p, 0.9);
+});
+
+test("带 tools 时请求体包含工具 schema，且保留 assistant 的思考链", () => {
+  const withTools = buildModelBody(
+    [
+      {
+        role: "assistant",
+        content: null,
+        reasoning_content: "先想一下",
+        tool_calls: [
+          {
+            id: "call-1",
+            type: "function",
+            function: {
+              name: "send_message",
+              arguments: '{"messages":["嗨"]}',
+            },
+          },
+        ],
+      },
+      {
+        role: "tool",
+        tool_call_id: "call-1",
+        content: '{"ok":true}',
+      },
+    ],
+    llm(),
+    TOOL_SCHEMAS,
+  );
+
+  assert.equal(Array.isArray(withTools.tools), true);
+  assert.equal((withTools.tools as unknown[]).length, TOOL_SCHEMAS.length);
+  const first = (withTools.messages as Array<Record<string, unknown>>)[0];
+  assert.equal(first.reasoning_content, "先想一下");
+  assert.equal(Array.isArray(first.tool_calls), true);
 });

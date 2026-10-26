@@ -128,13 +128,14 @@ test("send_message 后能继续一步，并把 reasoning_content 带回", async 
 
   const second = fake.messages[1];
   const assistant = second.find((message) => message.role === "assistant") as
-    | { reasoning_content?: string }
-    | undefined;
+    { reasoning_content?: string } | undefined;
   assert.equal(assistant?.reasoning_content, "think");
 });
 
 test("stay_silent 结束回合，不发送任何消息", async () => {
-  const fake = makeDeps([reply([toolCall("stay_silent", { reason: "late_night" })])]);
+  const fake = makeDeps([
+    reply([toolCall("stay_silent", { reason: "late_night" })]),
+  ]);
 
   await runAgentTurn("u1", [incoming("嗯")], "reactive", fake.deps);
 
@@ -187,8 +188,7 @@ test("工具错误会作为 tool 结果回填，不中断回合", async () => {
   assert.deepEqual(fake.sent, ["算了"]);
   const second = fake.messages[1];
   const tool = second.find((message) => message.role === "tool") as
-    | { content: string }
-    | undefined;
+    { content: string } | undefined;
   assert.ok(tool?.content.includes("200"));
 });
 

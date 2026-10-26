@@ -121,10 +121,7 @@ export const touchUser = (userId: string, channel: "qq" | "web") => {
 
 export const listUsers = (): IKnownUser[] => load();
 
-const findOrCreate = (
-  userId: string,
-  channel: "qq" | "web",
-): IKnownUser => {
+const findOrCreate = (userId: string, channel: "qq" | "web"): IKnownUser => {
   const list = load();
   let found = list.find((u) => u.userId === userId && u.channel === channel);
 

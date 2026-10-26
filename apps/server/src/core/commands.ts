@@ -9,10 +9,7 @@ export interface ICommandSpec {
   desc: string;
   /** 帮助里的用法；不写就用 /name */
   usage?: string;
-  run: (
-    userId: string,
-    args: string,
-  ) => Promise<CommandResult> | CommandResult;
+  run: (userId: string, args: string) => Promise<CommandResult> | CommandResult;
 }
 
 type CommandAction = "new" | "forget";

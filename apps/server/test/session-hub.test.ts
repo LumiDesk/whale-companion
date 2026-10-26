@@ -5,16 +5,17 @@ process.env.DEEPSEEK_API_KEY ??= "test-key";
 process.env.QQBOT_APPID ??= "test-app";
 process.env.QQBOT_SECRET ??= "test-secret";
 
-const { createSessionHub } = await import(
-  "../src/channels/qq/session-hub.js"
-);
+const { createSessionHub } = await import("../src/channels/qq/session-hub.js");
 import type { IIncomingMessage } from "../src/core/agent/types.js";
 import type { IBatch } from "../src/channels/qq/aggregator.js";
 
-const sleep = (ms: number) =>
-  new Promise((resolve) => setTimeout(resolve, ms));
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const push = (hub: ReturnType<typeof createSessionHub>, text: string, msgId = "m1") =>
+const push = (
+  hub: ReturnType<typeof createSessionHub>,
+  text: string,
+  msgId = "m1",
+) =>
   hub.push({
     userId: "u1",
     msgId,

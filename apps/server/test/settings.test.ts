@@ -83,7 +83,9 @@ test("extraBody 不能覆盖程序控制的字段", () => {
 
   settings.llm.extraBody = { tools: [] };
   assert.ok(
-    validateSettings(settings).some((error) => error.includes("不能覆盖 tools")),
+    validateSettings(settings).some((error) =>
+      error.includes("不能覆盖 tools"),
+    ),
   );
 });
 

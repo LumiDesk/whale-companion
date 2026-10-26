@@ -195,7 +195,9 @@ const buildToolContext = (
     sendImage,
     remaining: () => {
       const msgId = hub?.currentMsgId(userId) ?? null;
-      return msgId ? sessionFor(userId, msgId).remainingOf(msgId) : config.agent.maxMessages;
+      return msgId
+        ? sessionFor(userId, msgId).remainingOf(msgId)
+        : config.agent.maxMessages;
     },
     wait: hub
       ? (options) => hub.wait(userId, options)
@@ -297,7 +299,10 @@ const sendLegacyReply = async (
         })
       : undefined;
 
-  for (const chunk of chunks.length > 0 ? chunks : ["……哼，没什么好说的。"]) {
+  for (const chunk of (chunks.length > 0
+    ? chunks
+    : ["……哼，没什么好说的。"]
+  ).slice(0, pick ? 3 : 4)) {
     const seq = session.nextSeq(msgId);
     await sendC2C(userId, msgId, token, chunk, seq);
   }
@@ -325,6 +330,7 @@ const handleCommand = async (
     const out = await runCommand(cmd.name, cmd.args, message.userId);
     const seq = session.nextSeq(message.msgId);
     await sendC2C(message.userId, message.msgId, token, out, seq);
+    recordReply(message.userId);
   } catch (error) {
     slog("命令执行失败", error);
     const seq = session.nextSeq(message.msgId);
@@ -394,6 +400,7 @@ export const createQQHandler = (
         const session = sessionFor(batch.userId, batch.msgId);
         const seq = session.nextSeq(batch.msgId);
         await sendC2C(batch.userId, batch.msgId, token, out, seq);
+        recordReply(batch.userId);
       } catch (error) {
         slog("命令执行失败", error);
       }
@@ -449,6 +456,7 @@ export const createQQHandler = (
           );
           lastExplicitAt.set(batch.userId, Date.now());
           markSticker(batch.userId);
+          recordReply(batch.userId);
           return;
         }
 
@@ -460,6 +468,7 @@ export const createQQHandler = (
           "图库还空着呢，先发几张图给我存着呀 🐋",
           seq,
         );
+        recordReply(batch.userId);
       } catch (error) {
         slog("发图失败", error);
       }
@@ -490,7 +499,7 @@ export const createQQHandler = (
     }
 
     const latestUserText =
-      batch.texts[batch.texts.length - 1] ??
+      batch.texts.join("\n").trim() ||
       (batch.images.length > 0 ? "[图片]" : "");
 
     const toolContext = buildToolContext(

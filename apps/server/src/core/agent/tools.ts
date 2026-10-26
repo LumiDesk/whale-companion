@@ -68,10 +68,7 @@ const capacity = (ctx: IAgentToolContext): number =>
     Math.min(ctx.config.maxMessages - ctx.budget.sent, ctx.remaining()),
   );
 
-const gapFor = (
-  ctx: IAgentToolContext,
-  fixed: number,
-): number => {
+const gapFor = (ctx: IAgentToolContext, fixed: number): number => {
   if (fixed > 0) return clamp(fixed, 300, 8_000);
 
   const useLong = Math.random() < 0.2;
@@ -88,9 +85,7 @@ const sendMessage = async (
     return error("messages 必须是字符串数组");
   }
 
-  const messages = args.messages
-    .map((item) => asString(item))
-    .filter(Boolean);
+  const messages = args.messages.map((item) => asString(item)).filter(Boolean);
 
   if (messages.length === 0) return error("messages 不能为空");
   if (messages.length > 4) return error("一次最多发 4 条");
@@ -171,11 +166,7 @@ const waitForMessages = async (
     return error("本轮已经等过一次了，不要再等");
   }
 
-  const max = clamp(
-    Math.floor(ctx.config.waitMaxMs),
-    5_000,
-    60_000,
-  );
+  const max = clamp(Math.floor(ctx.config.waitMaxMs), 5_000, 60_000);
   const timeoutMs = clamp(
     asInt(args.timeout_ms, Math.min(15_000, max)),
     5_000,
@@ -283,9 +274,7 @@ const staySilent = async (
     return error("对方在直接问你，这次不能沉默；回一句或先等");
   }
   if (ctx.silentStreak >= ctx.config.maxSilentStreak) {
-    return error(
-      `已经连续沉默 ${ctx.silentStreak} 次了，这次至少回一句`,
-    );
+    return error(`已经连续沉默 ${ctx.silentStreak} 次了，这次至少回一句`);
   }
 
   ctx.recordSilence(reason);
@@ -313,11 +302,7 @@ const remember = async (
     return error("pending_question 不能超过 200 字");
   }
 
-  const expiresInMinutes = clamp(
-    asInt(args.expires_in_minutes, 120),
-    5,
-    1440,
-  );
+  const expiresInMinutes = clamp(asInt(args.expires_in_minutes, 120), 5, 1440);
 
   try {
     const result = ctx.remember({

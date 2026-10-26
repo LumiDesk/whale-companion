@@ -41,8 +41,7 @@ export const TOOL_SCHEMAS: readonly IToolDefinition[] = [
           },
           quiet_ms: {
             type: "integer",
-            description:
-              "收到新消息后至少再等多久算说完，默认 4000",
+            description: "收到新消息后至少再等多久算说完，默认 4000",
           },
         },
       },
@@ -117,8 +116,7 @@ export const TOOL_SCHEMAS: readonly IToolDefinition[] = [
           },
           expires_in_minutes: {
             type: "integer",
-            description:
-              "thought 可选：多少分钟后过期，默认 120，范围 5~1440",
+            description: "thought 可选：多少分钟后过期，默认 120，范围 5~1440",
           },
         },
         required: ["kind", "text"],
@@ -144,8 +142,7 @@ export const TOOL_SCHEMAS: readonly IToolDefinition[] = [
           },
           allow_silent: {
             type: "boolean",
-            description:
-              "到点后如果没话说，是否允许沉默；默认 true",
+            description: "到点后如果没话说，是否允许沉默；默认 true",
           },
         },
         required: ["after_minutes", "intent"],

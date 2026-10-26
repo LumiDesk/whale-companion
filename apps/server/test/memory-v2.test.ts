@@ -11,12 +11,8 @@ process.env.QQBOT_SECRET ??= "test-secret";
 const dataDir = mkdtempSync(join(tmpdir(), "whale-memory-v2-"));
 process.env.WHALE_DATA_DIR = dataDir;
 
-const {
-  loadMemory,
-  pruneMemory,
-  renderMemory,
-  saveMemory,
-} = await import("../src/store/memory.js");
+const { loadMemory, pruneMemory, renderMemory, saveMemory } =
+  await import("../src/store/memory.js");
 
 test("记忆 v2：facts/topics/thoughts 能落盘并读回", () => {
   const now = Date.now();
@@ -54,9 +50,7 @@ test("记忆渲染包含四个段落", () => {
     summary: "旧对话",
     facts: ["喜欢猫"],
     topics: [{ text: "周末去哪", lastMentionAt: now }],
-    thoughts: [
-      { text: "想说晚安", createdAt: now, expiresAt: now + 60_000 },
-    ],
+    thoughts: [{ text: "想说晚安", createdAt: now, expiresAt: now + 60_000 }],
     updatedAt: now,
   });
 

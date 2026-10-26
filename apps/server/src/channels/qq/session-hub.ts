@@ -57,9 +57,7 @@ export interface ISessionHub {
 const sleep = (ms: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-export const createSessionHub = (
-  options: ISessionHubOptions,
-): ISessionHub => {
+export const createSessionHub = (options: ISessionHubOptions): ISessionHub => {
   const pending = new Map<string, IPending>();
   const active = new Map<string, IActiveTurn>();
   const seqs = new Map<string, number>();
@@ -160,8 +158,7 @@ export const createSessionHub = (
 
     const texts = item.messages.filter((m) => m.text.trim()).length;
     const images = item.messages.reduce((sum, m) => sum + m.images.length, 0);
-    const full =
-      texts >= timing.maxTexts || images >= timing.maxImages;
+    const full = texts >= timing.maxTexts || images >= timing.maxImages;
 
     if (full) {
       flush(message.userId);

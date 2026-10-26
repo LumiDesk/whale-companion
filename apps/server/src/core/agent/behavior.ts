@@ -25,7 +25,9 @@ const readPrompt = (name: string): string => {
 
   try {
     if (!existsSync(file)) return "";
-    return readFileSync(file, "utf8").replace(/^\uFEFF/, "").trim();
+    return readFileSync(file, "utf8")
+      .replace(/^\uFEFF/, "")
+      .trim();
   } catch (error) {
     if (!warned.has(file)) {
       warned.add(file);
@@ -38,8 +40,7 @@ const readPrompt = (name: string): string => {
 /** 行为基线 + 风格覆盖；文件缺失时用最小兜底，不阻塞启动 */
 export const loadBehavior = (style: AgentStyle): string => {
   const base = readPrompt("base.md") || FALLBACK_BASE;
-  const styleText =
-    style === "standard" ? "" : readPrompt(`${style}.md`);
+  const styleText = style === "standard" ? "" : readPrompt(`${style}.md`);
 
   if (base.includes("{{styleRules}}")) {
     return base.replace("{{styleRules}}", styleText).trim();

@@ -8,12 +8,7 @@ import type {
 import type { IImageInput } from "../../types/message.js";
 import type { ISticker } from "../../store/stickers.js";
 
-export type {
-  AgentStyle,
-  IAgentSettings,
-  IModelReply,
-  IToolDefinition,
-};
+export type { AgentStyle, IAgentSettings, IModelReply, IToolDefinition };
 
 export type AgentTurnMode = "reactive" | "proactive";
 
@@ -53,12 +48,7 @@ export interface ITurnBudget {
 }
 
 export type ToolResultKind =
-  | "sent"
-  | "waited"
-  | "silent"
-  | "remembered"
-  | "wake"
-  | "error";
+  "sent" | "waited" | "silent" | "remembered" | "wake" | "error";
 
 export interface IToolExecutionResult {
   kind: ToolResultKind;

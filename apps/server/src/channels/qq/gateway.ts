@@ -250,16 +250,17 @@ const connect = async (
         }, interval);
 
         if (ackTimer) clearInterval(ackTimer);
-        ackTimer = setInterval(() => {
-          const silentMs = Date.now() - lastAckAt;
-          if (silentMs <= Math.max(interval * 2, 30_000)) return;
+        ackTimer = setInterval(
+          () => {
+            const silentMs = Date.now() - lastAckAt;
+            if (silentMs <= Math.max(interval * 2, 30_000)) return;
 
-          slog(
-            `QQ 心跳 ${Math.round(silentMs / 1000)} 秒没有响应，主动重连`,
-          );
-          closeQuietly();
-          finish(-1);
-        }, Math.max(interval, 10_000));
+            slog(`QQ 心跳 ${Math.round(silentMs / 1000)} 秒没有响应，主动重连`);
+            closeQuietly();
+            finish(-1);
+          },
+          Math.max(interval, 10_000),
+        );
         return;
       }
 
@@ -276,7 +277,9 @@ const connect = async (
             : null;
         slog(
           `QQ 已上线 bot=${payload.user?.id ?? "?"}` +
-            (activeSessionId ? "" : "（没拿到 session_id，断线后只能重建会话）"),
+            (activeSessionId
+              ? ""
+              : "（没拿到 session_id，断线后只能重建会话）"),
         );
         reportStatus({
           type: "qq",
