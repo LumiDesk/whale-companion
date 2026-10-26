@@ -35,9 +35,28 @@ export const MAX_MESSAGE_CHARS = 500;
 /** 切分优先级：空行 > 换行 > 句末标点 > 逗号 > 空格 */
 const SEPARATORS = ["\n\n", "\n", "。", "！", "？", "；", "～", "，", " "];
 
+const isHighSurrogate = (code: number): boolean =>
+  code >= 0xd800 && code <= 0xdbff;
+
+const isLowSurrogate = (code: number): boolean =>
+  code >= 0xdc00 && code <= 0xdfff;
+
+/** 避免正好切在 emoji 的两个 UTF-16 code unit 中间 */
+const avoidSurrogateSplit = (text: string, cut: number): number => {
+  if (cut <= 0 || cut >= text.length) return cut;
+
+  return isHighSurrogate(text.charCodeAt(cut - 1)) &&
+    isLowSurrogate(text.charCodeAt(cut))
+    ? cut - 1
+    : cut;
+};
+
 /**
  * 把回复切成可发送的块。默认一整条发出去，
  * 只有超过 maxChars 才在自然停顿处切开，避免平台截断。
+ *
+ * maxChars 是来自配置的不可信输入：0/负数会被夹到 1，
+ * NaN/Infinity 视为“不切”，绝不允许出现切不动导致死循环。
  */
 export const splitReply = (
   text: string,
@@ -45,28 +64,40 @@ export const splitReply = (
 ): string[] => {
   const body = text.trim();
   if (!body) return [];
-  if (body.length <= maxChars) return [body];
+
+  const rawLimit = Number(maxChars);
+  if (!Number.isFinite(rawLimit)) return [body];
+
+  const limit = Math.max(1, Math.floor(rawLimit));
+  if (body.length <= limit) return [body];
 
   const out: string[] = [];
   let rest = body;
 
-  while (rest.length > maxChars) {
+  while (rest.length > limit) {
     let cut = -1;
 
     for (const sep of SEPARATORS) {
-      const idx = rest.lastIndexOf(sep, maxChars);
+      const idx = rest.lastIndexOf(sep, limit);
       // 太靠前会把开头切成一小截，宁可硬切
-      if (idx > maxChars * 0.4) {
+      if (idx > limit * 0.4) {
         cut = idx + sep.length;
         break;
       }
     }
 
-    if (cut <= 0) cut = maxChars;
+    if (cut <= 0 || cut > rest.length) cut = limit;
+    cut = avoidSurrogateSplit(rest, cut);
+    if (cut <= 0) cut = Math.min(2, rest.length);
+    if (cut <= 0) break;
 
     const head = rest.slice(0, cut).trim();
+    const next = rest.slice(cut).trim();
+
     if (head) out.push(head);
-    rest = rest.slice(cut).trim();
+    if (!next || next === rest) break;
+
+    rest = next;
   }
 
   if (rest) out.push(rest);

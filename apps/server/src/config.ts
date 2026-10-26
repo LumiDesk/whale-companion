@@ -68,6 +68,12 @@ export const config = {
     timeoutMs: num("DEEPSEEK_TIMEOUT_MS", 45_000),
     /** 网络错误 / 5xx / 429 时重试几次 */
     retries: num("DEEPSEEK_RETRIES", 1),
+    /** true = 把用户发来的图作为多模态输入；false = 只在本机保存 */
+    vision: process.env.VISION_ENABLED !== "false",
+    /** 一轮最多把几张图发给模型（0 = 不发） */
+    maxImages: num("LLM_MAX_IMAGES", 6),
+    /** 一轮图片原始字节总预算，超过就跳过较旧的图 */
+    maxImageBytes: num("LLM_MAX_IMAGE_BYTES", 16 * 1024 * 1024),
   },
 
   qq: {

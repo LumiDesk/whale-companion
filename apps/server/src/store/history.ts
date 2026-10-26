@@ -9,6 +9,20 @@ const filePath = join(config.paths.dataDir, "history.json");
 
 type HistoryFile = Record<string, IMessage[]>;
 
+/**
+ * 每用户的历史版本号：进程内单调递增。
+ * 摘要生成期间如果用户又发了消息、执行了 /new 或 /forget，
+ * 版本号会变化，摘要就放弃写回，避免覆盖新数据。
+ */
+const epochs = new Map<string, number>();
+
+export const historyEpoch = (userId: string): number =>
+  epochs.get(userId) ?? 0;
+
+export const bumpHistoryEpoch = (userId: string): void => {
+  epochs.set(userId, historyEpoch(userId) + 1);
+};
+
 const readHistoryFile = (file: string): HistoryFile => {
   try {
     if (!existsSync(file)) return {};
@@ -32,8 +46,11 @@ export const loadHistory = (userId: string): IMessage[] => {
   return list.filter((m) => m.role !== "system");
 };
 
-/** 存某个用户的对话；只保留最近 N 条（N = config.historyWindow） */
+/** 存某个用户的对话；只保留最近 N 条（N = config.history.store） */
 export const saveHistory = (userId: string, messages: IMessage[]): void => {
+  // 先 bump：哪怕这次写盘失败，也说明有人尝试改过历史，摘要不该再覆盖
+  bumpHistoryEpoch(userId);
+
   const trimmed = messages
     .filter((m) => m.role !== "system")
     .slice(-config.history.store);

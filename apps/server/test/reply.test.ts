@@ -75,3 +75,25 @@ test("超长时优先在段落/句末断开", () => {
     text.replace(/\s/g, ""),
   );
 });
+
+test("上限为 0 或负数时不会死循环", () => {
+  assert.deepEqual(splitReply("abc", 0), ["a", "b", "c"]);
+  assert.deepEqual(splitReply("abc", -10), ["a", "b", "c"]);
+});
+
+test("上限不是数字时不切分", () => {
+  assert.deepEqual(splitReply("一二三", Number.NaN), ["一二三"]);
+  assert.deepEqual(splitReply("一二三", Number.POSITIVE_INFINITY), ["一二三"]);
+});
+
+test("硬切不会把 emoji 切成半个代理对", () => {
+  const text = "😀".repeat(8);
+  const parts = splitReply(text, 3);
+
+  assert.ok(parts.length >= 2);
+  for (const part of parts) {
+    assert.ok(!/[\uD800-\uDBFF]$/.test(part), `半个高代理：${part}`);
+    assert.ok(!/^[\uDC00-\uDFFF]/.test(part), `半个低代理：${part}`);
+  }
+  assert.equal(parts.join(""), text);
+});
