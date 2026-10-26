@@ -32,10 +32,10 @@ apps/
     └── src/
         ├── pages/              # 页面：Status / Settings / Logs / About
         │   └── settings/       # 设置页子组件：TabPanels / DataTab / Field / ModelPicker / PersonaEditor / SelfCheck / specs
-        ├── components/         # 通用组件：Sidebar / MessageBanner / ErrorBoundary
+        ├── components/         # 通用组件：Sidebar / ToastHost / ErrorBoundary
         │   └── ui/             # 基础控件：Icons / Switch
         ├── hooks/              # useController（组装）+ useConfig / useBotProcess / useUpdate / useDataActions / useLogs
-        ├── lib/                # 纯函数：config / personas / paths / lock / logs / process / theme / update
+        ├── lib/                # 纯函数与适配：config / personas / paths / lock / logs / process / theme / update / notify
         └── styles.css          # 色板与全部样式（CSS 变量在顶部）
 
 docs/                           # 截图、架构图（见 docs/README.md）
@@ -56,7 +56,7 @@ scripts/release.mjs             # 发版脚本（用户决定）
 ```
 QQ 事件 → cleanQQContent 清洗 → 串行下载图（单张 8MB）
         → SessionHub 聚合（停口 3s / 最长 10s / 10 条或 6 图）
-        → 命令？ → 收图入库（打标丢后台）
+        → 命令？ → 收图去重入库（打标丢后台）
         → Agent 回合（模型 ⇄ send_message / wait_for_messages / send_sticker / stay_silent / remember / set_next_wake）
         → 整条或最多 3 条发出（同一 msg_id 最多 4 条）
 ```
@@ -75,8 +75,8 @@ QQ 事件 → cleanQQContent 清洗 → 串行下载图（单张 8MB）
 - **记忆两级**：`history.json`（落盘 200 / 每轮发 40）+ `memory/<userId>.json`（摘要 ≤300 字 +
   facts ≤20 + topics/thoughts ≤20）；150 条触发压缩，压缩期间有新消息 / `/new` / `/forget` 就丢弃快照
 - **system 不落盘**，每轮由 `core/agent/prompt.ts` 现拼；旧 `core/prompt.ts` 只服务无工具回退
-- **表情包**：收图即入库、后台打标；挑图用字符二元组 + 余弦（阈值 0.12）；模型主动要图只发命中的；
-  同一用户 8 分钟冷却
+- **表情包**：收图按 SHA-256 去重后入库、后台打标；启动时合并旧图库里的重复图（标签取并集，上限 12）；
+  挑图用字符二元组 + 余弦（阈值 0.12）；模型主动要图只发命中的；同一用户 8 分钟冷却
 - **主动消息**：模型可用 `set_next_wake` 指定下一次开口；60 秒精查 + 45 分钟兜底 tick；
   闲置 3 小时–7 天，免打扰 23–9，失败只记日志
 - **命令**：`core/commands.ts` 的数组驱动（`/help /new /forget /memory /remember /status`）
@@ -113,6 +113,10 @@ QQ 事件 → cleanQQContent 清洗 → 串行下载图（单张 8MB）
 
 - 设置字段由 `settings.ts` 的 `SETTINGS` 自动渲染，**不要手写输入框**
 - 页面放 `pages/`，可复用的放 `components/`，纯函数放 `lib/`，编排放 `hooks/`
+- **提示统一走 `notify()`（右上角 toast）**：一次性反馈、状态提醒、校验错误都用它；
+  成功/信息 5 秒自动收起，错误常驻直到手动关闭，切页不消失
+- **页面里不再放 banner / callout 提示框**：静态说明用卡片描述或字段帮助文字，不要包成提示条
+- 切侧边页或设置 Tab 时内容区要回到顶部（`App` 的 `scrollToTop` + `.main` 的 `scrollTop`）
 
 ## Build Commands
 
@@ -136,6 +140,7 @@ pnpm desktop:pack           # 打 Windows 便携 zip（用户决定）
 - Never 给 `Neutralino.os.spawnProcess` 传 `envs`（会丢隐藏盘符变量，`CreateProcess` 直接失败）
 - Never 把 `4009` 当致命错误（2026-10-26 因此静默离线 2.5 小时）
 - Never 在组件里写死颜色 / 圆角 / 间距
+- Never 用页面内 banner / callout 做提示（统一用 `notify()` 的 toast）
 - Never 在渲染路径里做耗时操作；列表渲染必须带 `key`
 - Never 提交 `.env`、`config.json`、`bot.json`、`data/`、`logs/`（已 gitignore）
 - Never 让桌面端 import `apps/server/src` 的其他模块（`settings.ts` 除外）

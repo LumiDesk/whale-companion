@@ -15,5 +15,6 @@
 - 内置人格卡在 `personas/`，行为提示词在 `prompts/behavior/`；用户人格卡在
   `%APPDATA%\whale-companion\personas\`，由桌面端读写
 - `data/` 下的 JSON 统一走原子写；启动时会清理旧历史里的 QQ 平台标记，备份为 `history.json.bak-*`
+- `data/stickers/` 收图按 SHA-256 去重；启动时合并旧图库里的重复图（保留最早一张，标签取并集，上限 12）
 - 结构、分层规则、QQ 平台坑：见仓库根 [`AGENTS.md`](../../AGENTS.md)
 - 用户视角的用法：见仓库根 [`README.md`](../../README.md)

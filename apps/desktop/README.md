@@ -61,15 +61,24 @@ WhaleCompanion/
 src/
 ├── pages/          页面：Status / Settings / Logs / About
 │   └── settings/   设置页子组件：TabPanels / DataTab / Field / ModelPicker / PersonaEditor / SelfCheck
-├── components/     通用组件：Sidebar / MessageBanner / ErrorBoundary
+├── components/     通用组件：Sidebar / ToastHost / ErrorBoundary
 │   └── ui/         基础控件：Icons / Switch
 ├── hooks/          useController（组装）+ useConfig / useBotProcess / useUpdate / useDataActions / useLogs
-├── lib/            纯函数：配置、路径、锁、日志、进程、主题、更新（都有单测）
+├── lib/            纯函数与适配：配置、路径、锁、日志、进程、主题、更新、notify（多数有单测）
 └── styles.css      色板与全部样式（CSS 变量在顶部）
 ```
 
 - 页面只放页面，通用组件放 `components/`，纯函数放 `lib/`，编排放 `hooks/`。
 - 视觉规范（颜色、间距、控件选择）见 [`DESIGN.md`](../../DESIGN.md)。
+
+## 提示
+
+- 一次性反馈、状态提醒、校验错误统一走 `src/lib/notify.ts` 的 `notify()`：右上角 toast，跨页面保留。
+- 成功 / 信息 5 秒自动收起；错误常驻，直到点右上角关闭。
+- **页面里不要再放 banner / callout 提示条**；静态说明用卡片描述或字段帮助。
+- `ToastHost` 挂在 `App` 外面，切页不会卸载；react-toastify 11 会在运行时注入 CSS，
+  所以 `styles.css` 里的覆盖写在 `html:root` / `#root` 前缀下，不能只靠加载顺序。
+- 切侧边页或设置 Tab 时内容区回到顶部，由 `App` 的 `scrollToTop` 负责。
 
 ## 主题
 
