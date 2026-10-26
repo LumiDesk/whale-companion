@@ -245,8 +245,12 @@ test("更新脚本：等 PID、备份、复制文件、失败还原、写结果�
 
   assert.ok(script.includes("Get-Process -Id 4321"));
   assert.ok(script.includes("备份当前版本"));
+  assert.ok(script.includes("清理旧版本文件"));
   assert.ok(script.includes("Restore-OldVersion"));
   assert.ok(script.includes("Copy-Item"));
+  assert.ok(
+    script.includes("Remove-Item -LiteralPath $serverPath -Recurse -Force"),
+  );
   assert.ok(script.includes("'C:\\A B\\new'"));
   assert.ok(script.includes("'C:\\O''Brien\\WhaleCompanion'"));
   assert.ok(script.includes("'C:\\temp\\backup'"));
@@ -268,6 +272,45 @@ test("更新脚本：等 PID、备份、复制文件、失败还原、写结果�
   );
 });
 
+test("更新脚本先备份再清理旧 server，最后才复制新文件", () => {
+  const script = buildUpdateScript({
+    parentPid: 4321,
+    sourceDir: "C:\\new",
+    targetDir: "C:\\app",
+    backupDir: "C:\\backup",
+    resultFile: "C:\\result.json",
+    logFile: "C:\\update.log",
+    version: "1.0.3",
+  });
+
+  const backupAt = script.indexOf("备份当前版本");
+  const cleanupAt = script.indexOf("清理旧版本文件");
+  const copyAt = script.indexOf("Get-ChildItem -LiteralPath $source -Force");
+  const removeAt = script.indexOf(
+    "Remove-Item -LiteralPath $serverPath -Recurse -Force",
+    cleanupAt,
+  );
+
+  assert.ok(backupAt >= 0);
+  assert.ok(cleanupAt > backupAt);
+  assert.ok(removeAt > cleanupAt && removeAt < copyAt);
+  assert.ok(
+    script.includes(
+      "$hasServer = Test-Path -LiteralPath (Join-Path $source 'server')",
+    ),
+  );
+
+  // 还原旧版本时也要先清掉复制到一半的 server，否则新旧文件会混在一起
+  const restoreAt = script.indexOf("开始还原旧版本");
+  assert.ok(restoreAt >= 0);
+  assert.ok(
+    script.indexOf(
+      "Remove-Item -LiteralPath $serverPath -Recurse -Force",
+      restoreAt,
+    ) > restoreAt,
+  );
+});
+
 test("解析更新结果，兼容 BOM 和失败信息", () => {
   assert.deepEqual(
     parseUpdateResult(
@@ -281,12 +324,15 @@ test("解析更新结果，兼容 BOM 和失败信息", () => {
     },
   );
 
-  assert.deepEqual(parseUpdateResult('{"ok":false,"version":"0.2.0","error":"文件被占用"}'), {
-    ok: false,
-    version: "0.2.0",
-    error: "文件被占用",
-    finishedAt: undefined,
-  });
+  assert.deepEqual(
+    parseUpdateResult('{"ok":false,"version":"0.2.0","error":"文件被占用"}'),
+    {
+      ok: false,
+      version: "0.2.0",
+      error: "文件被占用",
+      finishedAt: undefined,
+    },
+  );
 
   assert.equal(parseUpdateResult("not json"), null);
   assert.equal(parseUpdateResult("{}"), null);

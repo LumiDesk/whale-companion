@@ -150,9 +150,7 @@ export const isNewerVersion = (candidate: string, current: string): boolean =>
 export const isPrereleaseVersion = (version: string): boolean =>
   (parseVersion(version)?.prerelease.length ?? 0) > 0;
 
-export const pickUpdateAsset = (
-  assets: IGithubAsset[],
-): IGithubAsset | null =>
+export const pickUpdateAsset = (assets: IGithubAsset[]): IGithubAsset | null =>
   assets.find((asset) => UPDATE_ASSET_PATTERN.test(asset.name)) ?? null;
 
 /** 把 GitHub /releases/latest 的响应收敛成内部结构 */
@@ -298,7 +296,7 @@ export const buildPowerShellDownloadCommand = (
 
   return (
     "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command " +
-    '"$ProgressPreference=\'SilentlyContinue\'; ' +
+    "\"$ProgressPreference='SilentlyContinue'; " +
     `Invoke-WebRequest -Uri ${psLiteral(url)} -OutFile ${psLiteral(
       destination,
     )} -UseBasicParsing"`
@@ -427,9 +425,14 @@ export const buildUpdateScript = (options: IUpdateScriptOptions): string => {
     "  Write-UpdateLog '开始还原旧版本'",
     "  foreach ($name in @('WhaleCompanion.exe', 'resources.neu', 'server')) {",
     "    $from = Join-Path $backup $name",
-    "    if (Test-Path -LiteralPath $from) {",
-    "      Copy-Item -LiteralPath $from -Destination $target -Recurse -Force",
+    "    if (-not (Test-Path -LiteralPath $from)) { continue }",
+    "    if ($name -eq 'server') {",
+    "      $serverPath = Join-Path $target 'server'",
+    "      if (Test-Path -LiteralPath $serverPath) {",
+    "        Remove-Item -LiteralPath $serverPath -Recurse -Force",
+    "      }",
     "    }",
+    "    Copy-Item -LiteralPath $from -Destination $target -Recurse -Force",
     "  }",
     "}",
     "try {",
@@ -447,10 +450,18 @@ export const buildUpdateScript = (options: IUpdateScriptOptions): string => {
     "    }",
     "  }",
     "  $backupReady = $true",
+    "  Write-UpdateLog '清理旧版本文件'",
+    "  $hasServer = Test-Path -LiteralPath (Join-Path $source 'server')",
     "  Write-UpdateLog '复制新版本文件'",
     "  $copied = $false",
     "  for ($attempt = 1; $attempt -le 10; $attempt++) {",
     "    try {",
+    "      if ($hasServer) {",
+    "        $serverPath = Join-Path $target 'server'",
+    "        if (Test-Path -LiteralPath $serverPath) {",
+    "          Remove-Item -LiteralPath $serverPath -Recurse -Force",
+    "        }",
+    "      }",
     "      Get-ChildItem -LiteralPath $source -Force | Copy-Item -Destination $target -Recurse -Force",
     "      $copied = $true",
     "      break",
@@ -471,7 +482,7 @@ export const buildUpdateScript = (options: IUpdateScriptOptions): string => {
     "} catch {",
     "  $message = $_.Exception.Message",
     '  Write-UpdateLog "更新失败：$message"',
-    "  try { Restore-OldVersion } catch { Write-UpdateLog \"还原失败：$($_.Exception.Message)\" }",
+    '  try { Restore-OldVersion } catch { Write-UpdateLog "还原失败：$($_.Exception.Message)" }',
     `  @{ ok = $false; version = ${psLiteral(version)}; error = $message; finishedAt = (Get-Date).ToUniversalTime().ToString('o') } | ConvertTo-Json -Compress | Set-Content -LiteralPath ${psLiteral(resultFile)} -Encoding UTF8`,
     "  $exe = Join-Path $target 'WhaleCompanion.exe'",
     "  if (Test-Path -LiteralPath $exe) { Start-Process -FilePath $exe -WorkingDirectory $target }",
