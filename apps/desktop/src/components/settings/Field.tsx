@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { ISettingOption, ISettingSpec } from "../../lib/settings";
 import { IconEye, IconEyeOff } from "../Icons";
@@ -33,9 +33,14 @@ const JsonField = ({
     JSON.stringify(value ?? {}, null, 2),
   );
   const [error, setError] = useState("");
+  const lastEmitted = useRef("");
 
   useEffect(() => {
-    setText(JSON.stringify(value ?? {}, null, 2));
+    const next = JSON.stringify(value ?? {}, null, 2);
+    // 用户正在输入的 JSON 会立刻回传成对象；不要每次按键都重新格式化光标
+    if (next === lastEmitted.current) return;
+
+    setText(next);
     setError("");
   }, [value]);
 
@@ -49,6 +54,7 @@ const JsonField = ({
         return;
       }
       setError("");
+      lastEmitted.current = JSON.stringify(parsed, null, 2);
       onChange(spec.path, parsed);
     } catch {
       setError("JSON 格式不对");
