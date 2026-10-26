@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import type { IController } from "../../hooks/useController";
+import { errText } from "../../lib/format";
 import type { IAppConfig, ICheckResult } from "../../lib/types";
 
 interface IProps {
@@ -20,17 +21,15 @@ const labels: Record<string, string> = {
 const SelfCheck = ({ controller, config }: IProps) => {
   const [results, setResults] = useState<ICheckResult[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
 
   const run = async () => {
     setLoading(true);
-    setError("");
     setResults([]);
 
     try {
       setResults(await controller.runSelfCheck(config));
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      controller.notify("error", errText(e));
     } finally {
       setLoading(false);
     }
@@ -54,8 +53,6 @@ const SelfCheck = ({ controller, config }: IProps) => {
         用当前表单里的配置检查 QQ token、模型接口、数据目录、人设与图库；
         不会建立 QQ 长连接，也不会写聊天记录。
       </p>
-
-      {error && <p className="field-error">{error}</p>}
 
       {results.length > 0 && (
         <ul className="check-list">

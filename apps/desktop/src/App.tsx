@@ -1,4 +1,3 @@
-import MessageBanner from "./components/MessageBanner";
 import Sidebar from "./components/Sidebar";
 import { useController } from "./hooks/useController";
 import AboutPage from "./pages/AboutPage";
@@ -28,8 +27,6 @@ const App = () => {
       />
 
       <main className="main">
-        <MessageBanner controller={controller} />
-
         {controller.page === "status" && <StatusPage controller={controller} />}
         {controller.page === "settings" && (
           <SettingsPage controller={controller} />

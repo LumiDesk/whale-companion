@@ -1,5 +1,7 @@
 import { useState } from "react";
 
+import { errText } from "../../lib/format";
+import { notify } from "../../lib/notify";
 import type { IAppConfig, IModelInfo } from "../../lib/types";
 
 interface IProps {
@@ -26,18 +28,16 @@ const ModelPicker = ({
   const [models, setModels] = useState<IModelInfo[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
 
   const load = async () => {
     setLoading(true);
-    setError("");
 
     try {
       const list = await fetchModels(config);
       setModels(list);
       setOpen(true);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      notify("error", errText(e));
       setOpen(false);
     } finally {
       setLoading(false);
@@ -63,8 +63,6 @@ const ModelPicker = ({
           {loading ? "获取中…" : "获取模型"}
         </button>
       </div>
-
-      {error && <p className="field-error">{error}</p>}
 
       {open && models.length > 0 && (
         <div className="model-menu">

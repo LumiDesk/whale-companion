@@ -4,8 +4,12 @@ import type { IController } from "../hooks/useController";
 import { validateConfig } from "../lib/config";
 import { formatDateTime, formatDuration } from "../lib/format";
 import type { BotState, QQState } from "../lib/types";
-import { APP_VERSION } from "../lib/version";
-import { IconFolder, IconPause, IconPlay, IconRestart } from "../components/ui/Icons";
+import {
+  IconFolder,
+  IconPause,
+  IconPlay,
+  IconRestart,
+} from "../components/ui/Icons";
 
 const botLabel = (state: BotState): string => {
   if (state === "running") return "运行中";
@@ -61,7 +65,9 @@ const StatusPage = ({ controller }: IProps) => {
     controller.botState === "running" || controller.botState === "starting";
   const configErrors = validateConfig(controller.config);
   const uptime =
-    controller.startedAt !== null ? formatDuration(now - controller.startedAt) : "—";
+    controller.startedAt !== null
+      ? formatDuration(now - controller.startedAt)
+      : "—";
 
   const act = async (fn: () => Promise<unknown>) => {
     setPending(true);
@@ -83,38 +89,6 @@ const StatusPage = ({ controller }: IProps) => {
         </div>
       </header>
 
-      {controller.update.status === "available" && controller.update.info && (
-        <div className="callout callout-info">
-          <div>
-            <strong>有新版本 v{controller.update.info.version}</strong>
-            <span>当前 v{APP_VERSION}，去「关于」页可以下载并更新。</span>
-          </div>
-          <button
-            type="button"
-            className="btn btn-small"
-            onClick={() => controller.setPage("about")}
-          >
-            查看更新
-          </button>
-        </div>
-      )}
-
-      {configErrors.length > 0 && (
-        <div className="callout callout-warn">
-          <div>
-            <strong>还不能启动 Bot</strong>
-            <span>{configErrors.join("；")}</span>
-          </div>
-          <button
-            type="button"
-            className="btn btn-small"
-            onClick={() => controller.setPage("settings")}
-          >
-            去填写
-          </button>
-        </div>
-      )}
-
       <div className={`hero-card tone-${tone(controller.botState)}`}>
         <div className="hero-main">
           <span className={`status-dot tone-${tone(controller.botState)}`} />
@@ -125,7 +99,9 @@ const StatusPage = ({ controller }: IProps) => {
                 ? `进程异常退出${controller.exitCode !== null ? `（code ${controller.exitCode}）` : ""}`
                 : running
                   ? `已运行 ${uptime}${controller.botPid ? ` · PID ${controller.botPid}` : ""}`
-                  : "启动后会在后台保持 QQ 连接"}
+                  : configErrors.length > 0
+                    ? "先补全 QQ 和模型配置，再启动 Bot"
+                    : "启动后会在后台保持 QQ 连接"}
             </div>
           </div>
         </div>
@@ -152,11 +128,19 @@ const StatusPage = ({ controller }: IProps) => {
                 重启
               </button>
             </>
+          ) : configErrors.length > 0 ? (
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => controller.setPage("settings")}
+            >
+              去填写配置
+            </button>
           ) : (
             <button
               type="button"
               className="btn btn-primary"
-              disabled={pending || configErrors.length > 0}
+              disabled={pending}
               onClick={() => act(controller.startBot)}
             >
               <IconPlay />
@@ -218,7 +202,9 @@ const StatusPage = ({ controller }: IProps) => {
                 <span className="mini-log-time">
                   {formatDateTime(line.ts).slice(11)}
                 </span>
-                <span className="mini-log-source">{sourceLabel(line.source)}</span>
+                <span className="mini-log-source">
+                  {sourceLabel(line.source)}
+                </span>
                 <span className="mini-log-text">{line.text}</span>
               </li>
             ))}

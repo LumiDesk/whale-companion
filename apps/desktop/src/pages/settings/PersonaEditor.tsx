@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import type { IController } from "../../hooks/useController";
 import { IconFolder, IconRestart, IconTrash } from "../../components/ui/Icons";
+import { errText } from "../../lib/format";
 import type {
   AgentStyle,
   IPersonaCard,
@@ -27,8 +28,6 @@ const PersonaEditor = ({ controller, style, onStyleChange }: IProps) => {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [saved, setSaved] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const loadList = async (selectId?: string) => {
@@ -57,11 +56,10 @@ const PersonaEditor = ({ controller, style, onStyleChange }: IProps) => {
 
   const load = async () => {
     setLoading(true);
-    setError("");
     try {
       await loadList();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      controller.notify("error", errText(e));
     } finally {
       setLoading(false);
     }
@@ -73,29 +71,25 @@ const PersonaEditor = ({ controller, style, onStyleChange }: IProps) => {
   }, []);
 
   const selectCard = async (id: string) => {
-    setError("");
-    setSaved("");
     setConfirmDelete(false);
     try {
       const card = await controller.readPersonaCard(id);
       setSelected(card);
       setText(card.text);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      controller.notify("error", errText(e));
     }
   };
 
   const useCard = async () => {
     if (!selected) return;
     setBusy(true);
-    setError("");
-    setSaved("");
     try {
       await controller.setActivePersona(selected.id);
       setActiveId(selected.id);
-      setSaved("已切换，下一条消息生效");
+      controller.notify("ok", "已切换，下一条消息生效");
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      controller.notify("error", errText(e));
     } finally {
       setBusy(false);
     }
@@ -104,14 +98,12 @@ const PersonaEditor = ({ controller, style, onStyleChange }: IProps) => {
   const save = async () => {
     if (!selected || selected.source !== "user") return;
     setBusy(true);
-    setError("");
-    setSaved("");
     try {
       await controller.savePersonaCard(selected.id, text);
       await loadList(selected.id);
-      setSaved("已保存，下一条消息生效");
+      controller.notify("ok", "已保存，下一条消息生效");
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      controller.notify("error", errText(e));
     } finally {
       setBusy(false);
     }
@@ -119,14 +111,12 @@ const PersonaEditor = ({ controller, style, onStyleChange }: IProps) => {
 
   const create = async () => {
     setBusy(true);
-    setError("");
-    setSaved("");
     try {
       const id = await controller.createPersona("自定义人格");
       await loadList(id);
-      setSaved("已新建人格，改个标题和内容吧");
+      controller.notify("ok", "已新建人格，改个标题和内容吧");
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      controller.notify("error", errText(e));
     } finally {
       setBusy(false);
     }
@@ -135,15 +125,13 @@ const PersonaEditor = ({ controller, style, onStyleChange }: IProps) => {
   const copy = async () => {
     if (!selected) return;
     setBusy(true);
-    setError("");
-    setSaved("");
     try {
       const id = await controller.createPersona(selected.name);
       await controller.savePersonaCard(id, selected.text);
       await loadList(id);
-      setSaved("已复制为自定义人格");
+      controller.notify("ok", "已复制为自定义人格");
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      controller.notify("error", errText(e));
     } finally {
       setBusy(false);
     }
@@ -157,15 +145,13 @@ const PersonaEditor = ({ controller, style, onStyleChange }: IProps) => {
     }
 
     setBusy(true);
-    setError("");
-    setSaved("");
     try {
       await controller.deletePersona(selected.id);
       await loadList();
       setConfirmDelete(false);
-      setSaved("已删除人格");
+      controller.notify("ok", "已删除人格");
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      controller.notify("error", errText(e));
     } finally {
       setBusy(false);
     }
@@ -173,16 +159,16 @@ const PersonaEditor = ({ controller, style, onStyleChange }: IProps) => {
 
   const importCards = async () => {
     setBusy(true);
-    setError("");
-    setSaved("");
     try {
       const ids = await controller.importPersonas();
       if (ids.length > 0) {
         await loadList(ids[0]);
-        setSaved(`已导入 ${ids.length} 张人格卡`);
+        controller.notify("ok", `已导入 ${ids.length} 张人格卡`);
+      } else {
+        controller.notify("info", "没有找到可导入的人格卡");
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      controller.notify("error", errText(e));
     } finally {
       setBusy(false);
     }
@@ -190,14 +176,12 @@ const PersonaEditor = ({ controller, style, onStyleChange }: IProps) => {
 
   const reset = async () => {
     setBusy(true);
-    setError("");
-    setSaved("");
     try {
       await controller.setActivePersona("deepseek-whale");
       await loadList("deepseek-whale");
-      setSaved("已恢复默认人格");
+      controller.notify("ok", "已恢复默认人格");
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      controller.notify("error", errText(e));
     } finally {
       setBusy(false);
     }
@@ -299,7 +283,6 @@ const PersonaEditor = ({ controller, style, onStyleChange }: IProps) => {
                 disabled={!editable || busy}
                 onChange={(event) => {
                   setText(event.target.value);
-                  setSaved("");
                   setConfirmDelete(false);
                 }}
               />
@@ -373,9 +356,6 @@ const PersonaEditor = ({ controller, style, onStyleChange }: IProps) => {
                   )}
                 </div>
               </div>
-
-              {error && <p className="field-error">{error}</p>}
-              {saved && <p className="field-help">{saved}</p>}
 
               <div className="path-row">
                 <div>

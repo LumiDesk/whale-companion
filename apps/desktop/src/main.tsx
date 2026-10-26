@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 
 import App from "./App";
 import ErrorBoundary from "./components/ErrorBoundary";
+import ToastHost from "./components/ToastHost";
 import { applyTheme, resolveTheme, systemPrefersDark } from "./lib/theme";
 import "./styles.css";
 
@@ -19,7 +20,10 @@ const container = document.getElementById("root");
 if (!container) throw new Error("找不到 #root");
 
 createRoot(container).render(
-  <ErrorBoundary>
-    <App />
-  </ErrorBoundary>,
+  <>
+    <ToastHost />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
+  </>,
 );

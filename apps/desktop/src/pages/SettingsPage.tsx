@@ -42,7 +42,6 @@ const SettingsPage = ({ controller }: IProps) => {
   const [form, setForm] = useState<IAppConfig>(controller.config);
   const [tab, setTab] = useState<TabId>("basic");
   const [saving, setSaving] = useState(false);
-  const [attempted, setAttempted] = useState(false);
   const [effortLevels, setEffortLevels] = useState<string[] | null>(null);
 
   // 主题是即时保存的，只同步这一小块，别把其他未保存的输入覆盖掉
@@ -117,8 +116,10 @@ const SettingsPage = ({ controller }: IProps) => {
   };
 
   const save = async () => {
-    setAttempted(true);
-    if (errors.length > 0) return;
+    if (errors.length > 0) {
+      controller.notify("error", `还有几项没填好：${errors.join("；")}`);
+      return;
+    }
 
     setSaving(true);
     try {
@@ -132,7 +133,6 @@ const SettingsPage = ({ controller }: IProps) => {
     const imported = await controller.importEnv();
     if (imported) {
       setForm(imported);
-      setAttempted(false);
     }
   };
 
@@ -172,15 +172,6 @@ const SettingsPage = ({ controller }: IProps) => {
           </button>
         ))}
       </div>
-
-      {attempted && errors.length > 0 && (
-        <div className="callout callout-error">
-          <div>
-            <strong>还有几项没填好</strong>
-            <span>{errors.join("；")}</span>
-          </div>
-        </div>
-      )}
 
       {tab === "basic" && (
         <BasicTab

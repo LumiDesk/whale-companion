@@ -38,6 +38,7 @@
   --focus-border: #7dd3fc;
   --focus-ring: rgba(14, 165, 233, 0.12);
   --shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+  --toast-shadow: 0 10px 24px rgba(15, 23, 42, 0.1);
   --bg-transparent: rgba(244, 248, 251, 0);
 
   --hero-good-from: #f0fdf4;
@@ -103,6 +104,7 @@
   --focus-border: #0284c7;
   --focus-ring: rgba(56, 189, 248, 0.18);
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --toast-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
   --bg-transparent: rgba(11, 18, 32, 0);
 
   --hero-good-from: #052e16;
@@ -388,114 +390,94 @@ img {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.callout {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 12px 16px;
-  margin-bottom: 14px;
-  border-radius: 12px;
+/* ---------- toast ---------- */
+
+/*
+ * react-toastify 11 会在 ToastContainer 挂载时把自带 CSS 插到 <head> 末尾，
+ * 所以这里的变量和组件覆盖要提一级 specificity，不能只靠加载顺序。
+ */
+html:root {
+  --toastify-font-family: inherit;
+  --toastify-toast-width: 340px;
+  --toastify-toast-min-height: 44px;
+  --toastify-toast-padding: 12px 32px 12px 14px;
+  --toastify-toast-bd-radius: 12px;
+  --toastify-toast-shadow: var(--toast-shadow);
+  --toastify-color-light: var(--surface);
+  --toastify-text-color-light: var(--text);
+  --toastify-icon-color-success: var(--green);
+  --toastify-icon-color-error: var(--red);
+  --toastify-icon-color-info: var(--accent);
+  --toastify-color-progress-success: var(--green);
+  --toastify-color-progress-error: var(--red);
+  --toastify-color-progress-info: var(--accent);
+}
+
+#root .Toastify__toast {
   border: 1px solid var(--border);
-  background: var(--surface);
+  margin-bottom: 12px;
+  color: var(--text);
   font-size: 13px;
-}
-
-.callout > div {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.callout strong {
-  font-size: 13px;
-}
-
-.callout span {
-  color: var(--muted);
-}
-
-.callout-warn {
-  border-color: var(--warn-border);
-  background: var(--warn-bg);
-}
-
-.callout-warn span {
-  color: var(--warn-text);
-}
-
-.callout-error {
-  border-color: var(--danger-border);
-  background: var(--danger-bg);
-}
-
-.callout-error span {
-  color: var(--danger-text);
-}
-
-.callout-info {
-  border-color: var(--info-border);
-  background: var(--info-bg);
-}
-
-.callout-info span {
-  color: var(--info-text);
-}
-
-.banner {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  margin: 0 auto 14px;
-  max-width: 880px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  font-size: 13px;
-  animation: page-in 0.15s ease;
-}
-
-.banner svg {
-  flex: 0 0 auto;
-}
-
-.banner span {
-  flex: 1;
   line-height: 1.6;
 }
 
-.banner-ok {
-  border-color: var(--ok-border);
-  background: var(--ok-bg);
-  color: var(--ok-text);
+#root .Toastify__toast-icon {
+  width: 18px;
 }
 
-.banner-error {
-  border-color: var(--danger-border);
-  background: var(--danger-bg);
-  color: var(--danger-text);
+#root .Toastify__progress-bar--wrp {
+  height: 2px;
 }
 
-.banner-info {
-  border-color: var(--info-border);
-  background: var(--info-bg);
-  color: var(--info-text);
+#root .Toastify--animate {
+  animation-duration: 0.18s;
 }
 
-.banner-close {
+#root .Toastify__slide-exit--top-right {
+  animation-duration: 0.15s;
+}
+
+.toast-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
   display: inline-flex;
-  padding: 3px;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
   border: 0;
   border-radius: 6px;
   background: transparent;
-  color: inherit;
-  opacity: 0.6;
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 
-.banner-close:hover {
-  opacity: 1;
-  background: var(--hover-strong);
+.toast-close:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.toast-close:focus-visible {
+  outline: 2px solid var(--focus-border);
+  outline-offset: 2px;
+}
+
+.toast-close svg {
+  width: 14px;
+  height: 14px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* 不能设 animation: none：react-toastify 靠 animationend 收尾，关掉会让 toast 卡住不消失 */
+  #root .Toastify--animate,
+  #root .Toastify__slide-exit--top-right {
+    animation-duration: 0.01s;
+  }
 }
 
 .btn {

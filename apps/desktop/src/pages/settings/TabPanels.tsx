@@ -1,7 +1,8 @@
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 
 import Switch from "../../components/ui/Switch";
 import type { IController } from "../../hooks/useController";
+import { notify } from "../../lib/notify";
 import {
   SETTINGS,
   type ISettingOption,
@@ -314,39 +315,44 @@ export const StickerTab = ({
   </div>
 );
 
+/** 高级设置的说明每次启动只提醒一次，避免来回切 Tab 时反复弹 */
+let advancedNoticeShown = false;
+
 export const AdvancedTab = ({
   controller,
   form,
   patch,
   renderFields,
-}: ITabProps) => (
-  <>
-    <div className="callout callout-warn">
-      <div>
-        <strong>高级设置</strong>
-        <span>这里的数值会影响费用、延迟和稳定性，不确定就保持默认。</span>
-      </div>
-    </div>
+}: ITabProps) => {
+  useEffect(() => {
+    if (advancedNoticeShown) return;
+    advancedNoticeShown = true;
+    notify("info", "这里的数值会影响费用、延迟和稳定性，不确定就保持默认。");
+  }, []);
 
-    <div className="card">
-      <div className="card-head">
-        <h2>模型请求</h2>
+  return (
+    <>
+      <div className="card">
+        <div className="card-head">
+          <h2>模型请求</h2>
+        </div>
+        {renderFields(
+          specsOf("llm", true).filter(
+            (spec) =>
+              spec.path !== "llm.maxImages" &&
+              spec.path !== "llm.maxImageBytes",
+          ),
+        )}
       </div>
-      {renderFields(
-        specsOf("llm", true).filter(
-          (spec) =>
-            spec.path !== "llm.maxImages" && spec.path !== "llm.maxImageBytes",
-        ),
-      )}
-    </div>
 
-    <div className="card">
-      <div className="card-head">
-        <h2>日志</h2>
+      <div className="card">
+        <div className="card-head">
+          <h2>日志</h2>
+        </div>
+        {renderFields(specsOf("logs", true))}
       </div>
-      {renderFields(specsOf("logs", true))}
-    </div>
 
-    <SelfCheck controller={controller} config={form} />
-  </>
-);
+      <SelfCheck controller={controller} config={form} />
+    </>
+  );
+};

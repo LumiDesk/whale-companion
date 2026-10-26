@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { events } from "@neutralinojs/lib";
 
 import {
@@ -10,6 +10,7 @@ import {
 } from "../lib/config";
 import { errText } from "../lib/format";
 import { pickOldLogs } from "../lib/logs";
+import { notify, type NoticeKind } from "../lib/notify";
 import {
   buildAppPaths,
   buildServerPaths,
@@ -91,8 +92,8 @@ export interface IController {
   serverPaths: IServerPaths | null;
   nodePath: string;
   packaged: boolean;
-  message: IMessage | null;
-  dismissMessage: () => void;
+  /** 右上角提示；页面里不再放 banner / callout */
+  notify: (kind: NoticeKind, text: string) => void;
   update: IUpdateState;
   checkUpdate: (silent?: boolean) => Promise<void>;
   installUpdate: () => Promise<void>;
@@ -160,7 +161,10 @@ export const useController = (): IController => {
   const [serverPaths, setServerPaths] = useState<IServerPaths | null>(null);
   const [nodePath, setNodePath] = useState("");
   const [packaged, setPackaged] = useState(false);
-  const [message, setMessage] = useState<IMessage | null>(null);
+  // 四个子 hook 仍按原来的 setMessage 接口上报，内部统一转成右上角 toast
+  const setMessage = useCallback((message: IMessage | null) => {
+    if (message) notify(message.kind, message.text);
+  }, []);
 
   const configRef = useRef(DEFAULT_CONFIG);
   const pathsRef = useRef<IAppPaths | null>(null);
@@ -267,8 +271,6 @@ export const useController = (): IController => {
     startBot,
     stopBot,
   });
-
-  const dismissMessage = () => setMessage(null);
 
   const {
     update,
@@ -718,13 +720,6 @@ export const useController = (): IController => {
   }, []);
 
   useEffect(() => {
-    // 错误留下来，别让用户错过；成功/提示 5 秒后自动消失
-    if (!message || message.kind === "error") return;
-    const timer = setTimeout(() => setMessage(null), 5000);
-    return () => clearTimeout(timer);
-  }, [message]);
-
-  useEffect(() => {
     // 单实例锁的心跳；窗口隐藏时也比 tasklist 探查可靠
     const timer = setInterval(() => {
       const currentPaths = pathsRef.current;
@@ -787,8 +782,7 @@ export const useController = (): IController => {
     serverPaths,
     nodePath,
     packaged,
-    message,
-    dismissMessage,
+    notify,
     update,
     checkUpdate,
     installUpdate,

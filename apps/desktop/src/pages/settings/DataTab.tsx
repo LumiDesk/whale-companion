@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { IconFolder } from "../../components/ui/Icons";
 import type { IController } from "../../hooks/useController";
+import { errText } from "../../lib/format";
 import type { IAppConfig, IKnownUser, IStickerInfo } from "../../lib/types";
 
 interface IProps {
@@ -18,23 +19,19 @@ interface IProps {
  */
 const DataTab = ({ controller, form, patch, onConfigReload }: IProps) => {
   const [dataBusy, setDataBusy] = useState(false);
-  const [dataMessage, setDataMessage] = useState("");
-  const [dataError, setDataError] = useState("");
   const [confirmImport, setConfirmImport] = useState(false);
   const [stickers, setStickers] = useState<IStickerInfo[]>([]);
   const [stickerBusy, setStickerBusy] = useState(false);
-  const [stickerError, setStickerError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [users, setUsers] = useState<IKnownUser[]>([]);
   const [userBusy, setUserBusy] = useState(false);
   const [confirmUser, setConfirmUser] = useState("");
 
   const loadStickers = async () => {
-    setStickerError("");
     try {
       setStickers(await controller.listStickers());
     } catch (e) {
-      setStickerError(e instanceof Error ? e.message : String(e));
+      controller.notify("error", errText(e));
     }
   };
 
@@ -55,14 +52,12 @@ const DataTab = ({ controller, form, patch, onConfigReload }: IProps) => {
 
   const exportData = async () => {
     setDataBusy(true);
-    setDataError("");
-    setDataMessage("");
 
     try {
       const path = await controller.exportData();
-      if (path) setDataMessage(`已导出到 ${path}`);
+      if (path) controller.notify("ok", `已导出到 ${path}`);
     } catch (e) {
-      setDataError(e instanceof Error ? e.message : String(e));
+      controller.notify("error", errText(e));
     } finally {
       setDataBusy(false);
     }
@@ -71,25 +66,24 @@ const DataTab = ({ controller, form, patch, onConfigReload }: IProps) => {
   const importData = async () => {
     if (!confirmImport) {
       setConfirmImport(true);
-      setDataMessage(
+      controller.notify(
+        "info",
         "再点一次「确认导入」会覆盖当前对话、记忆、表情包与人格卡（先自动备份）",
       );
       return;
     }
 
     setDataBusy(true);
-    setDataError("");
-    setDataMessage("");
 
     try {
       const imported = await controller.importData();
       if (imported) {
-        setDataMessage("导入完成；如果 Bot 之前在运行，会自动重启");
+        controller.notify("ok", "导入完成；如果 Bot 之前在运行，会自动重启");
         onConfigReload();
         void loadStickers();
       }
     } catch (e) {
-      setDataError(e instanceof Error ? e.message : String(e));
+      controller.notify("error", errText(e));
     } finally {
       setDataBusy(false);
       setConfirmImport(false);
@@ -103,13 +97,13 @@ const DataTab = ({ controller, form, patch, onConfigReload }: IProps) => {
     }
 
     setStickerBusy(true);
-    setStickerError("");
 
     try {
       await controller.deleteSticker(id);
       await loadStickers();
+      controller.notify("ok", "已删除表情包");
     } catch (e) {
-      setStickerError(e instanceof Error ? e.message : String(e));
+      controller.notify("error", errText(e));
     } finally {
       setStickerBusy(false);
       setConfirmDelete(null);
@@ -118,13 +112,13 @@ const DataTab = ({ controller, form, patch, onConfigReload }: IProps) => {
 
   const retagStickers = async () => {
     setStickerBusy(true);
-    setStickerError("");
 
     try {
       await controller.retagStickers();
       await loadStickers();
+      controller.notify("ok", "重新打标完成");
     } catch (e) {
-      setStickerError(e instanceof Error ? e.message : String(e));
+      controller.notify("error", errText(e));
     } finally {
       setStickerBusy(false);
     }
@@ -143,8 +137,14 @@ const DataTab = ({ controller, form, patch, onConfigReload }: IProps) => {
       await controller.clearUserData(userId, target);
       setConfirmUser("");
       await loadUsers();
+      controller.notify(
+        "ok",
+        target === "history"
+          ? "对话已清空（原文件已备份）"
+          : "记忆已清空（原文件已备份）",
+      );
     } catch (e) {
-      setDataError(e instanceof Error ? e.message : String(e));
+      controller.notify("error", errText(e));
     } finally {
       setUserBusy(false);
     }
@@ -279,9 +279,6 @@ const DataTab = ({ controller, form, patch, onConfigReload }: IProps) => {
             {confirmImport ? "确认导入（覆盖当前）" : "导入备份"}
           </button>
         </div>
-
-        {dataMessage && <p className="field-help">{dataMessage}</p>}
-        {dataError && <p className="field-error">{dataError}</p>}
       </div>
 
       <div className="card">
@@ -312,8 +309,6 @@ const DataTab = ({ controller, form, patch, onConfigReload }: IProps) => {
             刷新
           </button>
         </div>
-
-        {stickerError && <p className="field-error">{stickerError}</p>}
 
         {stickers.length === 0 ? (
           <div className="empty">图库还是空的。</div>
