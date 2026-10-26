@@ -11,6 +11,7 @@ import { getValueAt, setValueAt } from "../lib/settings-form";
 import type {
   CloseAction,
   IAppConfig,
+  IKnownUser,
   IModelInfo,
   IStickerInfo,
   ThemeMode,
@@ -64,6 +65,9 @@ const SettingsPage = ({ controller }: IProps) => {
   const [stickerBusy, setStickerBusy] = useState(false);
   const [stickerError, setStickerError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [users, setUsers] = useState<IKnownUser[]>([]);
+  const [userBusy, setUserBusy] = useState(false);
+  const [confirmUser, setConfirmUser] = useState("");
 
   // 主题是即时保存的，只同步这一小块，别把其他未保存的输入覆盖掉
   useEffect(() => {
@@ -206,8 +210,19 @@ const SettingsPage = ({ controller }: IProps) => {
     }
   };
 
+  const loadUsers = async () => {
+    try {
+      setUsers(await controller.listUsers());
+    } catch {
+      setUsers([]);
+    }
+  };
+
   useEffect(() => {
-    if (tab === "data") void loadStickers();
+    if (tab === "data") {
+      void loadStickers();
+      void loadUsers();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
@@ -242,6 +257,29 @@ const SettingsPage = ({ controller }: IProps) => {
       setStickerError(e instanceof Error ? e.message : String(e));
     } finally {
       setStickerBusy(false);
+    }
+  };
+
+  const clearUser = async (
+    userId: string,
+    target: "history" | "memory",
+  ) => {
+    const key = `${userId}:${target}`;
+    if (confirmUser !== key) {
+      setConfirmUser(key);
+      return;
+    }
+
+    setUserBusy(true);
+
+    try {
+      await controller.clearUserData(userId, target);
+      setConfirmUser("");
+      await loadUsers();
+    } catch (e) {
+      setDataError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setUserBusy(false);
     }
   };
 
@@ -753,10 +791,61 @@ const SettingsPage = ({ controller }: IProps) => {
 
           <div className="card">
             <div className="card-head">
+              <h2>用户数据</h2>
+              <span className="badge">{users.length} 个</span>
+            </div>
+            <p className="muted card-desc">
+              按 openid 列出聊过天的人；清理前会备份 history 与 memory 文件，Bot 在运行时会先暂停。
+            </p>
+
+            {users.length === 0 ? (
+              <div className="empty">还没有聊天记录。</div>
+            ) : (
+              <ul className="sticker-list">
+                {users.slice(0, 30).map((user) => (
+                  <li key={user.userId} className="sticker-item">
+                    <div>
+                      <div className="sticker-tags">
+                        {user.userId.slice(0, 10)}…
+                      </div>
+                      <div className="sticker-meta">
+                        最近：{new Date(user.lastSeen).toLocaleString("zh-CN")}
+                      </div>
+                    </div>
+                    <div className="persona-actions">
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-small"
+                        disabled={userBusy}
+                        onClick={() => void clearUser(user.userId, "history")}
+                      >
+                        {confirmUser === `${user.userId}:history`
+                          ? "确认清对话"
+                          : "清对话"}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-small"
+                        disabled={userBusy}
+                        onClick={() => void clearUser(user.userId, "memory")}
+                      >
+                        {confirmUser === `${user.userId}:memory`
+                          ? "确认清记忆"
+                          : "清记忆"}
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="card">
+            <div className="card-head">
               <h2>说明</h2>
             </div>
             <p className="muted card-desc">
-              按用户清理对话/记忆会在后续阶段接入；当前可以先打开数据目录手动处理。
+              所有清理都会先备份到原文件旁边（`*.bak-时间戳`）；导入/导出的说明见上方。
             </p>
           </div>
         </>

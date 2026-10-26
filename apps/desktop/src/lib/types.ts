@@ -93,6 +93,13 @@ export interface IStickerInfo {
   createdAt: number;
 }
 
+export interface IKnownUser {
+  userId: string;
+  channel?: string;
+  lastSeen: number;
+  lastProactiveAt?: number;
+}
+
 export interface IAppPaths {
   root: string;
   configFile: string;

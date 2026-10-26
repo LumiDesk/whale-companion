@@ -57,14 +57,27 @@ WhaleCompanion/
   新增样式不要写死颜色；日志面板固定深色。
 - 跟随系统时用 `window.matchMedia("(prefers-color-scheme: dark)")` 监听系统切换。
 
+## 设置页
+
+- Tab：基础 / 人设 / 对话 / 主动 / 表情包 / 高级 / 数据；字段由
+  `apps/server/src/settings.ts` 的 `SETTINGS` 自动渲染。
+- 配置是 `config.json` v2；v1 首次启动自动迁移，并备份 `config.json.bak-v1-*`。
+- 保存服务端设置会重启 Bot；主题、人设即时生效；Bot 暂停时保存不会自动启动。
+- 「思考强度」按 DeepSeek 文档发 `thinking` / `reasoning_effort`；思考开启时温度不生效。
+- 模型输入框右侧「获取模型」通过 `--list-models` 子进程调 `GET /models`，不会建立 QQ 连接。
+- 人设默认文件在安装目录；用户编辑写到 `%APPDATA%\whale-companion\persona.md`，
+  「恢复默认」就是删除这份覆盖。
+- 高级页有连接自检；数据页可导出/导入备份、删表情包、重打标、按用户清对话/记忆。
+
 ## 自动更新
 
 - 「关于」页会检查 `https://api.github.com/repos/Talyra42/whale-companion/releases/latest`；
   启动时也会在后台静默检查一次（打包版且配置完整时）。
 - 发现新版本后点「下载并更新」：下载 zip → 校验 `SHA256SUMS.txt`（有就校验）→ 解压 →
   生成 `updates/apply-update-*.ps1` → 退出当前进程。
-- PowerShell 脚本会等 GUI 进程退出，把解压后的文件覆盖到便携目录，再启动 `WhaleCompanion.exe`。
-  结果写到 `%APPDATA%\whale-companion\updates\update-result.json`，下次启动时提示成功或失败。
+- PowerShell 脚本会等 GUI 进程退出，先把旧 exe/resources.neu/server 备份到 `updates/backup-*`，
+  再覆盖便携目录；复制失败会自动还原并重启旧版本。结果写到
+  `%APPDATA%\whale-companion\updates\update-result.json`，下次启动时提示成功或失败。
 - **二进制下载必须走 `curl.exe`（没有则 PowerShell）**：GitHub Release 资源所在的 Azure Blob
   不返回 CORS 头，WebView 里 `fetch` 拿不到安装包。
 - 开发模式只能检查更新，不能自动安装；自动安装要求目录里有 `WhaleCompanion.exe` 且目录可写。

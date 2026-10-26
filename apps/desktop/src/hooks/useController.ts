@@ -93,6 +93,7 @@ import type {
   IModelInfo,
   IServerPaths,
   IStickerInfo,
+  IKnownUser,
   PageId,
   QQState,
   ResolvedTheme,
@@ -151,6 +152,11 @@ export interface IController {
   listStickers: () => Promise<IStickerInfo[]>;
   deleteSticker: (id: string) => Promise<void>;
   retagStickers: () => Promise<void>;
+  listUsers: () => Promise<IKnownUser[]>;
+  clearUserData: (
+    userId: string,
+    target: "history" | "memory" | "both",
+  ) => Promise<void>;
   clearLogs: () => void;
   fetchModels: (config: IAppConfig) => Promise<IModelInfo[]>;
   runSelfCheck: (config: IAppConfig) => Promise<ICheckResult[]>;
@@ -1035,6 +1041,83 @@ export const useController = (): IController => {
           event.failed ?? 0,
         )} 张失败`,
       );
+    } finally {
+      if (wasRunning) void startBot();
+    }
+  };
+
+  const listUsers = async (): Promise<IKnownUser[]> => {
+    const server = serverRef.current;
+    if (!server) return [];
+
+    const text = await readText(joinPath(server.dataDir, "users.json"));
+    if (!text) return [];
+
+    try {
+      const parsed: unknown = JSON.parse(text.replace(/^\uFEFF/, ""));
+      if (!Array.isArray(parsed)) return [];
+      return parsed
+        .filter(
+          (item): item is IKnownUser =>
+            Boolean(item) && typeof item === "object" &&
+            typeof (item as IKnownUser).userId === "string",
+        )
+        .map((item) => ({
+          ...item,
+          lastSeen: Number(item.lastSeen ?? 0),
+        }))
+        .sort((a, b) => b.lastSeen - a.lastSeen);
+    } catch {
+      throw new Error("用户记录不是合法 JSON");
+    }
+  };
+
+  const clearUserData = async (
+    userId: string,
+    target: "history" | "memory" | "both",
+  ): Promise<void> => {
+    const server = serverRef.current;
+    if (!server) throw new Error("还没有准备好数据目录");
+    if (!/^[A-Za-z0-9_-]+$/.test(userId)) {
+      throw new Error("用户 ID 不合法，已取消");
+    }
+
+    const wasRunning =
+      botStateRef.current === "running" || botStateRef.current === "starting";
+    if (wasRunning) {
+      const stopped = await stopBot();
+      if (!stopped) throw new Error("Bot 没有停下来，已取消清理");
+    }
+
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+
+    try {
+      if (target === "history" || target === "both") {
+        const historyPath = joinPath(server.dataDir, "history.json");
+        const text = await readText(historyPath);
+        if (text) {
+          await writeText(`${historyPath}.bak-${stamp}`, text);
+          const parsed: unknown = JSON.parse(text.replace(/^\uFEFF/, ""));
+          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+            delete (parsed as Record<string, unknown>)[userId];
+            await writeTextAtomic(
+              historyPath,
+              `${JSON.stringify(parsed, null, 2)}\n`,
+            );
+          }
+        }
+      }
+
+      if (target === "memory" || target === "both") {
+        const memoryPath = joinPath(server.dataDir, "memory", `${userId}.json`);
+        const text = await readText(memoryPath);
+        if (text) {
+          await writeText(`${memoryPath}.bak-${stamp}`, text);
+          await removePath(memoryPath);
+        }
+      }
+
+      addLog("gui", `已清理用户数据：${userId.slice(0, 8)}（${target}）`);
     } finally {
       if (wasRunning) void startBot();
     }
@@ -2129,6 +2212,8 @@ export const useController = (): IController => {
     listStickers,
     deleteSticker,
     retagStickers,
+    listUsers,
+    clearUserData,
     clearLogs,
     fetchModels,
     runSelfCheck,

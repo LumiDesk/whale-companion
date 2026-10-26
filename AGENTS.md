@@ -108,12 +108,13 @@ QQ 事件 → cleanQQContent 清洗 <faceType>/<@...> → 串行下载图片（�
 
 ## 6. 表情包机制
 
-- 收图 → 立即 `ingestSticker`（标签先空着）→ `queueStickerTagging` 后台打标（并发 2）→ `updateStickerTags` 回填；
-- 启动时 `retagUntaggedStickers()` 给历史遗留的无标签图补标；
-- 挑图 → `core/sticker-search.ts`：字符二元组 + 余弦，阈值为 `MIN_SCORE = 0.12`；
-- **模型主动要图只发命中的**（`allowRandom: false`）；用户明确说「发个表情包」才允许随机兜底；
+- 收图 → 立即 `ingestSticker`（标签先空着）→ `queueStickerTagging` 后台打标（并发可配）→ `updateStickerTags` 回填；
+- 启动时 `retagUntaggedStickers()` 给历史遗留的无标签图补标；桌面端可触发 `--retag` 逐张重打；
+- 挑图 → `core/sticker-search.ts`：字符二元组 + 余弦，阈值 `STICKER_MIN_SCORE`（默认 0.12）；
+- **模型主动要图只发命中的**（`allowRandom: false`）；用户明确说「发个表情包」才按设置决定是否随机兜底；
 - 用户要图的识别与关键词抽取在 `core/sticker-request.ts`（别把「你发的表情包好好笑」当请求）；
-- 同一用户 8 分钟冷却（`STICKER_COOLDOWN_MS`），自发率 0.05（`STICKER_CHANCE`）。
+- 同一用户默认 8 分钟冷却（`STICKER_COOLDOWN_MS`），自发率 0.05（`STICKER_CHANCE`）；
+- 关闭 `VISION_ENABLED` 时不打标；关闭 `STICKER_AUTO_INGEST` 时新图不再进库。
 
 ## 7. QQ 平台踩过的坑（别再踩）
 
@@ -219,13 +220,21 @@ QQ 事件 → cleanQQContent 清洗 <faceType>/<@...> → 串行下载图片（�
   新增颜色不要再写死；日志面板固定深色，不跟随主题。
 - **隐藏启动**：`setAutostart` 往注册表写 `--hidden`，`hasHiddenFlag(window.NL_ARGS)` 在初始化时识别并
   `hideWindow()`；配置不完整或 Bot 启动失败要 `showWindow()` 露脸，否则用户以为程序没启动。
-- **自动更新**：`lib/update.ts` 只放纯函数（版本比较、Release 解析、校验、脚本生成）；
-  编排在 `useController` 的 `checkUpdate` / `installUpdate`。
-  GitHub Release 资源所在的 Azure Blob **不返回 CORS 头**，二进制下载必须走 `curl.exe`
-  （没有 curl 时退回 PowerShell），不要用 WebView 的 `fetch` 下载安装包。
-- **更新脚本**：`buildUpdateScript` 生成 PowerShell，等当前 PID 退出后覆盖便携目录，
+- **设置页**：Tab 化（基础/人设/对话/主动/表情包/高级/数据），字段由 `settings.ts` 的
+  `SETTINGS` 自动渲染；新增设置只需要改契约，不要手写一个输入框。
+- **模型与思考**：`lib/llm.ts` 按 DeepSeek 文档发 `thinking` + `reasoning_effort`
+  （off/low/high/max），思考开启时不发 temperature；非 DeepSeek 接口只发 `reasoning_effort`。
+  模型选择下拉通过 `--list-models` 子进程调 `GET /models`。
+- **人设**：默认人设在安装目录（只读，随更新替换）；用户编辑写入
+  `%APPDATA%\whale-companion\persona.md`，由 `WHALE_PERSONA_FILE` 注入；恢复默认 = 删除覆盖文件。
+- **一次性命令**：`--self-check`（配置/数据/人设/图库/QQ/LLM）、`--list-models`、`--retag`，
+  都通过 `--config` 读临时配置，输出 `@@WHALE` 行。
+- **数据管理**：设置页可导出/导入 zip（默认不含密钥）、删除单张表情包、重打标、按用户清对话/记忆；
+  覆盖/删除前都会写 `*.bak-时间戳`。
+- **自动更新**：`buildUpdateScript` 生成 PowerShell，等当前 PID 退出后覆盖便携目录，
   结果写 `updates/update-result.json`，下次启动由 `consumeUpdateResult` 消费；
   脚本要带 UTF-8 BOM，Windows PowerShell 5.1 才会按中文路径正确解析。
+  覆盖前会把 exe/resources.neu/server 备份到 `updates/backup-*`，失败自动还原。
 - **校验文件**：CI 生成 `SHA256SUMS.txt` 并随 Release 上传；更新时如果存在就校验，
   旧版本没有这个文件则跳过。发布工作流别漏传它。
 - **路径**：配置 `config.json`、Bot 启动配置 `bot.json`、数据 `data/`、日志 `logs/`、锁 `app.lock`、
