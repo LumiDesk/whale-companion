@@ -51,8 +51,8 @@ const buildBatchUserContent = (batch: IIncomingMessage[]) => {
     : [];
 
   if (selected.length === 0) {
-    if (text) return text;
-    return images.length > 0 ? `[图片x${images.length}]` : "";
+    const marker = images.length > 0 ? `[图片x${images.length}]` : "";
+    return [text, marker].filter(Boolean).join("\n");
   }
 
   const content = buildUserContent(text, selected);
@@ -107,7 +107,7 @@ const transcriptOf = (batch: IIncomingMessage[]): ITurnTranscriptEntry[] => {
   return [
     {
       role: "user",
-      content: text || (images > 0 ? "[图片]" : ""),
+      content: text,
       images,
     },
   ];
@@ -192,8 +192,7 @@ export const runAgentTurn = async (
         for (const message of waited) {
           transcript.push({
             role: "user",
-            content:
-              message.text || (message.images.length > 0 ? "[图片]" : ""),
+            content: message.text,
             images: message.images.length,
           });
         }

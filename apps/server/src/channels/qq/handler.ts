@@ -333,14 +333,18 @@ const handleCommand = async (
     recordReply(message.userId);
   } catch (error) {
     slog("命令执行失败", error);
-    const seq = session.nextSeq(message.msgId);
-    await sendC2C(
-      message.userId,
-      message.msgId,
-      token,
-      "这条命令没跑通…等下再试试 🐋",
-      seq,
-    ).catch(() => {});
+    try {
+      const seq = session.nextSeq(message.msgId);
+      await sendC2C(
+        message.userId,
+        message.msgId,
+        token,
+        "这条命令没跑通…等下再试试 🐋",
+        seq,
+      );
+    } catch {
+      // 回复额度已经用完，命令错误只记日志
+    }
   }
 
   return true;
@@ -436,6 +440,7 @@ export const createQQHandler = (
           "刚给你找过一张啦，缓一缓再要嘛 🐋",
           seq,
         ).catch(() => {});
+        recordReply(batch.userId);
         return;
       }
 
@@ -487,13 +492,17 @@ export const createQQHandler = (
         slog(`已回复（legacy，${Date.now() - startedAt}ms）`);
       } catch (error) {
         slog("回复失败", error);
-        await sendC2C(
-          batch.userId,
-          batch.msgId,
-          token,
-          "脑袋卡了一下…等下再说 🐋",
-          sessionFor(batch.userId, batch.msgId).nextSeq(batch.msgId),
-        ).catch(() => {});
+        try {
+          await sendC2C(
+            batch.userId,
+            batch.msgId,
+            token,
+            "脑袋卡了一下…等下再说 🐋",
+            sessionFor(batch.userId, batch.msgId).nextSeq(batch.msgId),
+          );
+        } catch {
+          // 额度用完时不再补发
+        }
       }
       return;
     }
@@ -525,13 +534,17 @@ export const createQQHandler = (
       slog(`已回复（agent，${Date.now() - startedAt}ms）`);
     } catch (error) {
       slog("Agent 回复失败，发兜底", error);
-      await sendC2C(
-        batch.userId,
-        batch.msgId,
-        token,
-        "脑袋卡了一下…等下再说 🐋",
-        sessionFor(batch.userId, batch.msgId).nextSeq(batch.msgId),
-      ).catch(() => {});
+      try {
+        await sendC2C(
+          batch.userId,
+          batch.msgId,
+          token,
+          "脑袋卡了一下…等下再说 🐋",
+          sessionFor(batch.userId, batch.msgId).nextSeq(batch.msgId),
+        );
+      } catch {
+        // 额度用完时不再补发
+      }
     }
   };
 
@@ -573,6 +586,9 @@ export const createQQHandler = (
 
     try {
       const result = await runAgentTurn(userId, [], "proactive", deps);
+      if (result.sent === 0 && result.silent) {
+        recordSilence(userId, "proactive_silent");
+      }
       slog("主动消息回合结束");
       return result.sent > 0;
     } catch (error) {
