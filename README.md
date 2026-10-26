@@ -39,7 +39,7 @@
 <p align="center">
   <img src="docs/screenshots/console-settings.png" alt="桌面控制台 · 设置页" />
   <br />
-  <sub>设置页：外观主题、QQ / DeepSeek 配置（含模型与接口地址）、关窗行为、开机自启</sub>
+  <sub>设置页：基础 / 人设 / 对话 / 主动 / 表情包 / 高级 / 数据七个 Tab，截图截取的是基础页</sub>
 </p>
 
 <p align="center">
@@ -254,7 +254,7 @@ pnpm release patch    # 发版：bump + tag + push（触发 CI）
 | 手机私聊没反应 | q.qq.com 的事件订阅是不是 **WebSocket**；QQ 号在不在「内部体验号码」；是不是同时开了两个 Bot |
 | 日志里出现 `4009` | 同一个 AppID 只允许一条 WebSocket 连接，把另一个实例 / 客户端关掉 |
 | 她从不主动说话 | 主动消息受平台额度限制，失败只记日志；再确认 `PROACTIVE_ENABLED` 和免打扰时段（默认 23:00–9:00） |
-| 表情包不发或很离谱 | 看图库标签质量、`MIN_SCORE` 阈值、8 分钟冷却；模型主动要图时只发语义命中的 |
+| 表情包不发或很离谱 | 看图库标签质量、`STICKER_MIN_SCORE` 阈值、8 分钟冷却；模型主动要图时只发语义命中的 |
 | 记忆像没生效 | `data/history.json` 与 `memory/<userId>.json` 是否在写；压缩阈值 `HISTORY_SUMMARIZE_AT` |
 | 检查更新失败 | GitHub 是否可达；自动更新需要能访问 `api.github.com` 和 `github.com` |
 | 更新安装失败 | 看 `%APPDATA%\whale-companion\updates\update.log`；程序目录要可写，Bot 要先停掉 |
@@ -272,6 +272,9 @@ pnpm release patch    # 发版：bump + tag + push（触发 CI）
 - 自动更新依赖 GitHub 可达，且便携目录可写；没有增量更新，每次下载完整 zip
 - 第二个实例只提示并退出，不会把已有窗口调到前台
 - 挑图依赖标签质量，同义不同词（「高兴」vs「开心」）可能漏
+- 自定义斜杠命令、心情列表和表情包缩略图还没做；图库目前只能看标签、删除、重打标
+- 从 0.1.x 第一次升到 0.2.0 时，执行更新的是旧版更新器，旧版没有“失败自动还原”；
+  0.2.0 之后的更新才会走备份/还原脚本
 - 真实存储读写、真实 QQ 链路、Neutralino 托盘和真实更新链路目前没有自动化测试
 
 ## 文档与参与

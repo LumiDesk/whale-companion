@@ -100,6 +100,7 @@ QQ 事件 → cleanQQContent 清洗 <faceType>/<@...> → 串行下载图片（�
 
 - 攒到 `HISTORY_SUMMARIZE_AT`（150）条时，后台把老的压成摘要，原文只留 `HISTORY_KEEP_AFTER`（20）条；
 - 同一用户同时只压一次（`summarize.ts` 里的 `inFlight`），避免并发覆盖；
+- 摘要写回前会检查每用户的 `historyEpoch`：压缩期间来了新消息、执行 `/new` 或 `/forget` 就丢弃这次摘要；
 - `facts` 可被用户用 `/remember` 直接写入；
 - **system 不落盘**，每轮由 `core/prompt.ts` 现拼（人设 + 记忆 + 此刻 + 心情 + 表情包可用性）；
 - 主动消息发出后也要写进历史，否则下一轮她不知道自己说过；
@@ -187,6 +188,8 @@ QQ 事件 → cleanQQContent 清洗 <faceType>/<@...> → 串行下载图片（�
 - 自动更新只支持便携版，整包替换，没有增量；GitHub 不可达或安装目录不可写时只能手动更新。
 - 自动更新的真实链路（下载/解压/替换/重启）没有自动化测试；改动后至少手动跑一次
   `buildUpdateScript` 的沙盒脚本，再在打包版上冒烟。
+- 从 0.1.x 首次升到 0.2.0 时，执行更新的是旧版更新器，旧版没有失败自动还原；0.2.0 之后才有。
+- 自定义斜杠命令、心情列表、表情包缩略图未实现；图库目前只能看标签、删除、重打标。
 - 服务端只有简单的 SIGINT/SIGTERM 退出（不做 WS 优雅关闭）；桌面端退出时会 taskkill 进程树。
 
 ## 13. 环境变量
@@ -275,7 +278,7 @@ QQ 事件 → cleanQQContent 清洗 <faceType>/<@...> → 串行下载图片（�
 | 第二个实例卡住 | 单实例提示不要用 `showMessageBox`；看 `app.lock`、心跳、`tasklist` |
 | QQ 连接失败 / 4009 | `gateway` / `token` 日志；确认没有第二个 Bot 进程；检查 AppID/Secret |
 | 回复发不出去 | `channels/qq/send.ts` 的 `msg_seq` 和 QQ 返回体 |
-| 表情包不发 / 不匹配 | 标签质量、`MIN_SCORE`、冷却和 `allowRandom` |
+| 表情包不发 / 不匹配 | 标签质量、`STICKER_MIN_SCORE`、冷却和 `allowRandom` |
 | 记忆没生效 | `history.json` / `memory`、`prompt.ts` 的拼接、摘要阈值 |
 | 检查更新失败 | GitHub 是否可达、`api.github.com` 是否被代理拦、是否触发限流（403） |
 | 更新安装失败 | `%APPDATA%\whale-companion\updates\update.log` / `update-result.json`；安装目录是否可写；Bot 是否已停 |

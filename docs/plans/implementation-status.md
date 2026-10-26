@@ -2,10 +2,13 @@
 
 对应方案：[2026-10 可配置化与 Code Review](2026-10-customization-and-code-review.md)。
 
-- 基线：`667981a` → 当前 `main`（本地提交，未 push）
+- 基线：`667981a` → 发布提交 `f3f1d03`（tag `v0.2.0`，已 push）
 - 验证：`pnpm typecheck` 通过；`pnpm test` **134 个用例全绿**（server 77 + desktop 57）
 - 打包：`pnpm desktop:pack` 生成 `whale-companion-0.2.0-win-x64.zip`
+- 发布：CI 成功，GitHub Release 带 zip 与 `SHA256SUMS.txt`
 - 运行：便携版已启动，QQ 在线；`bot.json` 在 Bot 读取后已删除
+- 文档：README 功能/自定义/隐私/已知限制、AGENTS 设置与发版规则、CHANGELOG、
+  `.env.example`、三张控制台截图已同步到 v0.2.0
 
 ## 审查项状态
 
