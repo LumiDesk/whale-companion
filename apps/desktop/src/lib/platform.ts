@@ -60,6 +60,25 @@ export const writeText = async (path: string, content: string): Promise<void> =>
   await filesystem.writeFile(path, content);
 };
 
+/** 临时文件 + 覆盖，尽量让配置/人设不会写一半 */
+export const writeTextAtomic = async (
+  path: string,
+  content: string,
+): Promise<void> => {
+  const temp = `${path}.${Date.now()}.${Math.random()
+    .toString(36)
+    .slice(2, 8)}.tmp`;
+
+  await filesystem.writeFile(temp, content);
+
+  try {
+    await filesystem.move(temp, path);
+  } catch {
+    await removePath(path);
+    await filesystem.move(temp, path);
+  }
+};
+
 export const appendText = async (path: string, content: string): Promise<void> => {
   await filesystem.appendFile(path, content);
 };

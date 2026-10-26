@@ -5,49 +5,94 @@ import { startQQ } from "./channels/qq/gateway.js";
 import { cleanLegacyHistory } from "./channels/qq/migrate.js";
 import { getAccessToken } from "./channels/qq/token.js";
 import { sendC2CProactive } from "./channels/qq/send.js";
+import { listModels } from "./core/models.js";
 import { startProactive } from "./core/proactive.js";
 import { retagUntaggedStickers } from "./core/tagger.js";
 import { reportStatus } from "./status.js";
 import { slog } from "./util.js";
 
-slog("小鲸鱼启动中…");
-reportStatus({ type: "boot", pid: process.pid });
+const args = process.argv.slice(2);
+const mode = args.includes("--list-models")
+  ? "list-models"
+  : args.includes("--self-check")
+    ? "self-check"
+    : "bot";
 
-/**
- * GUI 模式下，桌面端会传父进程 PID。
- * GUI 崩了（来不及杀子进程）时，机器人自己退出，避免孤儿进程占着 QQ 连接。
- */
-const parentPid = Number(process.env.WHALE_PARENT_PID ?? 0);
-if (Number.isInteger(parentPid) && parentPid > 0) {
-  const timer = setInterval(() => {
-    try {
-      process.kill(parentPid, 0);
-    } catch {
-      slog("GUI 已退出，机器人随之退出");
-      process.exit(0);
-    }
-  }, 5000);
+/** 一次性命令的输出：桌面端按 `@@WHALE` 行解析，不依赖 WHALE_GUI */
+const emit = (event: Record<string, unknown>): void => {
+  process.stdout.write(
+    `@@WHALE ${JSON.stringify({ v: 1, ts: Date.now(), ...event })}\n`,
+  );
+};
 
-  timer.unref();
+const errorText = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
+
+const runListModels = async (): Promise<void> => {
+  try {
+    const models = await listModels();
+    emit({ type: "models", ok: true, models });
+    process.exitCode = 0;
+  } catch (error) {
+    emit({ type: "models", ok: false, error: errorText(error) });
+    process.exitCode = 1;
+  }
+};
+
+/** 占位：P3 会在这里做配置、数据目录、人设、图库、QQ、LLM 的完整自检 */
+const runSelfCheck = async (): Promise<void> => {
+  emit({ type: "check-done", ok: false, error: "自检尚未实现" });
+  process.exitCode = 1;
+};
+
+const main = (): void => {
+  slog("小鲸鱼启动中…");
+  reportStatus({ type: "boot", pid: process.pid });
+
+  /**
+   * GUI 模式下，桌面端会传父进程 PID。
+   * GUI 崩了（来不及杀子进程）时，机器人自己退出，避免孤儿进程占着 QQ 连接。
+   */
+  const parentPid = Number(process.env.WHALE_PARENT_PID ?? 0);
+  if (Number.isInteger(parentPid) && parentPid > 0) {
+    const timer = setInterval(() => {
+      try {
+        process.kill(parentPid, 0);
+      } catch {
+        slog("GUI 已退出，机器人随之退出");
+        process.exit(0);
+      }
+    }, 5000);
+
+    timer.unref();
+  }
+
+  // 清理旧版本留在历史里的平台标记；失败不阻塞启动
+  try {
+    cleanLegacyHistory();
+  } catch (e) {
+    slog("历史清理失败（不影响启动）", e);
+  }
+
+  // QQ 长连接（内部自带重连，不会阻塞启动）
+  void startQQ().catch((e) => slog("QQ 通道异常退出", e));
+
+  // 主动消息：渠道发送方式由这里注入，core 不直接碰 QQ
+  startProactive(async (userId, text) => {
+    const token = await getAccessToken();
+    await sendC2CProactive(userId, token, text);
+  });
+
+  // 上次没打完标签的图，启动后补上
+  retagUntaggedStickers();
+
+  reportStatus({ type: "ready", pid: process.pid });
+};
+
+if (mode === "list-models") {
+  void runListModels();
+} else if (mode === "self-check") {
+  void runSelfCheck();
+} else {
+  main();
 }
-
-// 清理旧版本留在历史里的平台标记；失败不阻塞启动
-try {
-  cleanLegacyHistory();
-} catch (e) {
-  slog("历史清理失败（不影响启动）", e);
-}
-
-// QQ 长连接（内部自带重连，不会阻塞启动）
-void startQQ().catch((e) => slog("QQ 通道异常退出", e));
-
-// 主动消息：渠道发送方式由这里注入，core 不直接碰 QQ
-startProactive(async (userId, text) => {
-  const token = await getAccessToken();
-  await sendC2CProactive(userId, token, text);
-});
-
-// 上次没打完标签的图，启动后补上
-retagUntaggedStickers();
-
-reportStatus({ type: "ready", pid: process.pid });

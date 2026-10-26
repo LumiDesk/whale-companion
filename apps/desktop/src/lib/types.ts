@@ -3,6 +3,7 @@ import type { ISettings } from "./settings";
 export type {
   IConversationSettings,
   ILLMSettings,
+  IModelInfo,
   IProactiveSettings,
   ISettings,
   IStickerSettings,

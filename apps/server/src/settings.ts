@@ -134,6 +134,17 @@ export interface ISettings {
   logs: ILogSettings;
 }
 
+/** `/models` 返回的模型元数据（桌面端模型下拉用） */
+export interface IModelInfo {
+  id: string;
+  name?: string;
+  contextWindow?: number;
+  maxOutputTokens?: number;
+  inputModalities?: string[];
+  effortLevels?: string[];
+  defaultEffort?: string;
+}
+
 const THINKING_OPTIONS: readonly ISettingOption[] = [
   { value: "off", label: "关闭" },
   { value: "low", label: "低" },

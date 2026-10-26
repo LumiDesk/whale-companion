@@ -1161,3 +1161,242 @@ input[type="checkbox"] {
   border: 3px solid transparent;
   background-clip: content-box;
 }
+
+/* ---------- settings v2 ---------- */
+
+.settings-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-tab {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  padding: 7px 12px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.settings-tab:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.settings-tab.is-active {
+  background: var(--accent-soft);
+  border-color: var(--info-border);
+  color: var(--accent-strong);
+}
+
+.subhead {
+  margin: 18px 0 8px;
+  font-size: 12px;
+  color: var(--faint);
+  font-weight: 600;
+}
+
+input[type="number"] {
+  height: 38px;
+  width: 100%;
+  padding: 0 11px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--input-bg);
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+input[type="number"]:focus {
+  border-color: var(--focus-border);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.input-with-unit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.input-with-unit input {
+  flex: 1;
+}
+
+.input-with-unit .unit {
+  flex: none;
+  color: var(--muted);
+  font-size: 12px;
+  min-width: 18px;
+}
+
+.segmented {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.segment {
+  border: 1px solid var(--border-strong);
+  background: var(--surface-soft);
+  color: var(--text-soft);
+  padding: 7px 12px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.segment:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.segment.is-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.segment:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.field-help {
+  margin: 0;
+  color: var(--faint);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.field-error {
+  margin: 0;
+  color: var(--red);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.field.is-disabled {
+  opacity: 0.72;
+}
+
+.field.is-disabled input {
+  background: var(--surface-soft);
+  cursor: not-allowed;
+}
+
+.json-input,
+.persona-input {
+  width: 100%;
+  resize: vertical;
+  padding: 10px 11px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--input-bg);
+  color: var(--text);
+  font-family: "Cascadia Mono", Consolas, "Microsoft YaHei UI", monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  outline: none;
+}
+
+.json-input:focus,
+.persona-input:focus {
+  border-color: var(--focus-border);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.persona-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.persona-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.badge-accent {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.model-picker {
+  position: relative;
+}
+
+.model-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.model-input-row input {
+  flex: 1;
+}
+
+.model-input-row .btn {
+  flex: none;
+  white-space: nowrap;
+}
+
+.model-menu {
+  position: absolute;
+  z-index: 20;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.18);
+}
+
+.model-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.model-item:hover,
+.model-item.is-active {
+  background: var(--surface-hover);
+}
+
+.model-name {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.model-meta {
+  color: var(--faint);
+  font-size: 11px;
+  font-family: "Cascadia Mono", Consolas, monospace;
+}
+
+@media (max-width: 700px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}

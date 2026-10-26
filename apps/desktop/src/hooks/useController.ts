@@ -49,6 +49,7 @@ import {
   spawnBotProcess,
   touchLock,
   writeText,
+  writeTextAtomic,
 } from "../lib/platform";
 import {
   buildBotConfig,
@@ -87,6 +88,7 @@ import type {
   IAppConfig,
   IAppPaths,
   ILogLine,
+  IModelInfo,
   IServerPaths,
   PageId,
   QQState,
@@ -142,6 +144,15 @@ export interface IController {
   openLogsDir: () => Promise<void>;
   openDataDir: () => Promise<void>;
   clearLogs: () => void;
+  fetchModels: (config: IAppConfig) => Promise<IModelInfo[]>;
+  readPersona: () => Promise<{
+    text: string;
+    source: "custom" | "default";
+    path: string;
+  }>;
+  savePersona: (text: string) => Promise<void>;
+  resetPersona: () => Promise<void>;
+  openPersonaDir: () => Promise<void>;
 }
 
 const errText = (error: unknown): string =>
@@ -327,7 +338,11 @@ export const useController = (): IController => {
       text,
     };
 
-    logsRef.current = appendLogLine(logsRef.current, line);
+    logsRef.current = appendLogLine(
+      logsRef.current,
+      line,
+      configRef.current.logs.maxLines,
+    );
     setLogs(logsRef.current);
 
     const currentPaths = pathsRef.current;
@@ -668,6 +683,135 @@ export const useController = (): IController => {
   const clearLogs = () => {
     logsRef.current = [];
     setLogs([]);
+  };
+
+  /**
+   * 用当前表单里的 Key / Base URL 调一次 `--list-models`。
+   * 临时配置写到 model-check.json，读完即删；不污染 bot.json。
+   */
+  const fetchModels = async (next: IAppConfig): Promise<IModelInfo[]> => {
+    const node = nodeRef.current;
+    const server = serverRef.current;
+    const currentPaths = pathsRef.current;
+
+    if (!node) throw new Error("没有找到 Node.js，无法获取模型列表");
+    if (!server) throw new Error("还没有找到 Bot 程序目录");
+    if (!currentPaths) throw new Error("还没有准备好配置目录");
+    if (!next.llm.apiKey.trim()) {
+      throw new Error("先填写 API Key，再获取模型列表");
+    }
+
+    const tempFile = joinPath(currentPaths.root, "model-check.json");
+    const env = buildBotConfig(next, {
+      dataDir: server.dataDir,
+      personaFile: joinPath(currentPaths.root, "persona.md"),
+      defaultPersonaFile: server.personaFile,
+      parentPid: 0,
+    });
+
+    // 只查模型时不需要 QQ 凭据；用占位值通过必填校验，不会建立连接
+    env.QQBOT_APPID ||= "model-list-placeholder";
+    env.QQBOT_SECRET ||= "model-list-placeholder";
+
+    try {
+      await writeText(tempFile, JSON.stringify(env, null, 2));
+
+      const command = `${buildSpawnCommand(
+        node,
+        joinPath(server.serverDir, "index.js"),
+        tempFile,
+      )} --list-models`;
+
+      const result = await os.execCommand(command);
+      const events = result.stdOut
+        .split(/\r?\n/)
+        .map((line) => parseStatusLine(line))
+        .filter((event): event is NonNullable<typeof event> => event !== null);
+
+      const event = events.find((item) => item.type === "models");
+      if (event) {
+        if (event.ok !== true) {
+          throw new Error(String(event.error ?? "获取模型列表失败"));
+        }
+
+        const models = Array.isArray(event.models)
+          ? (event.models as IModelInfo[])
+          : [];
+        if (models.length === 0) throw new Error("接口没有返回可用模型");
+
+        addLog("gui", `已获取 ${models.length} 个可用模型`);
+        return models;
+      }
+
+      const detail = (result.stdErr || result.stdOut || "").trim();
+      throw new Error(
+        `获取模型列表失败${detail ? `：${detail.slice(0, 300)}` : "（无输出）"}`,
+      );
+    } finally {
+      await removePath(tempFile).catch(() => {});
+    }
+  };
+
+  const personaOverrideFile = (): string => {
+    const currentPaths = pathsRef.current;
+    if (!currentPaths) throw new Error("还没有准备好配置目录");
+    return joinPath(currentPaths.root, "persona.md");
+  };
+
+  const readPersona = async (): Promise<{
+    text: string;
+    source: "custom" | "default";
+    path: string;
+  }> => {
+    const override = personaOverrideFile();
+    const custom = await readText(override);
+    if (custom && custom.trim()) {
+      return { text: custom, source: "custom", path: override };
+    }
+
+    const server = serverRef.current;
+    const fallback = server ? await readText(server.personaFile) : null;
+
+    return {
+      text: fallback ?? "",
+      source: "default",
+      path: server?.personaFile ?? override,
+    };
+  };
+
+  const savePersona = async (text: string): Promise<void> => {
+    const body = text.trim();
+    if (!body) throw new Error("人设不能为空");
+    if (body.length > 20_000) throw new Error("人设不能超过 20000 字");
+
+    const override = personaOverrideFile();
+    const existing = await readText(override);
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+
+    if (existing) {
+      await writeText(`${override}.bak-${stamp}`, existing);
+    }
+
+    await writeTextAtomic(override, `${body}\n`);
+    addLog("gui", "人设已保存，下一条消息生效");
+  };
+
+  const resetPersona = async (): Promise<void> => {
+    const override = personaOverrideFile();
+    const existing = await readText(override);
+    if (!existing) return;
+
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    await writeText(`${override}.bak-${stamp}`, existing);
+    await removePath(override);
+    addLog("gui", "人设已恢复默认");
+  };
+
+  const openPersonaDir = async (): Promise<void> => {
+    const currentPaths = pathsRef.current;
+    if (!currentPaths) return;
+    await ensureDir(currentPaths.root);
+    await openPath(currentPaths.root);
   };
 
   const dismissMessage = () => setMessage(null);
@@ -1121,6 +1265,9 @@ export const useController = (): IController => {
   };
 
   const saveConfig = async (next: IAppConfig): Promise<boolean> => {
+    const wasRunning =
+      botStateRef.current === "running" || botStateRef.current === "starting";
+
     // 主题已经在设置页即时保存；保存其他字段时不要用表单里的旧值把它覆盖回去
     const normalized = normalizeConfig({
       ...next,
@@ -1172,10 +1319,16 @@ export const useController = (): IController => {
     configRef.current = normalized;
     setConfig(normalized);
     addLog("gui", "设置已保存");
-    setMessage({ kind: "ok", text: "设置已保存，正在重启 Bot" });
+    setMessage({
+      kind: "ok",
+      text: wasRunning
+        ? "设置已保存，正在重启 Bot"
+        : "设置已保存；Bot 未运行，下次启动生效",
+    });
     void updateTray();
 
-    await restartBot();
+    // 暂停状态的 Bot 不因为保存设置被偷偷启动
+    if (wasRunning) await restartBot();
     return true;
   };
 
@@ -1255,6 +1408,7 @@ export const useController = (): IController => {
 
       // 开机自启时注册表传来的 --hidden：先藏起来，配置有问题再露脸
       const startHidden = hasHiddenFlag(window.NL_ARGS);
+      let hidden = startHidden;
       if (startHidden) {
         try {
           await hideWindow();
@@ -1264,9 +1418,10 @@ export const useController = (): IController => {
       }
 
       const revealIfHidden = async (reason: string) => {
-        if (!startHidden) return;
+        if (!hidden) return;
         try {
           await showWindow();
+          hidden = false;
           addLog("gui", `开机自启：${reason}，已显示窗口`);
         } catch (error) {
           addLog("error", `显示窗口失败：${errText(error)}`);
@@ -1282,10 +1437,6 @@ export const useController = (): IController => {
         await ensureDir(appPaths.root);
         await ensureDir(appPaths.dataDir);
         await ensureDir(appPaths.logsDir);
-
-        for (const name of pickOldLogs(await readDir(appPaths.logsDir))) {
-          await removePath(joinPath(appPaths.logsDir, name));
-        }
 
         const isPackagedApp = await isPackaged();
         packagedRef.current = isPackagedApp;
@@ -1372,6 +1523,14 @@ export const useController = (): IController => {
         setConfig(loaded);
         setConfigLoaded(true);
 
+        // 按用户设置清理旧日志
+        for (const name of pickOldLogs(
+          await readDir(appPaths.logsDir),
+          loaded.logs.keepDays,
+        )) {
+          await removePath(joinPath(appPaths.logsDir, name));
+        }
+
         // 上次更新脚本留下的结果（成功/失败）在这里消费一次
         await consumeUpdateResult(appPaths);
 
@@ -1395,6 +1554,17 @@ export const useController = (): IController => {
         events.on("trayMenuItemClicked", onTrayClick);
         events.on("spawnedProcess", onSpawned);
 
+        // 设置里要求启动时最小化：托盘初始化后再藏，避免完全叫不出来
+        if (!hidden && loaded.behavior.startMinimized) {
+          try {
+            await hideWindow();
+            hidden = true;
+            addLog("gui", "按设置启动时最小化到托盘");
+          } catch (error) {
+            addLog("error", `启动时隐藏窗口失败：${errText(error)}`);
+          }
+        }
+
         addLog("gui", `小鲸鱼控制台已启动（v${APP_VERSION}）`);
 
         if (!nodeRef.current) {
@@ -1412,13 +1582,16 @@ export const useController = (): IController => {
             text: "先填写 QQ 和模型的配置，保存后 Bot 会自动启动。",
           });
           addLog("gui", "配置未完成，等待填写");
+        } else if (!loaded.behavior.autoStartBot) {
+          await revealIfHidden("已关闭启动时自动启动");
+          addLog("gui", "按设置未自动启动 Bot，等用户手动启动");
         } else {
           setBootMessage("启动 Bot…");
           const started = await startBot();
 
-          if (startHidden && started) {
-            addLog("gui", "开机自启：已隐藏到托盘");
-          } else if (startHidden) {
+          if (hidden && started) {
+            addLog("gui", "启动时已隐藏到托盘");
+          } else if (hidden) {
             await revealIfHidden("Bot 启动失败");
           }
         }
@@ -1428,8 +1601,9 @@ export const useController = (): IController => {
 
           // 后台静默查一次；隐藏启动（开机自启）时不打扰网络
           if (
-            !startHidden &&
+            !hidden &&
             isPackagedApp &&
+            loaded.behavior.checkUpdateOnStartup &&
             validateConfig(loaded).length === 0
           ) {
             void checkUpdate(true);
@@ -1526,5 +1700,10 @@ export const useController = (): IController => {
     openLogsDir,
     openDataDir,
     clearLogs,
+    fetchModels,
+    readPersona,
+    savePersona,
+    resetPersona,
+    openPersonaDir,
   };
 };
