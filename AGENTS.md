@@ -9,8 +9,8 @@
 - 设计规范：[`DESIGN.md`](DESIGN.md)（改界面前必读）
 - 版本号以根 `package.json` 为准，记录见 [`CHANGELOG.md`](CHANGELOG.md)
 
-> **发版只能由用户执行。** 代理不许运行 `pnpm release`、打 tag、创建/修改 GitHub Release，
-> 也不许改任何 `version` 字段。代理只负责代码、结构与 commit。
+> **发版由用户决定。** 代理不自行发版；只有用户明确要求时才执行 `pnpm release` 与 Release 操作。
+> 代理可以准备 CHANGELOG、跑检查、提交与推送，但不要改任何 `version` 字段（只有 release 脚本能改）。
 
 ## Project Structure
 
@@ -37,7 +37,7 @@ apps/
         └── styles.css          # 色板与全部样式（CSS 变量在顶部）
 
 docs/                           # 截图、架构图（见 docs/README.md）
-scripts/release.mjs             # 发版脚本（仅用户执行）
+scripts/release.mjs             # 发版脚本（用户决定）
 ```
 
 ## Architecture Rules
@@ -112,12 +112,13 @@ pnpm desktop:dev            # 启动桌面控制台（需先 pnpm build）
 pnpm typecheck              # 两个包都查（提交前必跑）
 pnpm test                   # 两个包的单测（提交前必跑）
 pnpm lint:prettier          # Prettier 格式化
-pnpm desktop:pack           # 打 Windows 便携 zip（仅用户执行）
+pnpm desktop:pack           # 打 Windows 便携 zip（用户决定）
 ```
 
 ## Never 规则
 
-- **Never 自行发版**：`pnpm release`、git tag、`gh release`、任何 `version` 字段都只能由用户操作
+- **Never 自行发版**：只有用户明确要求时才跑 `pnpm release`、打 tag、动 Release；
+  `version` 字段只由 release 脚本修改
 - Never 修改 `pnpm-lock.yaml`
 - Never 修改构建产物：`apps/server/dist/`、`apps/desktop/resources/`、`apps/desktop/dist/`
 - Never 用 `writeFileSync` 直接覆盖 `data/*.json`（走 `store/atomic.ts` 的原子写）
@@ -136,13 +137,13 @@ pnpm desktop:pack           # 打 Windows 便携 zip（仅用户执行）
 - 一个提交只做一件事；提交前跑 `pnpm typecheck` + `pnpm test`
 - 不要提交无关格式化；不要 amend 已推送的提交
 
-## 发版（仅用户执行）
+## 发版（用户决定）
 
 - 用户执行 `pnpm release patch|minor|major`：bump 四个版本文件 → 跑检查 → 提交 `chore: release vX.Y.Z` → 打 tag → 推 main 与 tag
 - tag 触发 CI：构建 zip + `SHA256SUMS.txt` → 创建 **pre-release**
 - 客户端默认只查正式 Release；用户在 GitHub 把 pre-release 转正式后，客户端才看得到
 - 关于页有「接收预发布版本」开关（`behavior.includePrerelease`），只影响本机检查更新
-- 代理需要发版时：**提示用户自己执行**，不要代劳
+- 代理只有在用户明确要求时才代为发版；平时准备好 CHANGELOG 并提示用户自己执行
 
 ## Troubleshooting
 

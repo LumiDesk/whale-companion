@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+（暂无）
+
+## [0.3.0] - 2026-10-26
+
+桌面端架构整理版本：行为不变，按职责拆开便于维护。
+
 ### 重构
 
 - 桌面端页面移入 `src/pages/`，基础控件（Icons / Switch）移入 `src/components/ui/`，
@@ -11,11 +17,13 @@
 - `useController` 按职责拆成 `useConfig` / `useBotProcess` / `useUpdate` / `useDataActions` / `useLogs`，
   主 hook 从 2394 行降到 809 行
 - 设置页拆成 `TabPanels`（五个 Tab）+ `DataTab` + `specs`，设置页从 864 行降到 267 行
+- `errText` 移到 `lib/format`，`findPayloadDir` / `runDownload` 随更新流程走
 
 ### 文档
 
 - AGENTS.md 按统一模板重写：项目结构、架构规则、编码规范、Never 规则、commit 与发版流程
-- 明确「发版只能由用户执行」，代理只负责代码、结构与提交
+- 明确「发版只能由用户决定，代理不自行发版」
+- 新增 `DESIGN.md`（0.2.4 起）并在 AGENTS.md 引用
 
 ## [0.2.4] - 2026-10-26
 
