@@ -117,4 +117,10 @@ export interface IServerPaths {
   dataDir: string;
 }
 
-export type { ITrayItem } from "./types-ui";
+/** 托盘菜单项（Neutralino setTray 的入参） */
+export interface ITrayItem {
+  id?: string;
+  text: string;
+  isDisabled?: boolean;
+  isChecked?: boolean;
+}

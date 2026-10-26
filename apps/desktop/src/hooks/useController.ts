@@ -98,12 +98,12 @@ import type {
   IServerPaths,
   IStickerInfo,
   IKnownUser,
+  ITrayItem,
   PageId,
   QQState,
   ResolvedTheme,
   ThemeMode,
 } from "../lib/types";
-import type { ITrayItem } from "../lib/types-ui";
 import { APP_VERSION } from "../lib/version";
 
 interface IMessage {

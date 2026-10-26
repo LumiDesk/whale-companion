@@ -9,7 +9,7 @@ import {
 
 import { isLockFresh, parseLock } from "./lock";
 import { joinPath, resolveAppRoot } from "./paths";
-import type { ITrayItem } from "./types-ui";
+import type { ITrayItem } from "./types";
 
 export const isNeutralino = (): boolean =>
   typeof window !== "undefined" && typeof window.NL_PORT === "number";
