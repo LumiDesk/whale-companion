@@ -26,6 +26,7 @@ import {
   appendText,
   ensureDir,
   fileExists,
+  fileModifiedAt,
   fileSize,
   findNode,
   getAppDataPath,
@@ -70,6 +71,7 @@ import {
   buildApplyCommand,
   buildDownloadCommand,
   buildExtractCommand,
+  buildFreeSpaceCommand,
   buildHashCommand,
   buildPowerShellDownloadCommand,
   buildUpdateScript,
@@ -420,6 +422,12 @@ export const useController = (): IController => {
       bootSeenRef.current = true;
       clearStartTimer();
       if (typeof event.pid === "number") setBotPid(event.pid);
+
+      // Bot 已经读完 --config，删掉这份含密钥的派生文件
+      const currentPaths = pathsRef.current;
+      if (currentPaths) {
+        void removePath(currentPaths.botConfigFile).catch(() => {});
+      }
       return;
     }
 
@@ -754,6 +762,35 @@ export const useController = (): IController => {
 
     await ensureDir(current.dataDir);
     await openPath(current.dataDir);
+  };
+
+  /** 清理过期的更新/导入/导出缓存，避免 updates 目录只增不减 */
+  const cleanupUpdates = async (root: string): Promise<void> => {
+    const updatesDir = joinPath(root, "updates");
+    const names = await readDir(updatesDir);
+    const now = Date.now();
+    const day = 86_400_000;
+
+    for (const name of names) {
+      let maxAge: number | null = null;
+
+      if (name === "model-check.json" || name === "self-check.json" || name === "retag-check.json") {
+        maxAge = day;
+      } else if (/^(export-|import-)/.test(name)) {
+        maxAge = 3 * day;
+      } else if (/^(backup-|import-backup-)/.test(name)) {
+        maxAge = 30 * day;
+      } else if (/^apply-update-.*\.ps1$/i.test(name)) {
+        maxAge = 7 * day;
+      }
+
+      if (maxAge === null) continue;
+
+      const modified = await fileModifiedAt(joinPath(updatesDir, name));
+      if (modified !== null && now - modified > maxAge) {
+        await removePath(joinPath(updatesDir, name)).catch(() => {});
+      }
+    }
   };
 
   /** 导出 data + 自定义人设；默认不含 config.json 里的密钥 */
@@ -1536,6 +1573,40 @@ export const useController = (): IController => {
       const updatesDir = joinPath(currentPaths.root, "updates");
       await ensureDir(updatesDir);
 
+      // 下载 + 解压 + 备份大约需要 3 倍 zip 的空间；查不到就继续，不阻塞更新
+      const drive = /^[A-Za-z]:/.exec(targetDir)?.[0]?.[0];
+      if (drive) {
+        try {
+          const freeResult = await os.execCommand(
+            buildFreeSpaceCommand(drive),
+          );
+          const freeMb = Number(freeResult.stdOut.trim());
+          const needMb = Math.ceil((asset.size * 3) / (1024 * 1024));
+
+          if (
+            Number.isFinite(freeMb) &&
+            freeMb > 0 &&
+            needMb > 0 &&
+            freeMb < needMb
+          ) {
+            throw new Error(
+              `磁盘空间不足：需要约 ${needMb}MB，${drive} 盘只剩 ${freeMb}MB`,
+            );
+          }
+        } catch (error) {
+          if (
+            error instanceof Error &&
+            error.message.startsWith("磁盘空间不足")
+          ) {
+            throw error;
+          }
+          addLog(
+            "gui",
+            `检查磁盘空间失败（继续更新）：${errText(error)}`,
+          );
+        }
+      }
+
       const safeVersion =
         info.version.replace(/[^0-9A-Za-z._-]/g, "_") || "unknown";
       workDir = joinPath(updatesDir, `${safeVersion}-${Date.now()}`);
@@ -2039,8 +2110,7 @@ export const useController = (): IController => {
           await removePath(joinPath(appPaths.logsDir, name));
         }
 
-        // 上次更新脚本留下的结果（成功/失败）在这里消费一次
-        await consumeUpdateResult(appPaths);
+        await cleanupUpdates(appPaths.root);
 
         setBootMessage("检查是否已有实例…");
         const lock = await acquireLock(appPaths.lockFile);
@@ -2054,6 +2124,9 @@ export const useController = (): IController => {
           await quit();
           return;
         }
+
+        // 拿到锁之后再消费更新结果，避免两个实例同时删同一份记录
+        await consumeUpdateResult(appPaths);
 
         setBootMessage("初始化托盘…");
         await updateTray();

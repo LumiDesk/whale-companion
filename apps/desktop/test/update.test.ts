@@ -4,6 +4,7 @@ import test from "node:test";
 const {
   buildDownloadCommand,
   buildExtractCommand,
+  buildFreeSpaceCommand,
   buildHashCommand,
   buildPowerShellDownloadCommand,
   buildUpdateScript,
@@ -145,6 +146,12 @@ test("校验文件按文件名匹配哈希", () => {
 test("解析 Get-FileHash 输出", () => {
   assert.equal(parseHashOutput(`  ${hash.toUpperCase()}\r\n`), hash);
   assert.equal(parseHashOutput("no hash here"), null);
+});
+
+test("磁盘空间命令只接受单个盘符", () => {
+  assert.ok(buildFreeSpaceCommand("D").includes("Get-PSDrive -Name 'D'"));
+  assert.throws(() => buildFreeSpaceCommand("D:\\"), /盘符/);
+  assert.throws(() => buildFreeSpaceCommand("C; rm"), /盘符/);
 });
 
 test("更新脚本：等 PID、备份、复制文件、失败还原、写结果、重启", () => {

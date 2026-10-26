@@ -1,5 +1,5 @@
 // 必须最先加载：--config 会在这里合并进 process.env
-import "./config.js";
+import { config } from "./config.js";
 
 import { startQQ } from "./channels/qq/gateway.js";
 import { cleanLegacyHistory } from "./channels/qq/migrate.js";
@@ -10,7 +10,9 @@ import { runSelfCheck } from "./core/self-check.js";
 import { startProactive } from "./core/proactive.js";
 import { retagAllNow, retagUntaggedStickers } from "./core/tagger.js";
 import { reportStatus } from "./status.js";
-import { slog } from "./util.js";
+import { setLogLevel, slog } from "./util.js";
+
+setLogLevel(config.log.level);
 
 const args = process.argv.slice(2);
 const mode = args.includes("--list-models")

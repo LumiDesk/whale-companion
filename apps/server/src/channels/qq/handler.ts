@@ -14,9 +14,13 @@ import { slog } from "../../util.js";
 
 /** 发过表情包的时间（进程内即可，不需要持久化） */
 const lastStickerAt = new Map<string, number>();
+const lastExplicitAt = new Map<string, number>();
 
 const stickerCooling = (userId: string): boolean =>
   Date.now() - (lastStickerAt.get(userId) ?? 0) < config.sticker.cooldownMs;
+
+/** 明确要图可以绕过 8 分钟冷却，但也不该被连点刷屏 */
+const EXPLICIT_MIN_MS = 10_000;
 
 const markSticker = (userId: string) => {
   lastStickerAt.set(userId, Date.now());
@@ -85,6 +89,18 @@ export const createQQHandler = (getToken: () => Promise<string>) => {
       ? detectStickerRequest(text)
       : { requested: false, keyword: "" };
     if (request.requested) {
+      const last = lastExplicitAt.get(batch.userId) ?? 0;
+      if (Date.now() - last < EXPLICIT_MIN_MS) {
+        await sendC2C(
+          batch.userId,
+          batch.msgId,
+          token,
+          "刚给你找过一张啦，缓一缓再要嘛 🐋",
+          1,
+        ).catch(() => {});
+        return;
+      }
+
       const pick = pickStickerSmart(listStickers(), request.keyword, {
         allowRandom: config.sticker.allowRandomOnRequest,
         minScore: config.sticker.minScore,
@@ -99,6 +115,7 @@ export const createQQHandler = (getToken: () => Promise<string>) => {
             readSticker(pick.sticker),
             1,
           );
+          lastExplicitAt.set(batch.userId, Date.now());
           markSticker(batch.userId);
           return;
         }

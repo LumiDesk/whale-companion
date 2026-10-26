@@ -7,22 +7,31 @@ import { listUsers } from "../store/users.js";
 export interface ICommandSpec {
   name: string;
   desc: string;
-  run: (userId: string, args: string) => Promise<string> | string;
+  /** 帮助里的用法；不写就用 /name */
+  usage?: string;
+  run: (
+    userId: string,
+    args: string,
+  ) => Promise<CommandResult> | CommandResult;
 }
 
-const helpText = () =>
-  [
+type CommandAction = "new" | "forget";
+type CommandResult = string | { action: CommandAction };
+
+const helpText = () => {
+  const lines = commands.map((command) => {
+    const usage = command.usage ?? `/${command.name}`;
+    return `${usage.padEnd(14)}${command.desc}`;
+  });
+
+  return [
     "我会这些：",
-    "/new      清空对话重新开始（记忆和表情包都留着）",
-    "/forget   连记忆一起清空（表情包会保留）",
-    "/memory   看看我记住了什么",
-    "/remember 内容 —— 让我记住一件事",
-    "/status   我的状态",
-    "/help     这份清单",
+    ...lines,
     "",
     "平时直接说话就行。发图片我会看，也会悄悄存进表情包库。",
     "说「发个表情包」，我就挑一张给你 🐋",
   ].join("\n");
+};
 
 const rememberFact = (userId: string, fact: string): string => {
   const text = fact.trim();
@@ -58,15 +67,28 @@ export const commands: ICommandSpec[] = [
   { name: "help", desc: "看看我能做什么", run: () => helpText() },
   {
     name: "new",
-    desc: "清空对话重新开始",
-    run: () => {
-      return "__NEW__"; // 由调用方带上 userId 处理
-    },
+    desc: "清空对话重新开始（记忆和表情包都留着）",
+    run: () => ({ action: "new" }),
   },
-  { name: "memory", desc: "看看她记得什么", run: (id) => renderMemory(loadMemory(id), config.persona.ownerName) || "我现在脑子里空空的，还没记住什么呢。" },
-  { name: "remember", desc: "让她记住一件事", run: (id, args) => rememberFact(id, args) },
+  {
+    name: "memory",
+    desc: "看看她记得什么",
+    run: (id) =>
+      renderMemory(loadMemory(id), config.persona.ownerName) ||
+      "我现在脑子里空空的，还没记住什么呢。",
+  },
+  {
+    name: "remember",
+    desc: "让她记住一件事",
+    usage: "/remember 内容",
+    run: (id, args) => rememberFact(id, args),
+  },
   { name: "status", desc: "运行状态", run: (id) => statusText(id) },
-  { name: "forget", desc: "连记忆一起清空", run: () => "__FORGET__" },
+  {
+    name: "forget",
+    desc: "连记忆一起清空（表情包会保留）",
+    run: () => ({ action: "forget" }),
+  },
 ];
 
 /** 解析 /xxx 参数；不是命令就返回 undefined */
@@ -90,16 +112,14 @@ export const runCommand = async (
 
   const out = await spec.run(userId, args);
 
-  // 需要 userId 的两个特殊命令在这里处理，避免在表里塞闭包
-  if (out === "__NEW__") {
+  if (typeof out === "string") return out;
+
+  if (out.action === "new") {
     saveHistory(userId, []);
     return "好，刚才那些都翻篇了。重新开始吧，主人 🐋";
   }
-  if (out === "__FORGET__") {
-    saveHistory(userId, []);
-    saveMemory(userId, { summary: "", facts: [], updatedAt: Date.now() });
-    return "……你确定要我忘掉？哼，好吧，那就从陌生开始。\n（表情包我都留着呢，这点没舍得删）";
-  }
 
-  return out;
+  saveHistory(userId, []);
+  saveMemory(userId, { summary: "", facts: [], updatedAt: Date.now() });
+  return "……好吧，那就从陌生开始。\n（表情包我都留着呢，这点没舍得删）";
 };

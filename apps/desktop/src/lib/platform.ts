@@ -56,6 +56,17 @@ export const fileSize = async (path: string): Promise<number | null> => {
   }
 };
 
+/** 修改时间（毫秒）；用来清理旧更新缓存 */
+export const fileModifiedAt = async (path: string): Promise<number | null> => {
+  try {
+    const stats = await filesystem.getStats(path);
+    const modified = Number(stats.modifiedAt);
+    return Number.isFinite(modified) ? modified : null;
+  } catch {
+    return null;
+  }
+};
+
 export const writeText = async (path: string, content: string): Promise<void> => {
   await filesystem.writeFile(path, content);
 };
@@ -212,6 +223,11 @@ export const acquireLock = async (
   }
 
   const pid = getOwnPid();
+  if (pid <= 0) {
+    // 拿不到自己的 PID 时不写一个 pid=0 的假锁（那会让下次启动误判）
+    return { ok: true, pid: 0 };
+  }
+
   await writeText(
     lockFile,
     JSON.stringify({ pid, startedAt: Date.now(), heartbeat: Date.now() }),

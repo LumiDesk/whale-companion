@@ -40,51 +40,90 @@ export const proactiveCountFor = (
   return 0;
 };
 
-const readAll = (): IKnownUser[] => {
+/**
+ * 用户列表缓存 + 写入节流。
+ * 每条消息都 touchUser，但 users.json 不需要每条消息都落盘；
+ * 5 秒合并一次，主动消息这种关键写入则立即 flush。
+ */
+let cache: IKnownUser[] | null = null;
+let flushTimer: ReturnType<typeof setTimeout> | null = null;
+
+const load = (): IKnownUser[] => {
+  if (cache) return cache;
+
   try {
-    if (!existsSync(filePath)) return [];
+    if (!existsSync(filePath)) {
+      cache = [];
+      return cache;
+    }
     const parsed = JSON.parse(readFileSync(filePath, "utf8"));
-    return Array.isArray(parsed) ? (parsed as IKnownUser[]) : [];
+    cache = Array.isArray(parsed) ? (parsed as IKnownUser[]) : [];
+    return cache;
   } catch (e) {
     console.error("[users] 读取失败", e);
-    return [];
+    cache = [];
+    return cache;
   }
 };
 
-const writeAll = (list: IKnownUser[]) => {
+const flush = (): void => {
+  if (!cache) return;
+
   try {
-    writeJsonAtomic(filePath, list);
+    writeJsonAtomic(filePath, cache);
   } catch (e) {
     console.error("[users] 写入失败", e);
   }
 };
 
+export const flushUsers = (): void => {
+  if (flushTimer) {
+    clearTimeout(flushTimer);
+    flushTimer = null;
+  }
+  flush();
+};
+
+const scheduleFlush = (): void => {
+  if (flushTimer) return;
+
+  flushTimer = setTimeout(() => {
+    flushTimer = null;
+    flush();
+  }, 5000);
+
+  // 测试/退出时不要因为这个定时器挂住进程
+  flushTimer.unref?.();
+};
+
 export const touchUser = (userId: string, channel: "qq" | "web") => {
-  const list = readAll();
+  const list = load();
   const found = list.find((u) => u.userId === userId && u.channel === channel);
   if (found) {
     found.lastSeen = Date.now();
   } else {
     list.push({ userId, channel, lastSeen: Date.now() });
   }
-  writeAll(list);
+
+  scheduleFlush();
 };
 
-export const listUsers = (): IKnownUser[] => readAll();
+export const listUsers = (): IKnownUser[] => load();
 
 export const markProactive = (
   userId: string,
   channel: "qq" | "web",
   now = new Date(),
 ) => {
-  const list = readAll();
+  const list = load();
   const found = list.find((u) => u.userId === userId && u.channel === channel);
-  if (found) {
-    const today = dayKey(now);
-    found.lastProactiveAt = now.getTime();
-    found.proactiveCount =
-      found.proactiveDate === today ? (found.proactiveCount ?? 0) + 1 : 1;
-    found.proactiveDate = today;
-    writeAll(list);
-  }
+  if (!found) return;
+
+  const today = dayKey(now);
+  found.lastProactiveAt = now.getTime();
+  found.proactiveCount =
+    found.proactiveDate === today ? (found.proactiveCount ?? 0) + 1 : 1;
+  found.proactiveDate = today;
+
+  flushUsers();
 };

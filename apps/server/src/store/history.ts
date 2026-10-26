@@ -1,5 +1,10 @@
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import {
+  existsSync,
+  readFileSync,
+  readdirSync,
+  unlinkSync,
+} from "node:fs";
+import { basename, dirname, join } from "node:path";
 
 import { config } from "../config.js";
 import type { IMessage } from "../types/message.js";
@@ -139,6 +144,24 @@ export const sanitizeHistoryFile = (
 
   writeFileAtomic(backup, raw);
   writeJsonAtomic(file, next);
+  pruneBackups(file, 5);
 
   return { changed, users: changedUsers.size, backup };
+};
+
+/** 历史迁移备份只保留最近几份，避免长期运行后目录膨胀 */
+const pruneBackups = (file: string, keep: number): void => {
+  try {
+    const dir = dirname(file);
+    const prefix = `${basename(file)}.bak-`;
+    const backups = readdirSync(dir)
+      .filter((name) => name.startsWith(prefix))
+      .sort();
+
+    for (const name of backups.slice(0, Math.max(0, backups.length - keep))) {
+      unlinkSync(join(dir, name));
+    }
+  } catch (e) {
+    console.error("[history] 清理旧备份失败", e);
+  }
 };

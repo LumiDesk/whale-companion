@@ -133,3 +133,37 @@ test("历史文件损坏时绝不覆盖", () => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("历史迁移备份只保留最近 5 份", () => {
+  const dir = makeTempDir("whale-history-prune-");
+
+  try {
+    const file = join(dir, "history.json");
+
+    for (let index = 0; index < 8; index += 1) {
+      writeFileSync(
+        join(dir, `history.json.bak-2026-10-2${index}T00-00-00-000Z`),
+        "old",
+        "utf8",
+      );
+    }
+
+    writeFileSync(
+      file,
+      JSON.stringify({
+        u1: [{ role: "user", content: "在吗<@!123456>" }],
+      }),
+      "utf8",
+    );
+
+    const result = sanitizeHistoryFile(file, cleanQQContent);
+    assert.ok(result.backup);
+
+    const backups = readdirSync(dir).filter((name) =>
+      name.startsWith("history.json.bak-"),
+    );
+    assert.equal(backups.length, 5);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

@@ -270,6 +270,18 @@ export const buildHashCommand = (file: string): string =>
   "powershell.exe -NoProfile -Command " +
   `"(Get-FileHash -LiteralPath ${psLiteral(file)} -Algorithm SHA256).Hash"`;
 
+/** 查询目标盘剩余空间（MB）；只接受单个盘符，避免命令注入 */
+export const buildFreeSpaceCommand = (drive: string): string => {
+  if (!/^[A-Za-z]$/.test(drive)) {
+    throw new Error("盘符不合法");
+  }
+
+  return (
+    "powershell.exe -NoProfile -Command " +
+    `"[math]::Floor((Get-PSDrive -Name '${drive}').Free / 1MB)"`
+  );
+};
+
 export const buildApplyCommand = (scriptPath: string): string =>
   `powershell.exe -NoProfile -ExecutionPolicy Bypass -File ${quoteArg(
     scriptPath,
