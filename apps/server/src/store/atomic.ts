@@ -26,7 +26,15 @@ export const writeFileAtomic = (file: string, data: string): void => {
 
   try {
     fd = openSync(temp, "w");
-    writeSync(fd, data, null, "utf8");
+
+    const bytes = Buffer.from(data, "utf8");
+    let offset = 0;
+
+    while (offset < bytes.length) {
+      const written = writeSync(fd, bytes, offset, bytes.length - offset);
+      if (written <= 0) throw new Error("写入临时文件时没有进展");
+      offset += written;
+    }
 
     try {
       fsyncSync(fd);

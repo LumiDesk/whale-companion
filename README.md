@@ -187,7 +187,9 @@ docs/
 
 ## 数据与隐私
 
-- `apps/server/data/`、`.env` 全部 gitignore；聊天记录、图片、记忆都只在本机
+- `apps/server/data/`、`.env` 全部 gitignore；聊天记录、图片、记忆默认只在本机
+- **开启「看图 / 表情包打标」时，图片会发送到你配置的模型服务商**；在设置页可以关闭，
+  关闭后图片只保存在本机
 - 桌面版把密钥明文存在 `%APPDATA%\whale-companion\config.json`（和原来的 `.env` 一致）
 - 图片上传走 QQ 官方接口，不经过第三方图床
 - 检查更新只访问 GitHub 的公开 API；安装包下载后先校验 SHA256（Release 带 `SHA256SUMS.txt` 时）

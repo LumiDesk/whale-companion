@@ -9,6 +9,11 @@ import type { IImageInput } from "../../types/message.js";
 
 let delay = 3000;
 
+const HANDSHAKE_TIMEOUT_MS = 10_000;
+const MIN_HEARTBEAT_MS = 1000;
+const MAX_HEARTBEAT_MS = 120_000;
+const DEFAULT_HEARTBEAT_MS = 41_250;
+
 type PushFn = (msg: {
   userId: string;
   msgId: string;
@@ -43,25 +48,90 @@ const handleC2CMessage = async (d: any, push: PushFn): Promise<void> => {
   });
 };
 
+const fetchGatewayUrl = async (token: string): Promise<string> => {
+  let res: Response;
+
+  try {
+    res = await fetch("https://api.sgroup.qq.com/gateway", {
+      headers: { Authorization: `QQBot ${token}` },
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new Error(`拿网关失败（15 秒超时或网络错误）：${reason}`);
+  }
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`拿网关失败 ${res.status}: ${body.slice(0, 200)}`);
+  }
+
+  const url = ((await res.json()) as { url?: string }).url;
+  if (!url) throw new Error("拿网关失败：响应里没有 url");
+
+  return url;
+};
+
 const connect = async (push: PushFn): Promise<number> => {
   reportStatus({ type: "qq", state: "connecting" });
 
   const token = await getAccessToken();
-
-  const gateway = await fetch("https://api.sgroup.qq.com/gateway", {
-    headers: { Authorization: `QQBot ${token}` },
-  });
-  if (!gateway.ok) throw new Error(`拿网关失败 ${gateway.status}`);
-
-  const url = ((await gateway.json()) as { url: string }).url;
+  const url = await fetchGatewayUrl(token);
 
   return new Promise<number>((resolve) => {
     const ws = new WebSocket(url);
 
     let lastSeq: number | null = null;
     let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+    let ackTimer: ReturnType<typeof setInterval> | null = null;
+    let handshakeTimer: ReturnType<typeof setTimeout> | null = null;
+    let lastAckAt = Date.now();
+    let settled = false;
     /** 消息处理串行链 */
     let inbound: Promise<void> = Promise.resolve();
+
+    const cleanup = () => {
+      if (heartbeatTimer) {
+        clearInterval(heartbeatTimer);
+        heartbeatTimer = null;
+      }
+      if (ackTimer) {
+        clearInterval(ackTimer);
+        ackTimer = null;
+      }
+      if (handshakeTimer) {
+        clearTimeout(handshakeTimer);
+        handshakeTimer = null;
+      }
+    };
+
+    const finish = (code: number) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(code);
+    };
+
+    const closeQuietly = () => {
+      try {
+        ws.close();
+      } catch {
+        // 已经关了
+      }
+    };
+
+    handshakeTimer = setTimeout(() => {
+      slog("QQ WebSocket 握手超时，准备重连");
+      closeQuietly();
+      finish(-1);
+    }, HANDSHAKE_TIMEOUT_MS);
+
+    ws.onopen = () => {
+      if (handshakeTimer) {
+        clearTimeout(handshakeTimer);
+        handshakeTimer = null;
+      }
+    };
 
     ws.onmessage = (e) => {
       let data: any;
@@ -74,7 +144,30 @@ const connect = async (push: PushFn): Promise<number> => {
 
       if (typeof data.s === "number") lastSeq = data.s;
 
+      // op 7 = Reconnect：服务端要求重新连接
+      if (data.op === 7) {
+        slog("QQ 要求重连（op 7）");
+        closeQuietly();
+        return;
+      }
+
+      // op 9 = Invalid Session：清掉 seq，重新 identify
+      if (data.op === 9) {
+        slog("QQ 会话失效（op 9），重新连接");
+        lastSeq = null;
+        closeQuietly();
+        return;
+      }
+
       if (data.op === 10) {
+        const requested = Number(data.d?.heartbeat_interval);
+        const interval =
+          Number.isFinite(requested) &&
+          requested >= MIN_HEARTBEAT_MS &&
+          requested <= MAX_HEARTBEAT_MS
+            ? requested
+            : DEFAULT_HEARTBEAT_MS;
+
         ws.send(
           JSON.stringify({
             op: 2,
@@ -85,13 +178,33 @@ const connect = async (push: PushFn): Promise<number> => {
             },
           }),
         );
+
+        lastAckAt = Date.now();
+        if (heartbeatTimer) clearInterval(heartbeatTimer);
         heartbeatTimer = setInterval(() => {
-          ws.send(JSON.stringify({ op: 1, d: lastSeq }));
-        }, data.d.heartbeat_interval);
+          try {
+            ws.send(JSON.stringify({ op: 1, d: lastSeq }));
+          } catch (error) {
+            slog("发送心跳失败", error);
+          }
+        }, interval);
+
+        if (ackTimer) clearInterval(ackTimer);
+        ackTimer = setInterval(() => {
+          if (Date.now() - lastAckAt <= Math.max(interval * 2, 30_000)) return;
+
+          slog("QQ 心跳无响应，主动重连");
+          closeQuietly();
+          finish(-1);
+        }, Math.max(interval, 10_000));
         return;
       }
 
-      if (data.op === 11) return; // 心跳 ACK，不刷日志
+      if (data.op === 11) {
+        lastAckAt = Date.now();
+        return;
+      }
+
       if (data.op === 0 && data.t === "READY") {
         slog(`QQ 已上线 bot=${data.d?.user?.id ?? "?"}`);
         reportStatus({
@@ -112,10 +225,6 @@ const connect = async (push: PushFn): Promise<number> => {
     };
 
     ws.onclose = (e) => {
-      if (heartbeatTimer) {
-        clearInterval(heartbeatTimer);
-        heartbeatTimer = null;
-      }
       slog(`QQ 连接关闭 code=${e.code} reason=${e.reason || "(空)"}`);
       reportStatus({
         type: "qq",
@@ -123,12 +232,14 @@ const connect = async (push: PushFn): Promise<number> => {
         code: e.code,
         reason: e.reason || "",
       });
-      resolve(e.code);
+      finish(e.code);
     };
 
     ws.onerror = (e) => {
       slog("QQ 连接错误", e);
       reportStatus({ type: "qq", state: "error" });
+      closeQuietly();
+      finish(-1);
     };
   });
 };

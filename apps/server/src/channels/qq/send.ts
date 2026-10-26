@@ -4,13 +4,21 @@ const API = "https://api.sgroup.qq.com";
  * 统一调 QQ 接口：自动带 Authorization，非 2xx 抛错（带状态码与响应体片段）
  */
 const callQQ = async (path: string, token: string, init: RequestInit) => {
-  const res = await fetch(API + path, {
-    ...init,
-    headers: {
-      ...(init.headers ?? {}),
-      Authorization: `QQBot ${token}`,
-    },
-  });
+  let res: Response;
+
+  try {
+    res = await fetch(API + path, {
+      ...init,
+      headers: {
+        ...(init.headers ?? {}),
+        Authorization: `QQBot ${token}`,
+      },
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new Error(`QQ ${path} 请求失败（15 秒超时或网络错误）：${reason}`);
+  }
 
   if (!res.ok) {
     const body = await res.text().catch(() => "");

@@ -6,6 +6,7 @@ import { cleanLegacyHistory } from "./channels/qq/migrate.js";
 import { getAccessToken } from "./channels/qq/token.js";
 import { sendC2CProactive } from "./channels/qq/send.js";
 import { listModels } from "./core/models.js";
+import { runSelfCheck } from "./core/self-check.js";
 import { startProactive } from "./core/proactive.js";
 import { retagUntaggedStickers } from "./core/tagger.js";
 import { reportStatus } from "./status.js";
@@ -39,13 +40,29 @@ const runListModels = async (): Promise<void> => {
   }
 };
 
-/** 占位：P3 会在这里做配置、数据目录、人设、图库、QQ、LLM 的完整自检 */
-const runSelfCheck = async (): Promise<void> => {
-  emit({ type: "check-done", ok: false, error: "自检尚未实现" });
-  process.exitCode = 1;
+/** 一次性自检：不启动 WS、不写历史，逐项输出结果 */
+const runSelfCheckMode = async (): Promise<void> => {
+  const ok = await runSelfCheck((result) => {
+    emit({ type: "check", ...result });
+  });
+
+  emit({ type: "check-done", ok });
+  process.exitCode = ok ? 0 : 1;
 };
 
 const main = (): void => {
+  let stopping = false;
+
+  const shutdown = (signal: string): void => {
+    if (stopping) return;
+    stopping = true;
+    slog(`收到 ${signal}，准备退出`);
+    process.exit(0);
+  };
+
+  process.once("SIGINT", () => shutdown("SIGINT"));
+  process.once("SIGTERM", () => shutdown("SIGTERM"));
+
   slog("小鲸鱼启动中…");
   reportStatus({ type: "boot", pid: process.pid });
 
@@ -92,7 +109,7 @@ const main = (): void => {
 if (mode === "list-models") {
   void runListModels();
 } else if (mode === "self-check") {
-  void runSelfCheck();
+  void runSelfCheckMode();
 } else {
   main();
 }

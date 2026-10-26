@@ -79,6 +79,12 @@ export interface ILogLine {
   text: string;
 }
 
+export interface ICheckResult {
+  name: string;
+  ok: boolean;
+  detail?: string;
+}
+
 export interface IAppPaths {
   root: string;
   configFile: string;

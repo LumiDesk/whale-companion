@@ -326,18 +326,27 @@ export interface IUpdateScriptOptions {
   parentPid: number;
   sourceDir: string;
   targetDir: string;
+  /** 覆盖前把旧 exe / resources.neu / server 备份到这里，失败可还原 */
+  backupDir: string;
   resultFile: string;
   logFile: string;
   version: string;
 }
 
 /**
- * 生成"等旧进程退出 → 覆盖文件 → 写结果 → 重启"的 PowerShell 脚本。
+ * 生成"等旧进程退出 → 备份 → 覆盖文件 → 失败还原 → 写结果 → 重启"的脚本。
  * 脚本由旧进程 spawn 出去，所以必须自己等 PID 消失后再动 exe。
  */
 export const buildUpdateScript = (options: IUpdateScriptOptions): string => {
-  const { parentPid, sourceDir, targetDir, resultFile, logFile, version } =
-    options;
+  const {
+    parentPid,
+    sourceDir,
+    targetDir,
+    backupDir,
+    resultFile,
+    logFile,
+    version,
+  } = options;
 
   if (!Number.isInteger(parentPid) || parentPid <= 0) {
     throw new Error("更新脚本需要有效的父进程 PID");
@@ -348,9 +357,21 @@ export const buildUpdateScript = (options: IUpdateScriptOptions): string => {
     `$log = ${psLiteral(logFile)}`,
     `$source = ${psLiteral(sourceDir)}`,
     `$target = ${psLiteral(targetDir)}`,
+    `$backup = ${psLiteral(backupDir)}`,
+    "$backupReady = $false",
     "function Write-UpdateLog([string]$message) {",
     '  $line = "$(Get-Date -Format o) $message"',
     "  Add-Content -LiteralPath $log -Value $line -Encoding UTF8",
+    "}",
+    "function Restore-OldVersion {",
+    "  if (-not $backupReady) { return }",
+    "  Write-UpdateLog '开始还原旧版本'",
+    "  foreach ($name in @('WhaleCompanion.exe', 'resources.neu', 'server')) {",
+    "    $from = Join-Path $backup $name",
+    "    if (Test-Path -LiteralPath $from) {",
+    "      Copy-Item -LiteralPath $from -Destination $target -Recurse -Force",
+    "    }",
+    "  }",
     "}",
     "try {",
     `  Write-UpdateLog '等待旧进程退出（PID ${parentPid}）'`,
@@ -358,6 +379,15 @@ export const buildUpdateScript = (options: IUpdateScriptOptions): string => {
     `  while ((Get-Process -Id ${parentPid} -ErrorAction SilentlyContinue) -and ((Get-Date) -lt $deadline)) { Start-Sleep -Milliseconds 300 }`,
     `  if (Get-Process -Id ${parentPid} -ErrorAction SilentlyContinue) { throw '旧进程在 90 秒内没有退出' }`,
     "  Start-Sleep -Milliseconds 800",
+    "  Write-UpdateLog '备份当前版本'",
+    "  New-Item -ItemType Directory -Path $backup -Force | Out-Null",
+    "  foreach ($name in @('WhaleCompanion.exe', 'resources.neu', 'server')) {",
+    "    $item = Join-Path $target $name",
+    "    if (Test-Path -LiteralPath $item) {",
+    "      Copy-Item -LiteralPath $item -Destination $backup -Recurse -Force",
+    "    }",
+    "  }",
+    "  $backupReady = $true",
     "  Write-UpdateLog '复制新版本文件'",
     "  $copied = $false",
     "  for ($attempt = 1; $attempt -le 10; $attempt++) {",
@@ -382,6 +412,7 @@ export const buildUpdateScript = (options: IUpdateScriptOptions): string => {
     "} catch {",
     "  $message = $_.Exception.Message",
     '  Write-UpdateLog "更新失败：$message"',
+    "  try { Restore-OldVersion } catch { Write-UpdateLog \"还原失败：$($_.Exception.Message)\" }",
     `  @{ ok = $false; version = ${psLiteral(version)}; error = $message; finishedAt = (Get-Date).ToUniversalTime().ToString('o') } | ConvertTo-Json -Compress | Set-Content -LiteralPath ${psLiteral(resultFile)} -Encoding UTF8`,
     "  $exe = Join-Path $target 'WhaleCompanion.exe'",
     "  if (Test-Path -LiteralPath $exe) { Start-Process -FilePath $exe -WorkingDirectory $target }",

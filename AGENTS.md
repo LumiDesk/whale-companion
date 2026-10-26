@@ -133,7 +133,10 @@ QQ 事件 → cleanQQContent 清洗 <faceType>/<@...> → 串行下载图片（�
 
 - `apps/server/data/` 全部 gitignore：对话、记忆、图库、users。
 - `.env` 不提交；`.env.example` 是模板。
-- 发图/存图都在本机，不经过第三方。
+- 图片默认保存在本机；**开启「看图」或「表情包打标」时，图片会随请求发送到用户配置的模型服务商**。
+  关闭 `VISION_ENABLED` 后不再把图发给模型，已入库图片和已有标签保留。
+- 桌面端把密钥明文存在 `%APPDATA%\whale-companion\config.json` 和 `bot.json`；
+  `bot.json` 是每次启动重写的派生文件。
 
 ## 10. 测试与提交
 

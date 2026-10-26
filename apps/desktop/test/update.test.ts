@@ -147,20 +147,24 @@ test("解析 Get-FileHash 输出", () => {
   assert.equal(parseHashOutput("no hash here"), null);
 });
 
-test("更新脚本：等 PID、复制文件、写结果、重启", () => {
+test("更新脚本：等 PID、备份、复制文件、失败还原、写结果、重启", () => {
   const script = buildUpdateScript({
     parentPid: 4321,
     sourceDir: "C:\\A B\\new",
     targetDir: "C:\\O'Brien\\WhaleCompanion",
+    backupDir: "C:\\temp\\backup",
     resultFile: "C:\\temp\\result.json",
     logFile: "C:\\temp\\update.log",
     version: "0.2.0",
   });
 
   assert.ok(script.includes("Get-Process -Id 4321"));
+  assert.ok(script.includes("备份当前版本"));
+  assert.ok(script.includes("Restore-OldVersion"));
   assert.ok(script.includes("Copy-Item"));
   assert.ok(script.includes("'C:\\A B\\new'"));
   assert.ok(script.includes("'C:\\O''Brien\\WhaleCompanion'"));
+  assert.ok(script.includes("'C:\\temp\\backup'"));
   assert.ok(script.includes("Start-Process"));
   assert.ok(script.includes("'0.2.0'"));
 
@@ -170,8 +174,9 @@ test("更新脚本：等 PID、复制文件、写结果、重启", () => {
         parentPid: 0,
         sourceDir: "a",
         targetDir: "b",
-        resultFile: "c",
-        logFile: "d",
+        backupDir: "c",
+        resultFile: "d",
+        logFile: "e",
         version: "0.2.0",
       }),
     /PID/,

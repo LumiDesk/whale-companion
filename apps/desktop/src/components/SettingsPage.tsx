@@ -18,6 +18,7 @@ import { IconFolder } from "./Icons";
 import Field from "./settings/Field";
 import ModelPicker from "./settings/ModelPicker";
 import PersonaEditor from "./settings/PersonaEditor";
+import SelfCheck from "./settings/SelfCheck";
 
 interface IProps {
   controller: IController;
@@ -462,6 +463,8 @@ const SettingsPage = ({ controller }: IProps) => {
             </div>
             {renderFields(specsOf("logs", true))}
           </div>
+
+          <SelfCheck controller={controller} config={form} />
         </>
       )}
 

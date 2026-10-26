@@ -87,6 +87,7 @@ import type {
   BotState,
   IAppConfig,
   IAppPaths,
+  ICheckResult,
   ILogLine,
   IModelInfo,
   IServerPaths,
@@ -145,6 +146,7 @@ export interface IController {
   openDataDir: () => Promise<void>;
   clearLogs: () => void;
   fetchModels: (config: IAppConfig) => Promise<IModelInfo[]>;
+  runSelfCheck: (config: IAppConfig) => Promise<ICheckResult[]>;
   readPersona: () => Promise<{
     text: string;
     source: "custom" | "default";
@@ -298,6 +300,10 @@ export const useController = (): IController => {
   const updateRef = useRef<IUpdateState>({ status: "idle" });
   const updateBusyRef = useRef(false);
   const configWriteRef = useRef<Promise<void>>(Promise.resolve());
+  const autoRestartRef = useRef({ count: 0, lastAt: 0 });
+  const autoRestartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
   const updateBotState = (next: BotState) => {
     botStateRef.current = next;
@@ -457,8 +463,45 @@ export const useController = (): IController => {
     updateQqState("unknown");
     setExitCode(Number.isFinite(code) ? code : null);
     updateBotState(wasStopping || code === 0 ? "stopped" : "crashed");
-    addLog("gui", `Bot 进程已退出（code=${Number.isFinite(code) ? code : "?"}）`);
+    addLog(
+      "gui",
+      `Bot 进程已退出（code=${Number.isFinite(code) ? code : "?"}）`,
+    );
     void updateTray();
+
+    if (
+      !wasStopping &&
+      Number.isFinite(code) &&
+      code !== 0 &&
+      configRef.current.behavior.autoRestartOnCrash
+    ) {
+      const now = Date.now();
+      if (now - autoRestartRef.current.lastAt > 10 * 60_000) {
+        autoRestartRef.current.count = 0;
+      }
+
+      if (autoRestartRef.current.count >= 3) {
+        addLog("error", "Bot 连续异常退出 3 次，停止自动重启");
+        return;
+      }
+
+      autoRestartRef.current.count += 1;
+      autoRestartRef.current.lastAt = now;
+      const wait = [3000, 10_000, 30_000][
+        Math.min(autoRestartRef.current.count - 1, 2)
+      ];
+
+      addLog(
+        "gui",
+        `将在 ${Math.round(wait / 1000)} 秒后自动重启 Bot（第 ${autoRestartRef.current.count}/3 次）`,
+      );
+
+      if (autoRestartTimerRef.current) clearTimeout(autoRestartTimerRef.current);
+      autoRestartTimerRef.current = setTimeout(() => {
+        autoRestartTimerRef.current = null;
+        if (botStateRef.current === "crashed") void startBot();
+      }, wait);
+    }
   };
 
   const processSpawnEvent = (detail: ISpawnDetail) => {
@@ -580,6 +623,13 @@ export const useController = (): IController => {
       updateBotState("running");
       addLog("gui", "Bot 已启动");
 
+      // 稳定运行一分钟后清掉崩溃计数，避免历史失败影响很久以后的一次崩溃
+      setTimeout(() => {
+        if (botStateRef.current === "running") {
+          autoRestartRef.current.count = 0;
+        }
+      }, 60_000);
+
       const buffered = orphanEventsRef.current.get(proc.id);
       if (buffered) {
         orphanEventsRef.current.delete(proc.id);
@@ -607,6 +657,11 @@ export const useController = (): IController => {
   };
 
   const stopBot = async (): Promise<boolean> => {
+    if (autoRestartTimerRef.current) {
+      clearTimeout(autoRestartTimerRef.current);
+      autoRestartTimerRef.current = null;
+    }
+
     const id = childRef.current;
     if (id === null) {
       updateBotState("stopped");
@@ -645,6 +700,11 @@ export const useController = (): IController => {
   };
 
   const quitApp = async (): Promise<void> => {
+    if (autoRestartTimerRef.current) {
+      clearTimeout(autoRestartTimerRef.current);
+      autoRestartTimerRef.current = null;
+    }
+
     const id = childRef.current;
 
     if (id !== null) {
@@ -689,19 +749,30 @@ export const useController = (): IController => {
    * 用当前表单里的 Key / Base URL 调一次 `--list-models`。
    * 临时配置写到 model-check.json，读完即删；不污染 bot.json。
    */
-  const fetchModels = async (next: IAppConfig): Promise<IModelInfo[]> => {
+  /**
+   * 以一次性子进程运行服务端的只读命令（--list-models / --self-check）。
+   * 临时配置写到当前用户目录，读完即删；不影响正在运行的 Bot。
+   */
+  const collectServerEvents = async (
+    next: IAppConfig,
+    mode: "--list-models" | "--self-check",
+    fileName: string,
+  ): Promise<{
+    events: Array<NonNullable<ReturnType<typeof parseStatusLine>>>;
+    detail: string;
+  }> => {
     const node = nodeRef.current;
     const server = serverRef.current;
     const currentPaths = pathsRef.current;
 
-    if (!node) throw new Error("没有找到 Node.js，无法获取模型列表");
+    if (!node) throw new Error("没有找到 Node.js，无法运行检查");
     if (!server) throw new Error("还没有找到 Bot 程序目录");
     if (!currentPaths) throw new Error("还没有准备好配置目录");
     if (!next.llm.apiKey.trim()) {
-      throw new Error("先填写 API Key，再获取模型列表");
+      throw new Error("先填写 API Key，再运行检查");
     }
 
-    const tempFile = joinPath(currentPaths.root, "model-check.json");
+    const tempFile = joinPath(currentPaths.root, fileName);
     const env = buildBotConfig(next, {
       dataDir: server.dataDir,
       personaFile: joinPath(currentPaths.root, "persona.md"),
@@ -709,9 +780,9 @@ export const useController = (): IController => {
       parentPid: 0,
     });
 
-    // 只查模型时不需要 QQ 凭据；用占位值通过必填校验，不会建立连接
-    env.QQBOT_APPID ||= "model-list-placeholder";
-    env.QQBOT_SECRET ||= "model-list-placeholder";
+    // 只做只读检查时不需要 QQ 凭据；用占位值通过必填校验，不会建立连接
+    env.QQBOT_APPID ||= "check-placeholder";
+    env.QQBOT_SECRET ||= "check-placeholder";
 
     try {
       await writeText(tempFile, JSON.stringify(env, null, 2));
@@ -720,7 +791,7 @@ export const useController = (): IController => {
         node,
         joinPath(server.serverDir, "index.js"),
         tempFile,
-      )} --list-models`;
+      )} ${mode}`;
 
       const result = await os.execCommand(command);
       const events = result.stdOut
@@ -728,28 +799,66 @@ export const useController = (): IController => {
         .map((line) => parseStatusLine(line))
         .filter((event): event is NonNullable<typeof event> => event !== null);
 
-      const event = events.find((item) => item.type === "models");
-      if (event) {
-        if (event.ok !== true) {
-          throw new Error(String(event.error ?? "获取模型列表失败"));
-        }
-
-        const models = Array.isArray(event.models)
-          ? (event.models as IModelInfo[])
-          : [];
-        if (models.length === 0) throw new Error("接口没有返回可用模型");
-
-        addLog("gui", `已获取 ${models.length} 个可用模型`);
-        return models;
-      }
-
-      const detail = (result.stdErr || result.stdOut || "").trim();
-      throw new Error(
-        `获取模型列表失败${detail ? `：${detail.slice(0, 300)}` : "（无输出）"}`,
-      );
+      return {
+        events,
+        detail: (result.stdErr || result.stdOut || "").trim(),
+      };
     } finally {
       await removePath(tempFile).catch(() => {});
     }
+  };
+
+  const fetchModels = async (next: IAppConfig): Promise<IModelInfo[]> => {
+    const { events, detail } = await collectServerEvents(
+      next,
+      "--list-models",
+      "model-check.json",
+    );
+
+    const event = events.find((item) => item.type === "models");
+    if (event) {
+      if (event.ok !== true) {
+        throw new Error(String(event.error ?? "获取模型列表失败"));
+      }
+
+      const models = Array.isArray(event.models)
+        ? (event.models as IModelInfo[])
+        : [];
+      if (models.length === 0) throw new Error("接口没有返回可用模型");
+
+      addLog("gui", `已获取 ${models.length} 个可用模型`);
+      return models;
+    }
+
+    throw new Error(
+      `获取模型列表失败${detail ? `：${detail.slice(0, 300)}` : "（无输出）"}`,
+    );
+  };
+
+  const runSelfCheck = async (next: IAppConfig): Promise<ICheckResult[]> => {
+    const { events, detail } = await collectServerEvents(
+      next,
+      "--self-check",
+      "self-check.json",
+    );
+
+    const done = events.find((item) => item.type === "check-done");
+    if (!done) {
+      throw new Error(
+        `自检没有返回结果${detail ? `：${detail.slice(0, 300)}` : "（无输出）"}`,
+      );
+    }
+
+    const results: ICheckResult[] = events
+      .filter((item) => item.type === "check")
+      .map((item) => ({
+        name: String(item.name ?? "unknown"),
+        ok: item.ok === true,
+        detail: typeof item.detail === "string" ? item.detail : undefined,
+      }));
+
+    addLog("gui", `连接自检完成：${done.ok === true ? "全部通过" : "有失败项"}`);
+    return results;
   };
 
   const personaOverrideFile = (): string => {
@@ -1172,11 +1281,16 @@ export const useController = (): IController => {
       const resultFile = joinPath(updatesDir, "update-result.json");
       pendingFile = joinPath(updatesDir, "update-pending.json");
       const logFile = joinPath(updatesDir, "update.log");
+      const backupDir = joinPath(
+        updatesDir,
+        `backup-${APP_VERSION}-${Date.now()}`,
+      );
 
       const script = buildUpdateScript({
         parentPid: getOwnPid(),
         sourceDir: payloadDir,
         targetDir,
+        backupDir,
         resultFile,
         logFile,
         version: info.version,
@@ -1190,6 +1304,7 @@ export const useController = (): IController => {
           {
             version: info.version,
             workDir,
+            backupDir,
             script: scriptPath,
             startedAt: Date.now(),
           },
@@ -1701,6 +1816,7 @@ export const useController = (): IController => {
     openDataDir,
     clearLogs,
     fetchModels,
+    runSelfCheck,
     readPersona,
     savePersona,
     resetPersona,
