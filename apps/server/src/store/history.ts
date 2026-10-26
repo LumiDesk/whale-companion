@@ -2,6 +2,7 @@ import {
   existsSync,
   readFileSync,
   readdirSync,
+  statSync,
   unlinkSync,
 } from "node:fs";
 import { basename, dirname, join } from "node:path";
@@ -13,6 +14,13 @@ import { writeFileAtomic, writeJsonAtomic } from "./atomic.js";
 const filePath = join(config.paths.dataDir, "history.json");
 
 type HistoryFile = Record<string, IMessage[]>;
+
+/** 主文件缓存：mtime + size 变了才重新解析 */
+let fileCache: {
+  mtimeMs: number;
+  size: number;
+  data: HistoryFile;
+} | null = null;
 
 /**
  * 每用户的历史版本号：进程内单调递增。
@@ -30,11 +38,36 @@ export const bumpHistoryEpoch = (userId: string): void => {
 
 const readHistoryFile = (file: string): HistoryFile => {
   try {
-    if (!existsSync(file)) return {};
+    if (!existsSync(file)) {
+      if (file === filePath) fileCache = null;
+      return {};
+    }
+
+    if (file === filePath) {
+      const stat = statSync(file);
+      if (
+        fileCache &&
+        fileCache.mtimeMs === stat.mtimeMs &&
+        fileCache.size === stat.size
+      ) {
+        return fileCache.data;
+      }
+    }
+
     const parsed = JSON.parse(readFileSync(file, "utf8"));
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
       return {};
     }
+
+    if (file === filePath) {
+      const stat = statSync(file);
+      fileCache = {
+        mtimeMs: stat.mtimeMs,
+        size: stat.size,
+        data: parsed as HistoryFile,
+      };
+    }
+
     return parsed as HistoryFile;
   } catch (e) {
     console.error("[history] 读取失败，按空历史处理", e);
@@ -60,11 +93,11 @@ export const saveHistory = (userId: string, messages: IMessage[]): void => {
     .filter((m) => m.role !== "system")
     .slice(-config.history.store);
 
-  const all = readAll();
-  all[userId] = trimmed;
+  const all = { ...readAll(), [userId]: trimmed };
 
   try {
     writeJsonAtomic(filePath, all);
+    fileCache = null;
   } catch (e) {
     console.error("[history] 写入失败", e);
   }
@@ -144,6 +177,7 @@ export const sanitizeHistoryFile = (
 
   writeFileAtomic(backup, raw);
   writeJsonAtomic(file, next);
+  if (file === filePath) fileCache = null;
   pruneBackups(file, 5);
 
   return { changed, users: changedUsers.size, backup };

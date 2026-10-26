@@ -142,6 +142,11 @@ const connect = async (push: PushFn): Promise<number> => {
         return;
       }
 
+      if (!data || typeof data !== "object") return;
+
+      const payload =
+        data.d && typeof data.d === "object" ? (data.d as any) : {};
+
       if (typeof data.s === "number") lastSeq = data.s;
 
       // op 7 = Reconnect：服务端要求重新连接
@@ -160,7 +165,7 @@ const connect = async (push: PushFn): Promise<number> => {
       }
 
       if (data.op === 10) {
-        const requested = Number(data.d?.heartbeat_interval);
+        const requested = Number(payload.heartbeat_interval);
         const interval =
           Number.isFinite(requested) &&
           requested >= MIN_HEARTBEAT_MS &&
@@ -206,11 +211,11 @@ const connect = async (push: PushFn): Promise<number> => {
       }
 
       if (data.op === 0 && data.t === "READY") {
-        slog(`QQ 已上线 bot=${data.d?.user?.id ?? "?"}`);
+        slog(`QQ 已上线 bot=${payload.user?.id ?? "?"}`);
         reportStatus({
           type: "qq",
           state: "online",
-          botId: data.d?.user?.id ?? null,
+          botId: payload.user?.id ?? null,
         });
         delay = 3000;
         return;
@@ -218,7 +223,7 @@ const connect = async (push: PushFn): Promise<number> => {
 
       if (data.t !== "C2C_MESSAGE_CREATE") return;
 
-      const d = data.d ?? {};
+      const d = payload;
       inbound = inbound
         .then(() => handleC2CMessage(d, push))
         .catch((err) => slog("消息处理失败", err));

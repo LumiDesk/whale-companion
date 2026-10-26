@@ -4,6 +4,7 @@ import {
   readFileSync,
   renameSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { randomUUID } from "node:crypto";
@@ -23,11 +24,32 @@ export interface ISticker {
 const dir = join(config.paths.dataDir, "stickers");
 const indexPath = join(dir, "index.json");
 
+let indexCache: {
+  mtimeMs: number;
+  size: number;
+  data: ISticker[];
+} | null = null;
+
 const readIndex = (): ISticker[] => {
   try {
-    if (!existsSync(indexPath)) return [];
+    if (!existsSync(indexPath)) {
+      indexCache = null;
+      return [];
+    }
+
+    const stat = statSync(indexPath);
+    if (
+      indexCache &&
+      indexCache.mtimeMs === stat.mtimeMs &&
+      indexCache.size === stat.size
+    ) {
+      return indexCache.data;
+    }
+
     const parsed = JSON.parse(readFileSync(indexPath, "utf8"));
-    return Array.isArray(parsed) ? (parsed as ISticker[]) : [];
+    const list = Array.isArray(parsed) ? (parsed as ISticker[]) : [];
+    indexCache = { mtimeMs: stat.mtimeMs, size: stat.size, data: list };
+    return list;
   } catch (e) {
     console.error("[stickers] 索引读取失败", e);
     return [];
@@ -38,6 +60,7 @@ const readIndex = (): ISticker[] => {
 const writeIndex = (list: ISticker[]): boolean => {
   try {
     writeJsonAtomic(indexPath, list);
+    indexCache = null;
     return true;
   } catch (e) {
     console.error("[stickers] 索引写入失败", e);
@@ -71,8 +94,7 @@ export const ingestSticker = (
     renameSync(temp, target);
 
     const sticker: ISticker = { id, file, mime, tags, createdAt: Date.now() };
-    const list = readIndex();
-    list.push(sticker);
+    const list = [...readIndex(), sticker];
 
     if (!writeIndex(list)) {
       // 索引没写成功就不留孤儿文件
@@ -92,11 +114,12 @@ export const listStickers = (): ISticker[] => readIndex();
 /** 后台打标完成后回填；图已经被删了就静默跳过 */
 export const updateStickerTags = (id: string, tags: string[]): void => {
   const list = readIndex();
-  const found = list.find((s) => s.id === id);
-  if (!found) return;
+  if (!list.some((sticker) => sticker.id === id)) return;
 
-  found.tags = tags;
-  writeIndex(list);
+  const next = list.map((sticker) =>
+    sticker.id === id ? { ...sticker, tags } : sticker,
+  );
+  writeIndex(next);
 };
 
 export const listUntaggedStickers = (): ISticker[] =>

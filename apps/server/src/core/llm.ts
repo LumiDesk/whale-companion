@@ -1,5 +1,5 @@
 import { config } from "../config.js";
-import { slog } from "../util.js";
+import { slog, slogDebug, slogWarn } from "../util.js";
 import type { IMessages } from "../types/message.js";
 
 interface IChatResponse {
@@ -141,6 +141,20 @@ const requestOnce = async (messages: IMessages): Promise<string> => {
   const content = contentToText(data.choices?.[0]?.message?.content);
   if (!content) {
     throw new LlmError("模型返回了空内容", true);
+  }
+
+  const finish = data.choices?.[0]?.finish_reason;
+  if (finish === "length") {
+    slogWarn("模型输出被截断（finish_reason=length），可以调大 DEEPSEEK_MAX_TOKENS");
+  }
+
+  if (data.usage) {
+    slogDebug("模型用量", data.usage);
+  }
+
+  const reasoning = data.choices?.[0]?.message?.reasoning_content;
+  if (reasoning) {
+    slogDebug(`思考链长度：${reasoning.length} 字`);
   }
 
   return content;
