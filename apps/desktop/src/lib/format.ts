@@ -17,3 +17,7 @@ export const formatDateTime = (ts: number | null): string => {
 
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 };
+
+/** 把 unknown 错误收敛成一句给人看的话 */
+export const errText = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
