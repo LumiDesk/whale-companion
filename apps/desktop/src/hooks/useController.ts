@@ -69,7 +69,6 @@ interface IMessage {
   text: string;
 }
 
-
 export interface IController {
   ready: boolean;
   bootMessage: string;
@@ -135,7 +134,6 @@ const QQ_DOWN_RESTART_MS = 5 * 60_000;
 /** 两次自动重启至少隔这么久，避免网络长期不通时反复重启 */
 const QQ_DOWN_RESTART_COOLDOWN_MS = 30 * 60_000;
 
-
 const writeConfigFile = async (
   file: string,
   config: IAppConfig,
@@ -153,8 +151,6 @@ const writeConfigFile = async (
     await movePath(tmp, file);
   }
 };
-
-
 
 export const useController = (): IController => {
   const [ready, setReady] = useState(false);
@@ -180,7 +176,6 @@ export const useController = (): IController => {
     pathsRef,
     maxLines: () => configRef.current.logs.maxLines,
   });
-
 
   const {
     config,
@@ -273,7 +268,6 @@ export const useController = (): IController => {
     stopBot,
   });
 
-
   const dismissMessage = () => setMessage(null);
 
   const {
@@ -295,7 +289,6 @@ export const useController = (): IController => {
     startBot,
     quitApp,
   });
-
 
   /**
    * 「是否接收预发布版本」只影响检查更新的来源，不需要重启 Bot。
@@ -556,7 +549,9 @@ export const useController = (): IController => {
         if (configText) {
           rawConfig = configText;
           try {
-            const json = JSON.parse(configText.replace(/^\uFEFF/, "")) as unknown;
+            const json = JSON.parse(
+              configText.replace(/^\uFEFF/, ""),
+            ) as unknown;
             loaded = normalizeConfig(json);
             needsMigration =
               Number((json as { version?: unknown } | null)?.version) !== 2;
@@ -721,7 +716,6 @@ export const useController = (): IController => {
     // 只在启动时执行一次
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
 
   useEffect(() => {
     // 错误留下来，别让用户错过；成功/提示 5 秒后自动消失

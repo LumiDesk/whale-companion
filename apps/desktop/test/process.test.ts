@@ -1,16 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-const {
-  buildBotConfig,
-  buildSpawnCommand,
-  hasHiddenFlag,
-  quoteArg,
-} = await import("../src/lib/process");
+const { buildBotConfig, buildSpawnCommand, hasHiddenFlag, quoteArg } =
+  await import("../src/lib/process");
 const { normalizeConfig, validateConfig } = await import("../src/lib/config");
 
 test("带空格的路径会被引号包起来", () => {
-  assert.equal(quoteArg("C:\\Program Files\\node.exe"), '"C:\\Program Files\\node.exe"');
+  assert.equal(
+    quoteArg("C:\\Program Files\\node.exe"),
+    '"C:\\Program Files\\node.exe"',
+  );
 
   assert.equal(
     buildSpawnCommand(
@@ -44,7 +43,8 @@ test("配置会翻译成机器人需要的环境变量", () => {
   const env = buildBotConfig(config, {
     dataDir: "C:\\data",
     personaDir: "C:\\Apps\\WhaleCompanion\\server\\personas",
-    userPersonaDir: "C:\\Users\\me\\AppData\\Roaming\\whale-companion\\personas",
+    userPersonaDir:
+      "C:\\Users\\me\\AppData\\Roaming\\whale-companion\\personas",
     activePersonaFile:
       "C:\\Users\\me\\AppData\\Roaming\\whale-companion\\personas\\active.json",
     promptsDir: "C:\\Apps\\WhaleCompanion\\server\\prompts",
@@ -73,7 +73,10 @@ test("配置会翻译成机器人需要的环境变量", () => {
     env.WHALE_ACTIVE_PERSONA_FILE,
     "C:\\Users\\me\\AppData\\Roaming\\whale-companion\\personas\\active.json",
   );
-  assert.equal(env.WHALE_PROMPTS_DIR, "C:\\Apps\\WhaleCompanion\\server\\prompts");
+  assert.equal(
+    env.WHALE_PROMPTS_DIR,
+    "C:\\Apps\\WhaleCompanion\\server\\prompts",
+  );
   assert.equal(env.AGENT_ENABLED, "true");
   assert.equal(env.AGENT_STYLE, "standard");
   assert.equal(env.AGENT_MAX_MESSAGES, "3");

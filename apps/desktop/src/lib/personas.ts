@@ -145,7 +145,9 @@ export const summarizePersona = (
   text: entry.text,
 });
 
-export const parseActivePersonaId = (raw: string | null | undefined): string => {
+export const parseActivePersonaId = (
+  raw: string | null | undefined,
+): string => {
   if (!raw) return DEFAULT_PERSONA_ID;
 
   try {

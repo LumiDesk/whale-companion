@@ -42,9 +42,7 @@ const PersonaEditor = ({ controller, style, onStyleChange }: IProps) => {
 
     const nextId =
       selectId ??
-      (list.some((card) => card.id === active)
-        ? active
-        : (list[0]?.id ?? ""));
+      (list.some((card) => card.id === active) ? active : (list[0]?.id ?? ""));
 
     if (!nextId) {
       setSelected(null);
@@ -253,9 +251,8 @@ const PersonaEditor = ({ controller, style, onStyleChange }: IProps) => {
               >
                 <span className="persona-item-name">{card.name}</span>
                 <span className="persona-item-meta">
-                  {card.source === "builtin" ? "内置" : "自定义"} ·{" "}
-                  {card.chars} 字
-                  {activeId === card.id ? " · 当前" : ""}
+                  {card.source === "builtin" ? "内置" : "自定义"} · {card.chars}{" "}
+                  字{activeId === card.id ? " · 当前" : ""}
                 </span>
               </button>
             ))}

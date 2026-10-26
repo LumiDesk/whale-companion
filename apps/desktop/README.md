@@ -50,7 +50,7 @@ WhaleCompanion/
   WhaleCompanion.exe
   resources.neu
   node.exe            ← 自带运行时，用户不用装 Node
-  server/             ← Bot 本体 + persona.md
+  server/             ← Bot 本体 + personas/ + prompts/
   LICENSE
   README.txt
 ```
@@ -81,15 +81,16 @@ src/
 
 ## 设置页
 
-- Tab：基础 / 人设 / 对话 / 主动 / 表情包 / 高级 / 数据；字段由
+- Tab：基础 / 人格 / 对话 / 主动 / 表情包 / 高级 / 数据；字段由
   `apps/server/src/settings.ts` 的 `SETTINGS` 自动渲染。
 - 配置是 `config.json` v2；v1 首次启动自动迁移，并备份 `config.json.bak-v1-*`。
-- 保存服务端设置会重启 Bot；主题、人设即时生效；Bot 暂停时保存不会自动启动。
+- 保存服务端设置会重启 Bot；主题、人格卡切换即时生效；Bot 暂停时保存不会自动启动。
 - 「思考强度」按 DeepSeek 文档发 `thinking` / `reasoning_effort`；思考开启时温度不生效。
 - 模型输入框右侧「获取模型」通过 `--list-models` 子进程调 `GET /models`，不会建立 QQ 连接。
-- 人设默认文件在安装目录；用户编辑写到 `%APPDATA%\whale-companion\persona.md`，
-  「恢复默认」就是删除这份覆盖。
-- 高级页有连接自检；数据页可导出/导入备份、删表情包、重打标、按用户清对话/记忆。
+- 人格卡：内置卡在 `server/personas/`，用户卡写到 `%APPDATA%\whale-companion\personas\`；
+  可新建、复制、编辑、删除、导入 qq-bridge 的 `roles/*.md`，`active.json` 记录当前人格。
+- 对话引擎：Agent 开关、每轮条数、沉默开关、首条延迟、条间间隔、等待上限；行为风格在人格页切换。
+- 高级页有连接自检；数据页可导出/导入备份（含人格卡）、删表情包、重打标、按用户清对话/记忆。
 
 ## 自动更新
 
@@ -118,7 +119,9 @@ src/
   第二个实例只显示一句提示然后退出，不抢 QQ 连接。
 - 配置、日志、数据、更新缓存都在 `%APPDATA%\whale-companion`；开发模式的数据目录是
   `apps/server/data`，方便复用现有对话。
-- `persona.md` 通过 `WHALE_PERSONA_FILE` 注入；打包版从 `server/persona.md` 读。
+- 人格与行为提示词路径通过 `WHALE_PERSONA_DIR` / `WHALE_USER_PERSONA_DIR` /
+  `WHALE_ACTIVE_PERSONA_FILE` / `WHALE_PROMPTS_DIR` 注入；打包版从 `server/personas` 与
+  `server/prompts` 读。
 - 窗口关闭行为默认「最小化到托盘」；托盘菜单在 `hooks/useBotProcess.ts` 的 `updateTray`。
 - Bot 的状态通过 stdout 里以 `@@WHALE ` 开头的 JSON 行回传（`type` 为
   `boot` / `ready` / `qq` / `activity`），GUI 解析后更新状态，不写进普通日志。

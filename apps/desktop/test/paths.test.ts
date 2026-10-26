@@ -15,7 +15,10 @@ test("归一化路径会收掉 . 和 ..", () => {
     normalizePath("C:\\repo\\apps\\desktop\\..\\server\\dist"),
     "C:\\repo\\apps\\server\\dist",
   );
-  assert.equal(normalizePath("C:/repo/apps/server/dist"), "C:\\repo\\apps\\server\\dist");
+  assert.equal(
+    normalizePath("C:/repo/apps/server/dist"),
+    "C:\\repo\\apps\\server\\dist",
+  );
   assert.equal(normalizePath("C:\\"), "C:\\");
 });
 
@@ -58,10 +61,7 @@ test("打包态 server 在 exe 旁边，数据在 AppData", () => {
     paths.builtinPersonaDir,
     "C:\\Apps\\WhaleCompanion\\server\\personas",
   );
-  assert.equal(
-    paths.promptsDir,
-    "C:\\Apps\\WhaleCompanion\\server\\prompts",
-  );
+  assert.equal(paths.promptsDir, "C:\\Apps\\WhaleCompanion\\server\\prompts");
   assert.equal(
     paths.dataDir,
     "C:\\Users\\me\\AppData\\Roaming\\whale-companion\\data",

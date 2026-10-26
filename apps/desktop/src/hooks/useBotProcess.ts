@@ -148,7 +148,10 @@ export const useBotProcess = (deps: IDeps) => {
       { text: `状态：${stateLabel(botStateRef.current)}`, isDisabled: true },
       { text: "-" },
       { id: "SHOW", text: "显示主界面" },
-      { id: running ? "STOP" : "START", text: running ? "暂停 Bot" : "启动 Bot" },
+      {
+        id: running ? "STOP" : "START",
+        text: running ? "暂停 Bot" : "启动 Bot",
+      },
       { id: "RESTART", text: "重启 Bot", isDisabled: !running },
       { text: "-" },
       { id: "LOGS", text: "打开日志目录" },
@@ -273,7 +276,8 @@ export const useBotProcess = (deps: IDeps) => {
         `将在 ${Math.round(decision.wait / 1000)} 秒后自动重启 Bot（第 ${decision.count}/3 次）`,
       );
 
-      if (autoRestartTimerRef.current) clearTimeout(autoRestartTimerRef.current);
+      if (autoRestartTimerRef.current)
+        clearTimeout(autoRestartTimerRef.current);
       autoRestartTimerRef.current = setTimeout(() => {
         autoRestartTimerRef.current = null;
         if (botStateRef.current === "crashed") void startBot();

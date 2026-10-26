@@ -227,7 +227,9 @@ img {
   background: transparent;
   color: var(--muted);
   text-align: left;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 
 .nav-item:hover {
@@ -509,7 +511,9 @@ img {
   color: var(--text);
   font-size: 13px;
   font-weight: 500;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
   white-space: nowrap;
 }
 
@@ -591,12 +595,20 @@ img {
 
 .hero-card.tone-good {
   border-color: var(--ok-border);
-  background: linear-gradient(135deg, var(--hero-good-from), var(--hero-good-to));
+  background: linear-gradient(
+    135deg,
+    var(--hero-good-from),
+    var(--hero-good-to)
+  );
 }
 
 .hero-card.tone-warn {
   border-color: var(--warn-border);
-  background: linear-gradient(135deg, var(--hero-warn-from), var(--hero-warn-to));
+  background: linear-gradient(
+    135deg,
+    var(--hero-warn-from),
+    var(--hero-warn-to)
+  );
 }
 
 .hero-card.tone-bad {
@@ -840,7 +852,9 @@ input:not([type]),
   border-radius: 8px;
   background: var(--input-bg);
   outline: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 input:focus,
@@ -874,7 +888,9 @@ input:focus,
   border: 1px solid var(--border-strong);
   border-radius: 999px;
   background: var(--chip-bg);
-  transition: background 0.18s ease, border-color 0.18s ease;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease;
 }
 
 .switch-thumb {
@@ -1327,7 +1343,9 @@ input[type="number"] {
   border-radius: 8px;
   background: var(--input-bg);
   outline: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 input[type="number"]:focus {

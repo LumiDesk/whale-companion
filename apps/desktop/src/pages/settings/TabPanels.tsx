@@ -130,9 +130,7 @@ export const BasicTab = ({
       <p className="hint">
         当前显示：
         {controller.resolvedTheme === "dark" ? "深色" : "浅色"}
-        {controller.config.appearance.theme === "system"
-          ? "（跟随系统）"
-          : ""}
+        {controller.config.appearance.theme === "system" ? "（跟随系统）" : ""}
       </p>
     </div>
 
@@ -249,7 +247,7 @@ export const ChatTab = ({
     <div className="card">
       <div className="card-head">
         <h2>对话引擎</h2>
-        <span className="badge">即时生效</span>
+        <span className="badge">保存后生效</span>
       </div>
       <p className="muted card-desc">
         模型会自己决定发几条、要不要等、要不要沉默；行为风格在「人格」页切换。
@@ -269,8 +267,7 @@ export const ChatTab = ({
         ...specsOf("media", true),
         ...SETTINGS.filter(
           (spec) =>
-            spec.path === "llm.maxImages" ||
-            spec.path === "llm.maxImageBytes",
+            spec.path === "llm.maxImages" || spec.path === "llm.maxImageBytes",
         ),
       ])}
     </div>
@@ -338,8 +335,7 @@ export const AdvancedTab = ({
       {renderFields(
         specsOf("llm", true).filter(
           (spec) =>
-            spec.path !== "llm.maxImages" &&
-            spec.path !== "llm.maxImageBytes",
+            spec.path !== "llm.maxImages" && spec.path !== "llm.maxImageBytes",
         ),
       )}
     </div>

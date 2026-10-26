@@ -80,7 +80,11 @@ export const useDataActions = (deps: IDeps) => {
     for (const name of names) {
       let maxAge: number | null = null;
 
-      if (name === "model-check.json" || name === "self-check.json" || name === "retag-check.json") {
+      if (
+        name === "model-check.json" ||
+        name === "self-check.json" ||
+        name === "retag-check.json"
+      ) {
         maxAge = day;
       } else if (/^(export-|import-)/.test(name)) {
         maxAge = 3 * day;
@@ -105,10 +109,7 @@ export const useDataActions = (deps: IDeps) => {
     const server = serverRef.current;
     if (!currentPaths || !server) throw new Error("还没有准备好数据目录");
 
-    const stamp = new Date()
-      .toISOString()
-      .replace(/[:.]/g, "-")
-      .slice(0, 19);
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
     const exportsDir = joinPath(currentPaths.root, "exports");
     await ensureDir(exportsDir);
 
@@ -151,9 +152,7 @@ export const useDataActions = (deps: IDeps) => {
       const result = await os.execCommand(command);
       if (result.exitCode !== 0) {
         const detail = (result.stdErr || result.stdOut || "").trim();
-        throw new Error(
-          `导出失败${detail ? `：${detail.slice(0, 300)}` : ""}`,
-        );
+        throw new Error(`导出失败${detail ? `：${detail.slice(0, 300)}` : ""}`);
       }
 
       addLog("gui", `数据已导出：${destination}`);
@@ -175,10 +174,7 @@ export const useDataActions = (deps: IDeps) => {
     });
     if (!selected || selected.length === 0) return false;
 
-    const stamp = new Date()
-      .toISOString()
-      .replace(/[:.]/g, "-")
-      .slice(0, 19);
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
     const temp = joinPath(currentPaths.root, "updates", `import-${stamp}`);
     const backup = joinPath(
       currentPaths.root,
@@ -194,9 +190,7 @@ export const useDataActions = (deps: IDeps) => {
       );
       if (extract.exitCode !== 0) {
         const detail = (extract.stdErr || extract.stdOut || "").trim();
-        throw new Error(
-          `解压失败${detail ? `：${detail.slice(0, 300)}` : ""}`,
-        );
+        throw new Error(`解压失败${detail ? `：${detail.slice(0, 300)}` : ""}`);
       }
 
       const manifestText = await readText(joinPath(temp, "manifest.json"));
@@ -221,8 +215,7 @@ export const useDataActions = (deps: IDeps) => {
       const hasPersonas = await fileExists(importedPersonas);
 
       const wasRunning =
-        botStateRef.current === "running" ||
-        botStateRef.current === "starting";
+        botStateRef.current === "running" || botStateRef.current === "starting";
       if (wasRunning) {
         const stopped = await stopBot();
         if (!stopped) throw new Error("Bot 没有停下来，已取消导入");
@@ -343,10 +336,7 @@ export const useDataActions = (deps: IDeps) => {
       await removePath(joinPath(stickersDir, target.file));
 
       const next = list.filter((item) => item.id !== id);
-      await writeTextAtomic(
-        indexPath,
-        `${JSON.stringify(next, null, 2)}\n`,
-      );
+      await writeTextAtomic(indexPath, `${JSON.stringify(next, null, 2)}\n`);
       addLog("gui", `已删除表情包 ${id.slice(0, 8)}`);
     } finally {
       if (wasRunning) void startBot();
@@ -401,7 +391,8 @@ export const useDataActions = (deps: IDeps) => {
       return parsed
         .filter(
           (item): item is IKnownUser =>
-            Boolean(item) && typeof item === "object" &&
+            Boolean(item) &&
+            typeof item === "object" &&
             typeof (item as IKnownUser).userId === "string",
         )
         .map((item) => ({
@@ -575,7 +566,10 @@ export const useDataActions = (deps: IDeps) => {
         detail: typeof item.detail === "string" ? item.detail : undefined,
       }));
 
-    addLog("gui", `连接自检完成：${done.ok === true ? "全部通过" : "有失败项"}`);
+    addLog(
+      "gui",
+      `连接自检完成：${done.ok === true ? "全部通过" : "有失败项"}`,
+    );
     return results;
   };
 
@@ -677,10 +671,7 @@ export const useDataActions = (deps: IDeps) => {
     addLog("gui", `当前人格已切换为 ${id}`);
   };
 
-  const savePersonaCard = async (
-    id: string,
-    text: string,
-  ): Promise<void> => {
+  const savePersonaCard = async (id: string, text: string): Promise<void> => {
     if (!isSafePersonaId(id)) throw new Error("人格 ID 不合法");
 
     const body = normalizePersonaText(text);
@@ -710,10 +701,7 @@ export const useDataActions = (deps: IDeps) => {
   const createPersona = async (name: string): Promise<string> => {
     const dirs = personaDirs();
     const existing = await listPersonas();
-    const id = uniquePersonaId(
-      name,
-      new Set(existing.map((card) => card.id)),
-    );
+    const id = uniquePersonaId(name, new Set(existing.map((card) => card.id)));
 
     await ensureDir(dirs.user);
     await writeTextAtomic(

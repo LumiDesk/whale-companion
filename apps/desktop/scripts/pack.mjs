@@ -13,9 +13,7 @@ import { fileURLToPath } from "node:url";
 
 const appRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = join(appRoot, "..", "..");
-const pkg = JSON.parse(
-  readFileSync(join(appRoot, "package.json"), "utf8"),
-);
+const pkg = JSON.parse(readFileSync(join(appRoot, "package.json"), "utf8"));
 
 const run = (command, args, cwd) => {
   const result = spawnSync(command, args, {
@@ -186,10 +184,7 @@ if (signPfx) {
 }
 
 console.log("5/5 压缩便携包…");
-const zip = join(
-  dist,
-  `whale-companion-${pkg.version}-win-x64.zip`,
-);
+const zip = join(dist, `whale-companion-${pkg.version}-win-x64.zip`);
 rmSync(zip, { force: true });
 run(
   "powershell",

@@ -26,13 +26,7 @@ interface IProps {
 }
 
 type TabId =
-  | "basic"
-  | "persona"
-  | "chat"
-  | "proactive"
-  | "sticker"
-  | "advanced"
-  | "data";
+  "basic" | "persona" | "chat" | "proactive" | "sticker" | "advanced" | "data";
 
 const TABS: Array<{ id: TabId; label: string }> = [
   { id: "basic", label: "基础" },
@@ -43,7 +37,6 @@ const TABS: Array<{ id: TabId; label: string }> = [
   { id: "advanced", label: "高级" },
   { id: "data", label: "数据" },
 ];
-
 
 const SettingsPage = ({ controller }: IProps) => {
   const [form, setForm] = useState<IAppConfig>(controller.config);
@@ -74,7 +67,11 @@ const SettingsPage = ({ controller }: IProps) => {
     specs: ISettingSpec[],
     overrides: Record<
       string,
-      { disabled?: boolean; disabledHint?: string; options?: readonly ISettingOption[] }
+      {
+        disabled?: boolean;
+        disabledHint?: string;
+        options?: readonly ISettingOption[];
+      }
     > = {},
   ) => (
     <div className="form-grid">

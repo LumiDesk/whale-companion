@@ -130,10 +130,7 @@ const DataTab = ({ controller, form, patch, onConfigReload }: IProps) => {
     }
   };
 
-  const clearUser = async (
-    userId: string,
-    target: "history" | "memory",
-  ) => {
+  const clearUser = async (userId: string, target: "history" | "memory") => {
     const key = `${userId}:${target}`;
     if (confirmUser !== key) {
       setConfirmUser(key);
@@ -209,6 +206,22 @@ const DataTab = ({ controller, form, patch, onConfigReload }: IProps) => {
         </div>
         <div className="path-row">
           <div>
+            <div className="path-label">人格卡</div>
+            <div className="path-value">
+              {controller.paths?.personaDir ?? "—"}
+            </div>
+          </div>
+          <button
+            type="button"
+            className="btn btn-ghost btn-small"
+            onClick={() => void controller.openPersonaDir()}
+          >
+            <IconFolder />
+            打开
+          </button>
+        </div>
+        <div className="path-row">
+          <div>
             <div className="path-label">数据</div>
             <div className="path-value">
               {controller.serverPaths?.dataDir ?? "—"}
@@ -226,9 +239,7 @@ const DataTab = ({ controller, form, patch, onConfigReload }: IProps) => {
         <div className="path-row">
           <div>
             <div className="path-label">日志</div>
-            <div className="path-value">
-              {controller.paths?.logsDir ?? "—"}
-            </div>
+            <div className="path-value">{controller.paths?.logsDir ?? "—"}</div>
           </div>
           <button
             type="button"
@@ -279,8 +290,8 @@ const DataTab = ({ controller, form, patch, onConfigReload }: IProps) => {
           <span className="badge">{stickers.length} 张</span>
         </div>
         <p className="muted card-desc">
-          删除会同时移除图片文件；「重新打标」只处理还没有标签的图，
-          Bot 在运行时会先暂停再自动恢复。
+          删除会同时移除图片文件；「重新打标」只处理还没有标签的图， Bot
+          在运行时会先暂停再自动恢复。
         </p>
 
         <div className="persona-actions">

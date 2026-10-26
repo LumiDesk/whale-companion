@@ -25,19 +25,10 @@ export type ThemeMode = "system" | "light" | "dark";
 export type ResolvedTheme = "light" | "dark";
 
 export type BotState =
-  | "stopped"
-  | "starting"
-  | "running"
-  | "stopping"
-  | "crashed";
+  "stopped" | "starting" | "running" | "stopping" | "crashed";
 
 export type QQState =
-  | "unknown"
-  | "connecting"
-  | "online"
-  | "closed"
-  | "error"
-  | "stopped";
+  "unknown" | "connecting" | "online" | "closed" | "error" | "stopped";
 
 export interface IAppConfig extends ISettings {
   version: 2;

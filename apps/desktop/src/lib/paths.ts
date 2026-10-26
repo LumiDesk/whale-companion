@@ -8,9 +8,7 @@ export const joinPath = (...parts: string[]): string => {
   let out = filtered[0].replace(/[\\/]+$/, "");
 
   for (let i = 1; i < filtered.length; i += 1) {
-    const part = filtered[i]
-      .replace(/^[\\/]+/, "")
-      .replace(/[\\/]+$/, "");
+    const part = filtered[i].replace(/^[\\/]+/, "").replace(/[\\/]+$/, "");
     if (!part) continue;
     out += `\\${part}`;
   }

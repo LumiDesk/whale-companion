@@ -44,14 +44,14 @@ test("active.json 解析失败时回退默认", () => {
     parseActivePersonaId(JSON.stringify({ id: "custom" })),
     "custom",
   );
-  assert.equal(
-    parseActivePersonaId(activePersonaJson("custom")),
-    "custom",
-  );
+  assert.equal(parseActivePersonaId(activePersonaJson("custom")), "custom");
 });
 
 test("人格文本会去 BOM 和控制字符", () => {
-  assert.equal(normalizePersonaText("\uFEFF# 标题\r\n内容\u0000"), "# 标题\n内容");
+  assert.equal(
+    normalizePersonaText("\uFEFF# 标题\r\n内容\u0000"),
+    "# 标题\n内容",
+  );
 });
 
 test("模板与摘要包含必要字段", () => {
