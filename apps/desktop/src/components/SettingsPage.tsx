@@ -17,6 +17,7 @@ import type {
   ThemeMode,
 } from "../lib/types";
 import { IconFolder } from "./Icons";
+import Switch from "./Switch";
 import Field from "./settings/Field";
 import ModelPicker from "./settings/ModelPicker";
 import PersonaEditor from "./settings/PersonaEditor";
@@ -379,7 +380,7 @@ const SettingsPage = ({ controller }: IProps) => {
               默认跟随 Windows 的深浅色设置，也可以固定成浅色或深色。
             </p>
 
-            <div className="radio-row">
+            <div className="segmented">
               {(
                 [
                   ["system", "跟随系统"],
@@ -387,15 +388,16 @@ const SettingsPage = ({ controller }: IProps) => {
                   ["dark", "深色"],
                 ] as Array<[ThemeMode, string]>
               ).map(([value, label]) => (
-                <label key={value} className="radio-item">
-                  <input
-                    type="radio"
-                    name="theme"
-                    checked={controller.config.appearance.theme === value}
-                    onChange={() => setTheme(value)}
-                  />
-                  <span>{label}</span>
-                </label>
+                <button
+                  key={value}
+                  type="button"
+                  className={`segment ${
+                    controller.config.appearance.theme === value ? "is-active" : ""
+                  }`}
+                  onClick={() => setTheme(value)}
+                >
+                  {label}
+                </button>
               ))}
             </div>
             <p className="hint">
@@ -414,86 +416,75 @@ const SettingsPage = ({ controller }: IProps) => {
 
             <div className="field">
               <span>关闭窗口时</span>
-              <div className="radio-row">
+              <div className="segmented">
                 {(
                   [
                     ["tray", "最小化到托盘"],
                     ["exit", "退出程序"],
                   ] as Array<[CloseAction, string]>
                 ).map(([value, label]) => (
-                  <label key={value} className="radio-item">
-                    <input
-                      type="radio"
-                      name="closeAction"
-                      checked={form.behavior.closeAction === value}
-                      onChange={() => patch("behavior.closeAction", value)}
-                    />
-                    <span>{label}</span>
-                  </label>
+                  <button
+                    key={value}
+                    type="button"
+                    className={`segment ${
+                      form.behavior.closeAction === value ? "is-active" : ""
+                    }`}
+                    onClick={() => patch("behavior.closeAction", value)}
+                  >
+                    {label}
+                  </button>
                 ))}
               </div>
             </div>
 
-            <label className="check-row">
-              <input
-                type="checkbox"
-                checked={form.behavior.launchAtLogin}
-                disabled={!controller.packaged}
-                onChange={(event) =>
-                  patch("behavior.launchAtLogin", event.target.checked)
-                }
-              />
-              <span>
-                开机自动启动
-                {!controller.packaged && (
-                  <em className="hint-inline">（打包版可用）</em>
-                )}
-              </span>
-            </label>
-
-            <label className="check-row">
-              <input
-                type="checkbox"
-                checked={form.behavior.autoStartBot}
-                onChange={(event) =>
-                  patch("behavior.autoStartBot", event.target.checked)
-                }
-              />
-              <span>启动控制台时自动启动 Bot</span>
-            </label>
-
-            <label className="check-row">
-              <input
-                type="checkbox"
-                checked={form.behavior.checkUpdateOnStartup}
-                onChange={(event) =>
-                  patch("behavior.checkUpdateOnStartup", event.target.checked)
-                }
-              />
-              <span>启动时静默检查更新</span>
-            </label>
-
-            <label className="check-row">
-              <input
-                type="checkbox"
-                checked={form.behavior.startMinimized}
-                onChange={(event) =>
-                  patch("behavior.startMinimized", event.target.checked)
-                }
-              />
-              <span>启动时最小化到托盘</span>
-            </label>
-
-            <label className="check-row">
-              <input
-                type="checkbox"
-                checked={form.behavior.autoRestartOnCrash}
-                onChange={(event) =>
-                  patch("behavior.autoRestartOnCrash", event.target.checked)
-                }
-              />
-              <span>崩溃后自动重启（最多 3 次/10 分钟）</span>
-            </label>
+            {(
+              [
+                {
+                  path: "behavior.launchAtLogin",
+                  label: "开机自动启动",
+                  hint: controller.packaged ? undefined : "仅打包版可用",
+                  disabled: !controller.packaged,
+                },
+                {
+                  path: "behavior.autoStartBot",
+                  label: "启动控制台时自动启动 Bot",
+                },
+                {
+                  path: "behavior.checkUpdateOnStartup",
+                  label: "启动时静默检查更新",
+                },
+                {
+                  path: "behavior.startMinimized",
+                  label: "启动时最小化到托盘",
+                },
+                {
+                  path: "behavior.autoRestartOnCrash",
+                  label: "崩溃后自动重启",
+                  hint: "最多 3 次 / 10 分钟",
+                },
+              ] as Array<{
+                path: string;
+                label: string;
+                hint?: string;
+                disabled?: boolean;
+              }>
+            ).map((item) => (
+              <div
+                key={item.path}
+                className={`toggle-row ${item.disabled ? "is-disabled" : ""}`}
+              >
+                <div className="toggle-text">
+                  <span className="toggle-label">{item.label}</span>
+                  {item.hint && <p className="field-help">{item.hint}</p>}
+                </div>
+                <Switch
+                  checked={getValueAt(form, item.path) === true}
+                  disabled={item.disabled}
+                  label={item.label}
+                  onChange={(next) => patch(item.path, next)}
+                />
+              </div>
+            ))}
           </div>
         </>
       )}

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { IController } from "../hooks/useController";
 import { formatClock } from "../lib/logs";
 import { IconFolder, IconTrash } from "./Icons";
+import Switch from "./Switch";
 
 type SourceFilter = "all" | "bot" | "gui" | "error";
 
@@ -63,24 +64,27 @@ const LogsPage = ({ controller }: IProps) => {
           placeholder="搜索日志…"
           onChange={(event) => setQuery(event.target.value)}
         />
-        <select
-          className="select"
-          value={source}
-          onChange={(event) => setSource(event.target.value as SourceFilter)}
-        >
-          <option value="all">全部</option>
-          <option value="bot">Bot</option>
-          <option value="gui">界面</option>
-          <option value="error">错误</option>
-        </select>
-        <label className="check-inline">
-          <input
-            type="checkbox"
+        <div className="select-wrap">
+          <select
+            className="select"
+            value={source}
+            onChange={(event) => setSource(event.target.value as SourceFilter)}
+          >
+            <option value="all">全部</option>
+            <option value="bot">Bot</option>
+            <option value="gui">界面</option>
+            <option value="error">错误</option>
+          </select>
+        </div>
+        <span className="switch-inline">
+          <span>自动滚动</span>
+          <Switch
+            size="sm"
             checked={autoScroll}
-            onChange={(event) => setAutoScroll(event.target.checked)}
+            label="自动滚动"
+            onChange={setAutoScroll}
           />
-          自动滚动
-        </label>
+        </span>
         <span className="log-count">{filtered.length} 行</span>
         <button
           type="button"

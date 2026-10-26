@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import type { ISettingOption, ISettingSpec } from "../../lib/settings";
 import { IconEye, IconEyeOff } from "../Icons";
+import Switch from "../Switch";
 
 interface IProps {
   spec: ISettingSpec;
@@ -89,23 +90,49 @@ const Field = ({
 }: IProps) => {
   const [revealed, setRevealed] = useState(false);
 
-  const control = (() => {
-    if (spec.kind === "boolean") {
-      return (
-        <label className="check-row">
-          <input
-            type="checkbox"
-            checked={value === true}
-            disabled={disabled}
-            onChange={(event) => onChange(spec.path, event.target.checked)}
-          />
-          <span>{value === true ? "开启" : "关闭"}</span>
-        </label>
-      );
-    }
+  // 布尔项单独排版：标题在左、开关在右，跟输入框那种「标签在上」的样式区分开
+  if (spec.kind === "boolean") {
+    const help = disabledHint ?? spec.help;
 
+    return (
+      <div className={`toggle-row ${disabled ? "is-disabled" : ""}`}>
+        <div className="toggle-text">
+          <span className="toggle-label">{spec.label}</span>
+          {help && <p className="field-help">{help}</p>}
+        </div>
+        <Switch
+          checked={value === true}
+          disabled={disabled}
+          label={spec.label}
+          onChange={(next) => onChange(spec.path, next)}
+        />
+      </div>
+    );
+  }
+
+  const control = (() => {
     if (spec.kind === "select") {
       const list = options ?? spec.options ?? [];
+
+      // 2–3 个选项做成分段控件（一眼看全）；更多就用下拉，避免按钮铺满一行
+      if (list.length > 3) {
+        return (
+          <div className="select-wrap">
+            <select
+              className="select"
+              value={String(value ?? "")}
+              disabled={disabled}
+              onChange={(event) => onChange(spec.path, event.target.value)}
+            >
+              {list.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        );
+      }
 
       return (
         <div className="segmented">

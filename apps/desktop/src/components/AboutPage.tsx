@@ -4,6 +4,7 @@ import { formatBytes } from "../lib/update";
 import type { IUpdateState } from "../lib/update";
 import { APP_VERSION } from "../lib/version";
 import { IconFolder } from "./Icons";
+import Switch from "./Switch";
 
 interface IProps {
   controller: IController;
@@ -74,21 +75,19 @@ const AboutPage = ({ controller }: IProps) => {
           %APPDATA%。
         </p>
 
-        <label className="check-row">
-          <input
-            type="checkbox"
+        <div className="toggle-row">
+          <div className="toggle-text">
+            <span className="toggle-label">接收预发布版本</span>
+            <p className="field-help">
+              测试版会先发成 pre-release；打开后检查更新才会看到它，关掉只收正式版。
+            </p>
+          </div>
+          <Switch
             checked={controller.config.behavior.includePrerelease}
-            onChange={(event) =>
-              void controller.setIncludePrerelease(event.target.checked)
-            }
+            label="接收预发布版本"
+            onChange={(next) => void controller.setIncludePrerelease(next)}
           />
-          <span>
-            接收预发布版本
-            <span className="muted">
-              （测试版先发成 pre-release，只有打开这个开关才检查得到）
-            </span>
-          </span>
-        </label>
+        </div>
 
         <div
           className={`update-status ${update.status === "error" ? "is-error" : ""}`}

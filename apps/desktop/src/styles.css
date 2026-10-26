@@ -154,6 +154,15 @@ button:disabled {
   opacity: 0.55;
 }
 
+/* 键盘操作时才出现焦点框；鼠标点击不显示，避免点一下就留一圈 */
+.btn:focus-visible,
+.segment:focus-visible,
+.settings-tab:focus-visible,
+.icon-button:focus-visible {
+  outline: 2px solid var(--focus-border);
+  outline-offset: 2px;
+}
+
 img {
   display: block;
 }
@@ -797,6 +806,11 @@ img {
   gap: 14px;
 }
 
+/* 开关行占满两列，别在网格里被压成半宽 */
+.form-grid > .toggle-row {
+  grid-column: 1 / -1;
+}
+
 .field {
   display: flex;
   flex-direction: column;
@@ -844,39 +858,137 @@ input:focus,
   padding-right: 40px;
 }
 
-.radio-row {
-  display: flex;
-  gap: 18px;
-  padding: 4px 0 2px;
+/* ---------- 开关 ---------- */
+
+.switch {
+  position: relative;
+  flex: 0 0 auto;
+  width: 42px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--chip-bg);
+  transition: background 0.18s ease, border-color 0.18s ease;
 }
 
-.radio-item,
-.check-row,
-.check-inline {
+.switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--muted);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.18);
+  transition:
+    transform 0.18s cubic-bezier(0.2, 0.8, 0.3, 1),
+    background 0.18s ease;
+}
+
+.switch.is-on {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.switch.is-on .switch-thumb {
+  background: var(--on-accent);
+  transform: translateX(18px);
+}
+
+.switch:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.switch:hover:not(:disabled):not(.is-on) {
+  border-color: var(--muted);
+}
+
+.switch:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.switch-sm {
+  width: 36px;
+  height: 20px;
+}
+
+.switch-sm .switch-thumb {
+  width: 14px;
+  height: 14px;
+}
+
+.switch-sm.is-on .switch-thumb {
+  transform: translateX(16px);
+}
+
+/* 一行开关：左边标题 + 说明，右边开关 */
+.toggle-row {
   display: flex;
   align-items: center;
-  gap: 7px;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 11px 0;
+  border-top: 1px dashed var(--border);
+}
+
+.toggle-row:first-child {
+  border-top: 0;
+}
+
+.toggle-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.toggle-label {
   color: var(--text);
   font-size: 13px;
-  cursor: pointer;
 }
 
-.check-row {
-  margin-top: 6px;
+.toggle-row.is-disabled {
+  opacity: 0.6;
 }
 
-.check-inline {
-  white-space: nowrap;
+.switch-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   color: var(--muted);
   font-size: 12px;
+  white-space: nowrap;
 }
 
-input[type="radio"],
-input[type="checkbox"] {
-  width: 15px;
-  height: 15px;
-  accent-color: var(--accent);
-  cursor: pointer;
+/* 下拉：外层画箭头，原生箭头在 Windows 上粗细和颜色都不受控 */
+.select-wrap {
+  position: relative;
+}
+
+.select-wrap .select {
+  appearance: none;
+  padding-right: 32px;
+}
+
+/* 设置页里的下拉选项都很短，拉满一整列会显空 */
+.field .select-wrap .select {
+  max-width: 260px;
+}
+
+.select-wrap::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 13px;
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid var(--muted);
+  border-bottom: 1.5px solid var(--muted);
+  transform: translateY(-70%) rotate(45deg);
+  pointer-events: none;
 }
 
 .path-row {
@@ -1269,7 +1381,7 @@ input[type="number"]:focus {
 
 .field-help {
   margin: 0;
-  color: var(--faint);
+  color: var(--muted);
   font-size: 12px;
   line-height: 1.5;
 }
