@@ -23,6 +23,8 @@ import {
 
 interface IProps {
   controller: IController;
+  /** 切 Tab 时让内容区回到顶部（由 App 传入） */
+  onTabChange?: () => void;
 }
 
 type TabId =
@@ -38,7 +40,7 @@ const TABS: Array<{ id: TabId; label: string }> = [
   { id: "data", label: "数据" },
 ];
 
-const SettingsPage = ({ controller }: IProps) => {
+const SettingsPage = ({ controller, onTabChange }: IProps) => {
   const [form, setForm] = useState<IAppConfig>(controller.config);
   const [tab, setTab] = useState<TabId>("basic");
   const [saving, setSaving] = useState(false);
@@ -136,6 +138,12 @@ const SettingsPage = ({ controller }: IProps) => {
     }
   };
 
+  const changeTab = (next: TabId) => {
+    if (next === tab) return;
+    onTabChange?.();
+    setTab(next);
+  };
+
   const setTheme = (theme: ThemeMode) => {
     void controller.setTheme(theme);
   };
@@ -166,7 +174,7 @@ const SettingsPage = ({ controller }: IProps) => {
             key={item.id}
             type="button"
             className={`settings-tab ${tab === item.id ? "is-active" : ""}`}
-            onClick={() => setTab(item.id)}
+            onClick={() => changeTab(item.id)}
           >
             {item.label}
           </button>

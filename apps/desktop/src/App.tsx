@@ -1,3 +1,5 @@
+import { useCallback, useLayoutEffect, useRef } from "react";
+
 import Sidebar from "./components/Sidebar";
 import { useController } from "./hooks/useController";
 import AboutPage from "./pages/AboutPage";
@@ -7,6 +9,17 @@ import StatusPage from "./pages/StatusPage";
 
 const App = () => {
   const controller = useController();
+  const mainRef = useRef<HTMLElement | null>(null);
+
+  const scrollToTop = useCallback(() => {
+    const main = mainRef.current;
+    if (main) main.scrollTop = 0;
+  }, []);
+
+  // 切侧边页时回到顶部；用 layout effect，避免先看到旧位置再跳
+  useLayoutEffect(() => {
+    scrollToTop();
+  }, [controller.page, scrollToTop]);
 
   if (!controller.ready) {
     return (
@@ -26,10 +39,10 @@ const App = () => {
         hasUpdate={controller.update.status === "available"}
       />
 
-      <main className="main">
+      <main className="main" ref={mainRef}>
         {controller.page === "status" && <StatusPage controller={controller} />}
         {controller.page === "settings" && (
-          <SettingsPage controller={controller} />
+          <SettingsPage controller={controller} onTabChange={scrollToTop} />
         )}
         {controller.page === "logs" && <LogsPage controller={controller} />}
         {controller.page === "about" && <AboutPage controller={controller} />}
