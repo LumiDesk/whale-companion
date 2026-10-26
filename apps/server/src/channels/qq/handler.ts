@@ -32,7 +32,7 @@ import {
   touchUser,
 } from "../../store/users.js";
 import { reportStatus } from "../../status.js";
-import { slog } from "../../util.js";
+import { slog, slogDebug } from "../../util.js";
 import type { IMessage } from "../../types/message.js";
 import type { IBatch } from "./aggregator.js";
 import { ReplySession } from "./reply-session.js";
@@ -415,8 +415,11 @@ export const createQQHandler = (
       for (const image of batch.images) {
         try {
           const bytes = new Uint8Array(image.data);
-          const sticker = ingestSticker(bytes, image.mime, []);
-          queueStickerTagging(sticker, () => bytes);
+          const result = ingestSticker(bytes, image.mime, []);
+          if (result.duplicate) {
+            slogDebug(`重复表情包，跳过 ${result.sticker.id.slice(0, 8)}`);
+          }
+          queueStickerTagging(result.sticker, () => bytes);
         } catch (error) {
           slog("表情包入库失败", error);
         }

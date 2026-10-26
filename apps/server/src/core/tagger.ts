@@ -54,6 +54,8 @@ interface IJob {
 }
 
 const jobs: IJob[] = [];
+/** 排队中 / 正在打标的 id，避免同一张图被重复排进队列 */
+const pending = new Set<string>();
 let active = 0;
 
 /** 并发可配，但限制在 1–4，避免把模型接口打满 */
@@ -81,6 +83,7 @@ const pump = (): void => {
     })()
       .catch((e) => slog("表情包打标签失败", e))
       .finally(() => {
+        pending.delete(job.sticker.id);
         active -= 1;
         pump();
       });
@@ -97,11 +100,16 @@ export const queueStickerTagging = (
 ): void => {
   if (!config.sticker.enabled || !config.llm.vision) return;
 
+  // 已经有标签、或这张图已经在队列/打标中，就不要再花一次模型调用
+  if (Array.isArray(sticker.tags) && sticker.tags.length > 0) return;
+  if (pending.has(sticker.id)) return;
+
   if (jobs.length >= MAX_QUEUE) {
     slog(`打标队列已满（${MAX_QUEUE}），跳过一张`, sticker.id.slice(0, 8));
     return;
   }
 
+  pending.add(sticker.id);
   jobs.push({ sticker, load });
   pump();
 };

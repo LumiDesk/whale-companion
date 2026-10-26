@@ -21,7 +21,7 @@ const {
 
 test("收图后写索引，webp 用正确扩展名", () => {
   const bytes = new Uint8Array([1, 2, 3, 4]);
-  const sticker = ingestSticker(bytes, "image/webp", []);
+  const { sticker } = ingestSticker(bytes, "image/webp", []);
 
   assert.ok(sticker.file.endsWith(".webp"));
   assert.deepEqual(Array.from(readSticker(sticker)), [1, 2, 3, 4]);

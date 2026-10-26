@@ -11,6 +11,7 @@ import { ensurePersonaLayout } from "./core/persona.js";
 import { runSelfCheck } from "./core/self-check.js";
 import { startProactive } from "./core/proactive.js";
 import { retagAllNow, retagUntaggedStickers } from "./core/tagger.js";
+import { dedupeStickers } from "./store/stickers.js";
 import { reportStatus } from "./status.js";
 import { setLogLevel, slog } from "./util.js";
 
@@ -110,6 +111,18 @@ const main = (): void => {
   }
 
   ensurePersonaLayout();
+
+  // 旧版本没有内容哈希，升级后第一次启动会把历史重复图合并掉
+  if (config.sticker.enabled) {
+    try {
+      const dedupe = dedupeStickers();
+      if (dedupe.removed > 0) {
+        slog(`表情包去重：合并 ${dedupe.groups} 组，移除 ${dedupe.removed} 张`);
+      }
+    } catch (error) {
+      slog("表情包去重失败（不影响启动）", error);
+    }
+  }
 
   const handler = createQQHandler(getAccessToken);
   const hub = createSessionHub({
