@@ -39,12 +39,6 @@ import {
 } from "../lib/platform";
 import { hasHiddenFlag } from "../lib/process";
 import { isBotActive } from "../lib/restart";
-import {
-  applyTheme,
-  resolveTheme,
-  systemPrefersDark,
-  watchSystemTheme,
-} from "../lib/theme";
 import type { IUpdateState } from "../lib/update";
 import type {
   BotState,
@@ -63,6 +57,7 @@ import type {
 } from "../lib/types";
 import { APP_VERSION } from "../lib/version";
 import { useBotProcess } from "./useBotProcess";
+import { useConfig } from "./useConfig";
 import { useDataActions } from "./useDataActions";
 import { useLogs } from "./useLogs";
 import { useUpdate } from "./useUpdate";
@@ -156,22 +151,12 @@ const writeConfigFile = async (
   }
 };
 
-const themeLabel = (theme: ThemeMode): string => {
-  if (theme === "light") return "浅色";
-  if (theme === "dark") return "深色";
-  return "跟随系统";
-};
 
 
 export const useController = (): IController => {
   const [ready, setReady] = useState(false);
   const [bootMessage, setBootMessage] = useState("正在叫醒小鲸鱼…");
   const [page, setPage] = useState<PageId>("status");
-  const [config, setConfig] = useState<IAppConfig>(DEFAULT_CONFIG);
-  const [configLoaded, setConfigLoaded] = useState(false);
-  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() =>
-    resolveTheme("system", systemPrefersDark()),
-  );
   const [paths, setPaths] = useState<IAppPaths | null>(null);
   const [serverPaths, setServerPaths] = useState<IServerPaths | null>(null);
   const [nodePath, setNodePath] = useState("");
@@ -183,7 +168,6 @@ export const useController = (): IController => {
   const serverRef = useRef<IServerPaths | null>(null);
   const nodeRef = useRef("");
   const packagedRef = useRef(false);
-  const configWriteRef = useRef<Promise<void>>(Promise.resolve());
   /** QQ 从什么时候开始连不上（online 时清空） */
   const qqDownSinceRef = useRef<number | null>(null);
   /** 上一次因为 QQ 离线自动重启的时间 */
@@ -195,17 +179,21 @@ export const useController = (): IController => {
   });
 
 
-  /** 主题和设置页可能同时写 config.json，串起来避免后写被先写覆盖 */
-  const persistConfig = (
-    file: string,
-    config: IAppConfig,
-  ): Promise<void> => {
-    const next = configWriteRef.current.then(() =>
-      writeConfigFile(file, config),
-    );
-    configWriteRef.current = next.catch(() => {});
-    return next;
-  };
+  const {
+    config,
+    setConfig,
+    configLoaded,
+    setConfigLoaded,
+    resolvedTheme,
+    persistConfig,
+    setTheme,
+  } = useConfig({
+    configRef,
+    pathsRef,
+    addLog,
+    setMessage,
+    writeConfig: writeConfigFile,
+  });
 
   const {
     botState,
@@ -300,37 +288,6 @@ export const useController = (): IController => {
     quitApp,
   });
 
-  const setTheme = async (theme: ThemeMode): Promise<void> => {
-    const previous = configRef.current;
-    if (previous.appearance.theme === theme) return;
-
-    const next = normalizeConfig({
-      ...previous,
-      appearance: { theme },
-    });
-
-    configRef.current = next;
-    setConfig(next);
-
-    const currentPaths = pathsRef.current;
-    if (!currentPaths) return;
-
-    try {
-      await persistConfig(currentPaths.configFile, next);
-      addLog("gui", `外观已切换为${themeLabel(theme)}`);
-    } catch (error) {
-      // 用户可能已经又切了别的主题；不要用旧失败覆盖新选择
-      if (configRef.current.appearance.theme !== theme) return;
-
-      configRef.current = previous;
-      setConfig(previous);
-      addLog("error", `保存外观设置失败：${errText(error)}`);
-      setMessage({
-        kind: "error",
-        text: `外观设置没有保存成功：${errText(error)}`,
-      });
-    }
-  };
 
   /**
    * 「是否接收预发布版本」只影响检查更新的来源，不需要重启 Bot。
@@ -749,21 +706,6 @@ export const useController = (): IController => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    // 把配置里的主题落到 DOM；跟随系统时还要监听系统切换
-    const mode = config.appearance.theme;
-
-    const sync = () => {
-      const resolved = resolveTheme(mode, systemPrefersDark());
-      applyTheme(resolved);
-      setResolvedTheme(resolved);
-    };
-
-    sync();
-    if (mode !== "system") return;
-
-    return watchSystemTheme(sync);
-  }, [config.appearance.theme]);
 
   useEffect(() => {
     // 错误留下来，别让用户错过；成功/提示 5 秒后自动消失
