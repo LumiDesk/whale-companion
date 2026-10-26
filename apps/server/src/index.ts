@@ -8,7 +8,7 @@ import { sendC2CProactive } from "./channels/qq/send.js";
 import { listModels } from "./core/models.js";
 import { runSelfCheck } from "./core/self-check.js";
 import { startProactive } from "./core/proactive.js";
-import { retagUntaggedStickers } from "./core/tagger.js";
+import { retagAllNow, retagUntaggedStickers } from "./core/tagger.js";
 import { reportStatus } from "./status.js";
 import { slog } from "./util.js";
 
@@ -17,7 +17,9 @@ const mode = args.includes("--list-models")
   ? "list-models"
   : args.includes("--self-check")
     ? "self-check"
-    : "bot";
+    : args.includes("--retag")
+      ? "retag"
+      : "bot";
 
 /** 一次性命令的输出：桌面端按 `@@WHALE` 行解析，不依赖 WHALE_GUI */
 const emit = (event: Record<string, unknown>): void => {
@@ -48,6 +50,18 @@ const runSelfCheckMode = async (): Promise<void> => {
 
   emit({ type: "check-done", ok });
   process.exitCode = ok ? 0 : 1;
+};
+
+/** 一次性重新打标：不启动 WS，处理完退出 */
+const runRetagMode = async (): Promise<void> => {
+  try {
+    const result = await retagAllNow();
+    emit({ type: "retag", ok: true, ...result });
+    process.exitCode = 0;
+  } catch (error) {
+    emit({ type: "retag", ok: false, error: errorText(error) });
+    process.exitCode = 1;
+  }
 };
 
 const main = (): void => {
@@ -110,6 +124,8 @@ if (mode === "list-models") {
   void runListModels();
 } else if (mode === "self-check") {
   void runSelfCheckMode();
+} else if (mode === "retag") {
+  void runRetagMode();
 } else {
   main();
 }

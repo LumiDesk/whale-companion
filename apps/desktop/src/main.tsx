@@ -2,6 +2,7 @@ import { init } from "@neutralinojs/lib";
 import { createRoot } from "react-dom/client";
 
 import App from "./App";
+import ErrorBoundary from "./components/ErrorBoundary";
 import { applyTheme, resolveTheme, systemPrefersDark } from "./lib/theme";
 import "./styles.css";
 
@@ -17,4 +18,8 @@ if (typeof window !== "undefined" && typeof window.NL_PORT === "number") {
 const container = document.getElementById("root");
 if (!container) throw new Error("找不到 #root");
 
-createRoot(container).render(<App />);
+createRoot(container).render(
+  <ErrorBoundary>
+    <App />
+  </ErrorBoundary>,
+);

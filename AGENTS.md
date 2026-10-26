@@ -43,22 +43,24 @@ pnpm release patch|minor|major        # 发版（bump + tag + push，触发 CI�
 
 ```
 apps/server/
-  persona.md              人设正文（每轮现读，改完下一条生效）
-  src/config.ts           所有环境变量在此收口；缺必填项启动即报错
-  src/core/               llm / persona / prompt / chat / reply / tagger / summarize / proactive / commands / mood / sticker-*
+  persona.md              默认人设（只读，随版本更新；用户覆盖在 APPDATA）
+  src/settings.ts         配置契约：字段、默认值、范围、env 映射（纯函数，桌面端只读复用）
+  src/config.ts           把 env 收敛成 runtime config；非法值启动即报错
+  src/core/               llm / persona / prompt / chat / reply / tagger / summarize / proactive / commands / mood / models / self-check / sticker-*
   src/store/              history / memory / stickers / users / atomic（只碰 data/ 下的 JSON 与文件）
   src/channels/qq/        token / send / media / text / aggregator / handler / gateway / migrate
-  src/index.ts            组合根：启动 QQ + 主动消息 + 补齐标签
+  src/index.ts            组合根：启动 QQ + 主动消息 + 补齐标签；--self-check / --list-models / --retag
 
 apps/desktop/
   neutralino.config.json  窗口、托盘图标、native API 白名单
   src/lib/                配置/路径/锁/日志/进程/主题/更新（纯函数，有单测）
   src/hooks/useController 托盘、子进程、单实例、主题、更新、状态与日志编排
   src/components/         状态页 / 设置页 / 日志页 / 关于
+  src/components/settings/设置字段、模型下拉、人设编辑器、自检
 
 scripts/release.mjs      pnpm release：bump + tag + push
-.github/workflows/        Windows 构建 / GitHub Release
-docs/                    截图、架构图、社交预览图（说明见 docs/README.md）
+.github/workflows/        CI（typecheck/test/build）/ Windows 构建 / GitHub Release
+docs/                    方案、截图、架构图、社交预览图（说明见 docs/README.md）
 ```
 
 **分层铁律**
@@ -68,6 +70,12 @@ docs/                    截图、架构图、社交预览图（说明见 docs/R
 3. `store/` 只做持久化，不做业务判断；
 4. 渠道之间不互相 import；
 5. 桌面端不 import 服务端源码，只通过「启动子进程 + `--config` + stdout 状态行」控制 Bot。
+
+**唯一例外**：`apps/server/src/settings.ts` 是纯配置契约（无 `node:*`、无 `process.env`、无 DOM），
+桌面端只读 import 它来复用字段/默认值/校验；不要从这个文件再引服务端其他模块。
+
+配置链路：`config.json` v2（桌面）→ `settings.ts` 的 `toEnv` → `bot.json` → 服务端 `fromEnv` 校验。
+旧的 v1 配置会在桌面端启动时自动迁移，并备份 `config.json.bak-v1-*`。
 
 更细的桌面端约定见第 14 节。
 
@@ -151,7 +159,8 @@ QQ 事件 → cleanQQContent 清洗 <faceType>/<@...> → 串行下载图片（�
 
 | 想做什么 | 改哪里 |
 |---|---|
-| 调性格/口癖 | `apps/server/persona.md`（即时生效） |
+| 加/改设置项 | `apps/server/src/settings.ts`（字段、默认值、范围）→ `config.ts` 消费 → 设置页按 schema 自动渲染 |
+| 调性格/口癖 | 人设编辑器写入 `%APPDATA%\whale-companion\persona.md`；默认人设在 `apps/server/persona.md` |
 | 加斜杠命令 | `core/commands.ts` 的 `commands` 数组 |
 | 改聚合时机/上限 | `config.ts` 的 `batch`（`silenceMs` / `maxWaitMs` / 上限） |
 | 改记忆窗口 | `config.ts` 的 `history` |
@@ -177,16 +186,20 @@ QQ 事件 → cleanQQContent 清洗 <faceType>/<@...> → 串行下载图片（�
 - 自动更新只支持便携版，整包替换，没有增量；GitHub 不可达或安装目录不可写时只能手动更新。
 - 自动更新的真实链路（下载/解压/替换/重启）没有自动化测试；改动后至少手动跑一次
   `buildUpdateScript` 的沙盒脚本，再在打包版上冒烟。
-- 服务端没有优雅退出（SIGINT 清理定时器/WS）；桌面端退出时会 taskkill 进程树。
+- 服务端只有简单的 SIGINT/SIGTERM 退出（不做 WS 优雅关闭）；桌面端退出时会 taskkill 进程树。
 
 ## 13. 环境变量
 
 见 `apps/server/.env.example`。必填只有三个：`DEEPSEEK_API_KEY`、`QQBOT_APPID`、`QQBOT_SECRET`；其余都有默认值。
 
-常用可调项：`DEEPSEEK_TIMEOUT_MS` / `DEEPSEEK_RETRIES`、`HISTORY_*`、`BATCH_SILENCE_MS` / `BATCH_MAX_WAIT_MS`、`REPLY_MAX_CHARS`、`MEDIA_MAX_BYTES`、`STICKER_CHANCE` / `STICKER_COOLDOWN_MS`、`PROACTIVE_*`。
+常用可调项：`DEEPSEEK_THINKING_EFFORT`（off/low/high/max）、`DEEPSEEK_TEMPERATURE`、
+`DEEPSEEK_TIMEOUT_MS` / `DEEPSEEK_RETRIES`、`HISTORY_*`、`REPLY_MAX_CHARS`、
+`BATCH_SILENCE_MS` / `BATCH_MAX_WAIT_MS`、`MEDIA_MAX_BYTES`、
+`STICKER_*`、`PROACTIVE_*`、`OWNER_NAME`、`VISION_ENABLED`、`LLM_MAX_IMAGES`。
 
 桌面端启动 Bot 时不走环境变量，而是写 `%APPDATA%\whale-companion\bot.json`，用 `--config` 传入；
-`config.ts` 会把其中的值合并进 `process.env`。内部变量有 `WHALE_DATA_DIR`、`WHALE_PERSONA_FILE`、
+`config.ts` 会把其中的值合并进 `process.env`。内部变量有 `WHALE_DATA_DIR`、
+`WHALE_PERSONA_FILE`（APPDATA 覆盖）、`WHALE_DEFAULT_PERSONA_FILE`（安装目录默认）、
 `WHALE_GUI`、`WHALE_PARENT_PID`，一般不用手动设置。
 
 ## 14. 桌面端（apps/desktop）

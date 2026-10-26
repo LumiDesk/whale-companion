@@ -119,3 +119,49 @@ export const retagUntaggedStickers = (): void => {
     queueStickerTagging(sticker, () => new Uint8Array(readSticker(sticker)));
   }
 };
+
+/** 桌面端「重新打标」用：逐张处理完再退出，方便命令行模式等待结果 */
+export const retagAllNow = async (): Promise<{
+  total: number;
+  tagged: number;
+  failed: number;
+}> => {
+  if (!config.sticker.enabled) {
+    throw new Error("表情包功能已关闭");
+  }
+  if (!config.llm.vision) {
+    throw new Error("看图已关闭，无法给表情包打标");
+  }
+
+  const untagged = listUntaggedStickers();
+  let tagged = 0;
+  let failed = 0;
+
+  for (const sticker of untagged) {
+    try {
+      const data = new Uint8Array(readSticker(sticker));
+      if (data.byteLength > config.media.maxBytes) {
+        failed += 1;
+        continue;
+      }
+
+      const tags = await tagImage(data, sticker.mime);
+      if (tags.length === 0) {
+        failed += 1;
+        continue;
+      }
+
+      updateStickerTags(sticker.id, tags);
+      tagged += 1;
+    } catch (error) {
+      failed += 1;
+      slog("重新打标失败", sticker.id.slice(0, 8), error);
+    }
+
+    if ((tagged + failed) % 5 === 0) {
+      slog(`重新打标进度：${tagged + failed}/${untagged.length}`);
+    }
+  }
+
+  return { total: untagged.length, tagged, failed };
+};

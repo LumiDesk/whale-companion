@@ -55,11 +55,12 @@ const checkPersona = (): ICheckResult => {
 
   try {
     const persona = getPersona();
-    const source = existsSync(override)
-      ? "自定义"
-      : existsSync(fallback)
-        ? "默认"
-        : "兜底";
+    const source =
+      override !== fallback && existsSync(override)
+        ? "自定义"
+        : existsSync(fallback)
+          ? "默认"
+          : "兜底";
 
     return {
       name: "persona",

@@ -80,6 +80,7 @@ import {
   parseRelease,
   parseUpdateResult,
   progressPercent,
+  psLiteral,
   validateDownloadUrl,
 } from "../lib/update";
 import type { IUpdateState } from "../lib/update";
@@ -91,6 +92,7 @@ import type {
   ILogLine,
   IModelInfo,
   IServerPaths,
+  IStickerInfo,
   PageId,
   QQState,
   ResolvedTheme,
@@ -144,6 +146,11 @@ export interface IController {
   quitApp: () => Promise<void>;
   openLogsDir: () => Promise<void>;
   openDataDir: () => Promise<void>;
+  exportData: () => Promise<string | null>;
+  importData: () => Promise<boolean>;
+  listStickers: () => Promise<IStickerInfo[]>;
+  deleteSticker: (id: string) => Promise<void>;
+  retagStickers: () => Promise<void>;
   clearLogs: () => void;
   fetchModels: (config: IAppConfig) => Promise<IModelInfo[]>;
   runSelfCheck: (config: IAppConfig) => Promise<ICheckResult[]>;
@@ -304,6 +311,7 @@ export const useController = (): IController => {
   const autoRestartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+  const trayOkRef = useRef(true);
 
   const updateBotState = (next: BotState) => {
     botStateRef.current = next;
@@ -392,7 +400,9 @@ export const useController = (): IController => {
 
     try {
       await setTray(items);
+      trayOkRef.current = true;
     } catch (error) {
+      trayOkRef.current = false;
       addLog("error", `托盘更新失败：${errText(error)}`);
     }
   };
@@ -740,6 +750,296 @@ export const useController = (): IController => {
     await openPath(current.dataDir);
   };
 
+  /** 导出 data + 自定义人设；默认不含 config.json 里的密钥 */
+  const exportData = async (): Promise<string | null> => {
+    const currentPaths = pathsRef.current;
+    const server = serverRef.current;
+    if (!currentPaths || !server) throw new Error("还没有准备好数据目录");
+
+    const stamp = new Date()
+      .toISOString()
+      .replace(/[:.]/g, "-")
+      .slice(0, 19);
+    const exportsDir = joinPath(currentPaths.root, "exports");
+    await ensureDir(exportsDir);
+
+    const destination = await os.showSaveDialog("导出小鲸鱼数据", {
+      defaultPath: joinPath(exportsDir, `whale-backup-${stamp}.zip`),
+      filters: [{ name: "Zip", extensions: ["zip"] }],
+    });
+    if (!destination) return null;
+
+    const staging = joinPath(currentPaths.root, "updates", `export-${stamp}`);
+    await ensureDir(staging);
+    await ensureDir(server.dataDir);
+
+    const manifest = {
+      app: "whale-companion",
+      version: APP_VERSION,
+      exportedAt: new Date().toISOString(),
+      includes: ["data"],
+    };
+
+    const personaOverride = joinPath(currentPaths.root, "persona.md");
+    const persona = await readText(personaOverride);
+    if (persona && persona.trim()) {
+      manifest.includes.push("persona");
+      await writeText(joinPath(staging, "persona.md"), persona);
+    }
+
+    await writeText(
+      joinPath(staging, "manifest.json"),
+      JSON.stringify(manifest, null, 2),
+    );
+
+    const paths = [server.dataDir, joinPath(staging, "manifest.json")];
+    if (persona && persona.trim()) paths.push(joinPath(staging, "persona.md"));
+
+    const command =
+      "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command " +
+      `"Compress-Archive -LiteralPath ${paths
+        .map((item) => psLiteral(item))
+        .join(",")} -DestinationPath ${psLiteral(destination)} -Force"`;
+
+    try {
+      const result = await os.execCommand(command);
+      if (result.exitCode !== 0) {
+        const detail = (result.stdErr || result.stdOut || "").trim();
+        throw new Error(
+          `导出失败${detail ? `：${detail.slice(0, 300)}` : ""}`,
+        );
+      }
+
+      addLog("gui", `数据已导出：${destination}`);
+      return destination;
+    } finally {
+      await removePath(staging).catch(() => {});
+    }
+  };
+
+  /** 导入 zip：只接受 data/、persona.md、manifest.json，覆盖前先备份当前数据 */
+  const importData = async (): Promise<boolean> => {
+    const currentPaths = pathsRef.current;
+    const server = serverRef.current;
+    if (!currentPaths || !server) throw new Error("还没有准备好数据目录");
+
+    const selected = await os.showOpenDialog("导入小鲸鱼备份", {
+      multiSelections: false,
+      filters: [{ name: "Zip", extensions: ["zip"] }],
+    });
+    if (!selected || selected.length === 0) return false;
+
+    const stamp = new Date()
+      .toISOString()
+      .replace(/[:.]/g, "-")
+      .slice(0, 19);
+    const temp = joinPath(currentPaths.root, "updates", `import-${stamp}`);
+    const backup = joinPath(
+      currentPaths.root,
+      "updates",
+      `import-backup-${stamp}`,
+    );
+
+    await ensureDir(temp);
+
+    try {
+      const extract = await os.execCommand(
+        buildExtractCommand(selected[0], temp),
+      );
+      if (extract.exitCode !== 0) {
+        const detail = (extract.stdErr || extract.stdOut || "").trim();
+        throw new Error(
+          `解压失败${detail ? `：${detail.slice(0, 300)}` : ""}`,
+        );
+      }
+
+      const manifestText = await readText(joinPath(temp, "manifest.json"));
+      if (!manifestText) throw new Error("备份里没有 manifest.json");
+
+      let manifest: { app?: string } = {};
+      try {
+        manifest = JSON.parse(manifestText) as { app?: string };
+      } catch {
+        throw new Error("manifest.json 不是合法 JSON");
+      }
+      if (manifest.app !== "whale-companion") {
+        throw new Error("这不是小鲸鱼的备份");
+      }
+
+      const importedData = joinPath(temp, "data");
+      if (!(await fileExists(importedData))) {
+        throw new Error("备份里没有 data 目录");
+      }
+
+      const importedPersona = joinPath(temp, "persona.md");
+      const hasPersona = await fileExists(importedPersona);
+
+      const wasRunning =
+        botStateRef.current === "running" ||
+        botStateRef.current === "starting";
+      if (wasRunning) {
+        const stopped = await stopBot();
+        if (!stopped) throw new Error("Bot 没有停下来，已取消导入");
+      }
+
+      await ensureDir(backup);
+      const currentPersona = joinPath(currentPaths.root, "persona.md");
+      const currentData = server.dataDir;
+
+      try {
+        if (await fileExists(currentData)) {
+          await movePath(currentData, joinPath(backup, "data"));
+        }
+        if (await fileExists(currentPersona)) {
+          await movePath(currentPersona, joinPath(backup, "persona.md"));
+        }
+
+        await movePath(importedData, currentData);
+        if (hasPersona) {
+          await movePath(importedPersona, currentPersona);
+        }
+      } catch (error) {
+        // 尽量还原；还原本身失败时保留 backup 目录供手动恢复
+        try {
+          await removePath(currentData);
+          if (await fileExists(joinPath(backup, "data"))) {
+            await movePath(joinPath(backup, "data"), currentData);
+          }
+          await removePath(currentPersona);
+          if (await fileExists(joinPath(backup, "persona.md"))) {
+            await movePath(joinPath(backup, "persona.md"), currentPersona);
+          }
+        } catch {
+          // 保留现场
+        }
+
+        if (wasRunning) void startBot();
+        throw error;
+      }
+
+      addLog("gui", `数据已导入，原数据备份在 ${backup}`);
+      if (wasRunning) await startBot();
+      return true;
+    } finally {
+      await removePath(temp).catch(() => {});
+    }
+  };
+
+  const listStickers = async (): Promise<IStickerInfo[]> => {
+    const server = serverRef.current;
+    if (!server) return [];
+
+    const indexPath = joinPath(server.dataDir, "stickers", "index.json");
+    const text = await readText(indexPath);
+    if (!text) return [];
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text.replace(/^\uFEFF/, ""));
+    } catch {
+      throw new Error("表情包索引不是合法 JSON");
+    }
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed
+      .filter(
+        (item): item is IStickerInfo =>
+          Boolean(item) &&
+          typeof item === "object" &&
+          typeof (item as IStickerInfo).id === "string" &&
+          typeof (item as IStickerInfo).file === "string",
+      )
+      .map((item) => ({
+        ...item,
+        tags: Array.isArray(item.tags) ? item.tags : [],
+        createdAt: Number(item.createdAt ?? 0),
+        mime: typeof item.mime === "string" ? item.mime : "image/jpeg",
+      }));
+  };
+
+  const deleteSticker = async (id: string): Promise<void> => {
+    const server = serverRef.current;
+    const currentPaths = pathsRef.current;
+    if (!server || !currentPaths) throw new Error("还没有准备好数据目录");
+
+    const stickersDir = joinPath(server.dataDir, "stickers");
+    const indexPath = joinPath(stickersDir, "index.json");
+    const text = await readText(indexPath);
+    if (!text) throw new Error("图库索引不存在");
+
+    let list: IStickerInfo[];
+    try {
+      const parsed: unknown = JSON.parse(text.replace(/^\uFEFF/, ""));
+      if (!Array.isArray(parsed)) throw new Error("not array");
+      list = parsed as IStickerInfo[];
+    } catch {
+      throw new Error("表情包索引损坏，已取消删除");
+    }
+
+    const target = list.find((item) => item.id === id);
+    if (!target) return;
+    if (!/^[A-Za-z0-9._-]+$/.test(target.file)) {
+      throw new Error("表情包文件名不合法，已取消删除");
+    }
+
+    const wasRunning =
+      botStateRef.current === "running" || botStateRef.current === "starting";
+    if (wasRunning) {
+      const stopped = await stopBot();
+      if (!stopped) throw new Error("Bot 没有停下来，已取消删除");
+    }
+
+    try {
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+      await writeText(joinPath(stickersDir, `index.json.bak-${stamp}`), text);
+      await removePath(joinPath(stickersDir, target.file));
+
+      const next = list.filter((item) => item.id !== id);
+      await writeTextAtomic(
+        indexPath,
+        `${JSON.stringify(next, null, 2)}\n`,
+      );
+      addLog("gui", `已删除表情包 ${id.slice(0, 8)}`);
+    } finally {
+      if (wasRunning) void startBot();
+    }
+  };
+
+  const retagStickers = async (): Promise<void> => {
+    const wasRunning =
+      botStateRef.current === "running" || botStateRef.current === "starting";
+    if (wasRunning) {
+      const stopped = await stopBot();
+      if (!stopped) throw new Error("Bot 没有停下来，已取消重新打标");
+    }
+
+    try {
+      const { events, detail } = await collectServerEvents(
+        configRef.current,
+        "--retag",
+        "retag-check.json",
+      );
+      const event = events.find((item) => item.type === "retag");
+      if (!event) {
+        throw new Error(
+          `重新打标没有返回结果${detail ? `：${detail.slice(0, 300)}` : ""}`,
+        );
+      }
+      if (event.ok !== true) {
+        throw new Error(String(event.error ?? "重新打标失败"));
+      }
+
+      addLog(
+        "gui",
+        `重新打标完成：${String(event.tagged ?? 0)} 张成功 / ${String(
+          event.failed ?? 0,
+        )} 张失败`,
+      );
+    } finally {
+      if (wasRunning) void startBot();
+    }
+  };
+
   const clearLogs = () => {
     logsRef.current = [];
     setLogs([]);
@@ -755,7 +1055,7 @@ export const useController = (): IController => {
    */
   const collectServerEvents = async (
     next: IAppConfig,
-    mode: "--list-models" | "--self-check",
+    mode: "--list-models" | "--self-check" | "--retag",
     fileName: string,
   ): Promise<{
     events: Array<NonNullable<ReturnType<typeof parseStatusLine>>>;
@@ -1468,6 +1768,16 @@ export const useController = (): IController => {
 
   const onWindowClose = async () => {
     if (configRef.current.behavior.closeAction === "tray") {
+      // 托盘没建起来时隐藏窗口等于把程序藏没了，宁可不关
+      if (!trayOkRef.current) {
+        setMessage({
+          kind: "error",
+          text: "托盘图标没有创建成功，这次先不隐藏窗口。请检查托盘图标或改设置。",
+        });
+        addLog("error", "托盘不可用，取消隐藏窗口");
+        return;
+      }
+
       try {
         await hideWindow();
         addLog("gui", "窗口已隐藏到托盘");
@@ -1814,6 +2124,11 @@ export const useController = (): IController => {
     quitApp,
     openLogsDir,
     openDataDir,
+    exportData,
+    importData,
+    listStickers,
+    deleteSticker,
+    retagStickers,
     clearLogs,
     fetchModels,
     runSelfCheck,

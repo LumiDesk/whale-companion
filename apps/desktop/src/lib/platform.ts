@@ -252,6 +252,21 @@ export const getOwnExePath = async (): Promise<string | null> => {
 const escapeRegValue = (value: string): string =>
   value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 
+/** reg.exe 对非 ASCII 路径按 ANSI 读；带 BOM 的 UTF-16LE 才稳 */
+const toUtf16Le = (text: string): ArrayBuffer => {
+  const buffer = new Uint8Array(2 + text.length * 2);
+  buffer[0] = 0xff;
+  buffer[1] = 0xfe;
+
+  for (let i = 0; i < text.length; i += 1) {
+    const code = text.charCodeAt(i);
+    buffer[2 + i * 2] = code & 0xff;
+    buffer[3 + i * 2] = code >> 8;
+  }
+
+  return buffer.buffer;
+};
+
 /** 通过 .reg 文件写 HKCU Run，避免命令行嵌套引号踩坑 */
 export const setAutostart = async (
   enabled: boolean,
@@ -274,7 +289,7 @@ export const setAutostart = async (
     "[HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run]\r\n" +
     `"WhaleCompanion"="${value}"\r\n`;
 
-  await writeText(options.regFile, content);
+  await filesystem.writeBinaryFile(options.regFile, toUtf16Le(content));
   try {
     await os.execCommand(`reg import "${options.regFile}"`);
   } finally {

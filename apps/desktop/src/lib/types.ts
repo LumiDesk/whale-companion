@@ -85,6 +85,14 @@ export interface ICheckResult {
   detail?: string;
 }
 
+export interface IStickerInfo {
+  id: string;
+  file: string;
+  mime: string;
+  tags: string[];
+  createdAt: number;
+}
+
 export interface IAppPaths {
   root: string;
   configFile: string;
