@@ -108,8 +108,9 @@ src/
 - 发现新版本后点「下载并更新」：下载 zip → 校验 `SHA256SUMS.txt`（有就校验）→ 解压 →
   生成 `updates/apply-update-*.ps1` → 退出当前进程。
 - PowerShell 脚本会等 GUI 进程退出，先把旧 exe/resources.neu/server 备份到 `updates/backup-*`，
-  再覆盖便携目录；复制失败会自动还原并重启旧版本。结果写到
-  `%APPDATA%\whale-companion\updates\update-result.json`，下次启动时提示成功或失败。
+  再删掉旧的 `server` 目录并复制新文件（新版本删掉的内置文件不会残留）；复制失败会自动还原
+  并重启旧版本。结果写到 `%APPDATA%\whale-companion\updates\update-result.json`，
+  下次启动时提示成功或失败。
 - **二进制下载必须走 `curl.exe`（没有则 PowerShell）**：GitHub Release 资源所在的 Azure Blob
   不返回 CORS 头，WebView 里 `fetch` 拿不到安装包。
 - 开发模式只能检查更新，不能自动安装；自动安装要求目录里有 `WhaleCompanion.exe` 且目录可写。

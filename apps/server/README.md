@@ -4,6 +4,7 @@
 
 - 启动：`pnpm dev`（需先按 `.env.example` 建好 `.env`）
 - 单测：`pnpm --filter @apps/server test`
+- `tsconfig.json` 负责 typecheck（含 `test/`）；构建走 `tsconfig.build.json`，只发射 `src/` 到 `dist/`
 - 桌面端会通过 `--config <json>` 传入配置（合并进 `process.env`），并注入
   `WHALE_DATA_DIR` / `WHALE_PERSONA_DIR` / `WHALE_USER_PERSONA_DIR` / `WHALE_ACTIVE_PERSONA_FILE` /
   `WHALE_PROMPTS_DIR` / `WHALE_GUI` / `WHALE_PARENT_PID`
