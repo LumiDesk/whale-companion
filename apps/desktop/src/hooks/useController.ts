@@ -67,7 +67,6 @@ import {
 } from "../lib/theme";
 import {
   CHECKSUM_ASSET_NAME,
-  RELEASES_API,
   RELEASES_PAGE,
   buildApplyCommand,
   buildDownloadCommand,
@@ -82,8 +81,10 @@ import {
   parseHashOutput,
   parseRelease,
   parseUpdateResult,
+  pickBestRelease,
   progressPercent,
   psLiteral,
+  releasesApiUrl,
   validateDownloadUrl,
 } from "../lib/update";
 import type { IUpdateState } from "../lib/update";
@@ -125,6 +126,8 @@ export interface IController {
   configLoaded: boolean;
   resolvedTheme: ResolvedTheme;
   setTheme: (theme: ThemeMode) => Promise<void>;
+  /** 是否接收预发布版本（只影响检查更新） */
+  setIncludePrerelease: (value: boolean) => Promise<void>;
   botState: BotState;
   qqState: QQState;
   botPid: number | null;
@@ -175,6 +178,11 @@ export interface IController {
 
 const errText = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
+
+/** QQ 连续离线这么久就自动重启 Bot（进程还活着但连不上，用户通常不会自己去点） */
+const QQ_DOWN_RESTART_MS = 5 * 60_000;
+/** 两次自动重启至少隔这么久，避免网络长期不通时反复重启 */
+const QQ_DOWN_RESTART_COOLDOWN_MS = 30 * 60_000;
 
 const waitFor = (check: () => boolean, timeoutMs: number): Promise<boolean> =>
   new Promise((resolve) => {
@@ -320,6 +328,10 @@ export const useController = (): IController => {
   const autoRestartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+  /** QQ 从什么时候开始连不上（online 时清空） */
+  const qqDownSinceRef = useRef<number | null>(null);
+  /** 上一次因为 QQ 离线自动重启的时间 */
+  const qqAutoRestartAtRef = useRef(0);
   const trayOkRef = useRef(true);
 
   const updateBotState = (next: BotState) => {
@@ -448,6 +460,12 @@ export const useController = (): IController => {
         next === "stopped"
       ) {
         updateQqState(next);
+
+        if (next === "online") {
+          qqDownSinceRef.current = null;
+        } else if (qqDownSinceRef.current === null) {
+          qqDownSinceRef.current = Date.now();
+        }
       }
       return;
     }
@@ -486,6 +504,7 @@ export const useController = (): IController => {
     setBotPid(null);
     setStartedAt(null);
     updateQqState("unknown");
+    qqDownSinceRef.current = null;
     setExitCode(Number.isFinite(code) ? code : null);
     updateBotState(wasStopping || code === 0 ? "stopped" : "crashed");
     addLog(
@@ -1432,12 +1451,14 @@ export const useController = (): IController => {
     updateBusyRef.current = true;
     updateStatus({ status: "checking" });
 
+    const includePrerelease = configRef.current.behavior.includePrerelease;
+
     // 不用 AbortSignal.timeout：部分旧 WebView2 没有这个静态方法
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15_000);
 
     try {
-      const res = await fetch(RELEASES_API, {
+      const res = await fetch(releasesApiUrl(includePrerelease), {
         // 只带 Accept（CORS 安全头），避免触发 GitHub API 的预检请求
         headers: { Accept: "application/vnd.github+json" },
         signal: controller.signal,
@@ -1453,12 +1474,18 @@ export const useController = (): IController => {
         throw new Error(`检查更新失败（HTTP ${res.status}）`);
       }
 
-      const info = parseRelease(await res.json());
+      const raw: unknown = await res.json();
+      const info = includePrerelease
+        ? pickBestRelease(raw, APP_VERSION, true)
+        : parseRelease(raw);
       const checkedAt = Date.now();
 
-      if (isNewerVersion(info.version, APP_VERSION)) {
+      if (info && isNewerVersion(info.version, APP_VERSION)) {
         updateStatus({ status: "available", info, checkedAt });
-        addLog("gui", `发现新版本 ${info.tag}（当前 v${APP_VERSION}）`);
+        addLog(
+          "gui",
+          `发现新版本 ${info.tag}（当前 v${APP_VERSION}${includePrerelease ? "，含预发布" : ""}）`,
+        );
         if (!silent) {
           setMessage({
             kind: "info",
@@ -1466,8 +1493,11 @@ export const useController = (): IController => {
           });
         }
       } else {
-        updateStatus({ status: "up-to-date", info, checkedAt });
-        addLog("gui", `检查更新：已是最新版本 v${APP_VERSION}`);
+        updateStatus({ status: "up-to-date", info: info ?? undefined, checkedAt });
+        addLog(
+          "gui",
+          `检查更新：已是最新版本 v${APP_VERSION}${includePrerelease ? "（含预发布）" : ""}`,
+        );
         if (!silent) {
           setMessage({
             kind: "ok",
@@ -1825,6 +1855,45 @@ export const useController = (): IController => {
       setMessage({
         kind: "error",
         text: `外观设置没有保存成功：${errText(error)}`,
+      });
+    }
+  };
+
+  /**
+   * 「是否接收预发布版本」只影响检查更新的来源，不需要重启 Bot。
+   * 先应用再落盘，写失败回滚到上一份配置。
+   */
+  const setIncludePrerelease = async (value: boolean): Promise<void> => {
+    const previous = configRef.current;
+    if (previous.behavior.includePrerelease === value) return;
+
+    const next = normalizeConfig({
+      ...previous,
+      behavior: { ...previous.behavior, includePrerelease: value },
+    });
+
+    configRef.current = next;
+    setConfig(next);
+    updateStatus({ status: "idle" });
+
+    const currentPaths = pathsRef.current;
+    if (!currentPaths) return;
+
+    try {
+      await persistConfig(currentPaths.configFile, next);
+      addLog(
+        "gui",
+        value ? "更新已改为包含预发布版本" : "更新已改为只接收正式版本",
+      );
+    } catch (error) {
+      if (configRef.current.behavior.includePrerelease !== value) return;
+
+      configRef.current = previous;
+      setConfig(previous);
+      addLog("error", `保存更新偏好失败：${errText(error)}`);
+      setMessage({
+        kind: "error",
+        text: `更新偏好没有保存成功：${errText(error)}`,
       });
     }
   };
@@ -2241,6 +2310,37 @@ export const useController = (): IController => {
     return () => clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    // QQ 长时间连不上就自动重启：兜住「进程活着、会话却死了」这种自己发现不了的状态
+    const timer = setInterval(() => {
+      const downSince = qqDownSinceRef.current;
+      if (downSince === null) return;
+      if (botStateRef.current !== "running") return;
+      // 权限 / 下架 / 封禁类停机，重启也不会好，交给用户处理
+      if (qqStateRef.current === "stopped") return;
+      if (updateBusyRef.current) return;
+
+      const now = Date.now();
+      if (now - downSince < QQ_DOWN_RESTART_MS) return;
+      if (now - qqAutoRestartAtRef.current < QQ_DOWN_RESTART_COOLDOWN_MS) {
+        return;
+      }
+
+      const minutes = Math.max(1, Math.round((now - downSince) / 60_000));
+      qqAutoRestartAtRef.current = now;
+      qqDownSinceRef.current = now;
+
+      addLog("error", `QQ 已经 ${minutes} 分钟没有连上，自动重启 Bot`);
+      setMessage({
+        kind: "info",
+        text: `QQ 连接 ${minutes} 分钟没恢复，正在自动重启 Bot…`,
+      });
+      void restartBot();
+    }, 60_000);
+
+    return () => clearInterval(timer);
+  }, []);
+
   return {
     ready,
     bootMessage,
@@ -2250,6 +2350,7 @@ export const useController = (): IController => {
     configLoaded,
     resolvedTheme,
     setTheme,
+    setIncludePrerelease,
     botState,
     qqState,
     botPid,

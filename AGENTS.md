@@ -197,7 +197,8 @@ QQ 事件 → cleanQQContent 清洗 <faceType>/<@...> → 串行下载图片（�
 - 从 0.1.x 首次升到 0.2.0 时，执行更新的是旧版更新器，旧版没有失败自动还原；0.2.0 之后才有。
 - 自定义斜杠命令、心情列表、表情包缩略图未实现；图库目前只能看标签、删除、重打标。
 - 服务端只有简单的 SIGINT/SIGTERM 退出（不做 WS 优雅关闭）；桌面端退出时会 taskkill 进程树。
-- QQ 断线重连没实现 RESUME（op 6）：重连本身已能自愈，但重连那几秒里用户发的消息会丢。
+- QQ 断线会先尝试 resume（op 6，5 分钟内有效），失败或超时才重新 identify；
+  断线那几秒里用户发的消息由平台在 resume 后补发。
 
 ## 13. 环境变量
 
@@ -245,6 +246,11 @@ QQ 事件 → cleanQQContent 清洗 <faceType>/<@...> → 串行下载图片（�
   结果写 `updates/update-result.json`，下次启动由 `consumeUpdateResult` 消费；
   脚本要带 UTF-8 BOM，Windows PowerShell 5.1 才会按中文路径正确解析。
   覆盖前会把 exe/resources.neu/server 备份到 `updates/backup-*`，失败自动还原。
+- **预发布开关**：关于页的「接收预发布版本」写 `behavior.includePrerelease`（默认关），
+  只影响检查更新的接口，不需要重启 Bot；打开后改查 `/releases?per_page=30` 并用
+  `pickBestRelease` 按语义化版本挑，草稿和没有安装包的版本会被跳过。
+- **QQ 断线看门狗**：每 60 秒检查一次，QQ 连续 5 分钟没上线（Bot 进程还活着、不是权限类停机）
+  就自动重启 Bot，两次自动重启至少隔 30 分钟；`qq state=stopped` 属于配置/权限问题，不自动重启。
 - **代码签名（可选）**：CI 读取仓库 secrets `WINDOWS_SIGN_PFX_BASE64`（PFX 的 base64）
   和 `WINDOWS_SIGN_PFX_PASSWORD`；有证书时 `pack.mjs` 调 `scripts/sign-windows.ps1`
   用 signtool + DigiCert 时间戳签 `WhaleCompanion.exe`，没有证书就产出未签名包。
@@ -278,8 +284,10 @@ QQ 事件 → cleanQQContent 清洗 <faceType>/<@...> → 串行下载图片（�
   所以 workflow 需要 `permissions: contents: write`。
 - **默认发布 pre-release**：CI 新建的 Release 是 pre-release；你确认运行稳定后，
   在 GitHub Release 页面手动改成正式 Release。
-- **客户端只检查正式 Release**：`RELEASES_API` 用 `/releases/latest`，GitHub 不会返回
-  pre-release；所以 pre-release 不会推给普通用户，手动改成正式后才会被检查到。
+- **客户端默认只检查正式 Release**：`RELEASES_API` 用 `/releases/latest`，GitHub 不会返回
+  pre-release；所以 pre-release 不会推给普通用户。
+  关于页的「接收预发布版本」开关（`behavior.includePrerelease`，默认关）打开后改查
+  `/releases?per_page=30`，由 `pickBestRelease` 按语义化版本自己挑。
 - 自动更新依赖 Release 里的 zip；有 `SHA256SUMS.txt` 时会一并校验。发版后可以在「关于」页手动检查一次。
 - 不要在 CI 里跑 release 脚本；它只给本地维护者用。
 - `CHANGELOG.md` 目前手工维护：发版前补一条并先提交（release 脚本要求工作区干净）。

@@ -30,6 +30,21 @@ test("错误类型也能收敛成合法结构", () => {
   assert.equal(parsed.behavior.launchAtLogin, false);
 });
 
+test("默认不接收预发布版本，开关能持久化", () => {
+  assert.equal(DEFAULT_CONFIG.behavior.includePrerelease, false);
+  assert.equal(normalizeConfig({}).behavior.includePrerelease, false);
+  assert.equal(
+    normalizeConfig({ behavior: { includePrerelease: true } }).behavior
+      .includePrerelease,
+    true,
+  );
+  assert.equal(
+    normalizeConfig({ behavior: { includePrerelease: "1" } }).behavior
+      .includePrerelease,
+    true,
+  );
+});
+
 test("解析 .env：注释、引号、export", () => {
   const env = parseEnvFile(`
 # comment

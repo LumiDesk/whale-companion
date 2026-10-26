@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  canResumeSession,
   classifyClose,
   describeCloseCode,
   HEALTHY_SESSION_MS,
@@ -12,6 +13,7 @@ import {
   RECONNECT_BASE_MS,
   RECONNECT_MAX_MS,
   reconnectDelay,
+  RESUME_TTL_MS,
 } from "../src/channels/qq/reconnect.js";
 
 test("会话过期 / session / seq / 频率类关闭码都要重连", () => {
@@ -95,4 +97,22 @@ test("致命码返回 fatal、延迟为 0，并重置状态", () => {
   assert.equal(plan.delayMs, 0);
   assert.match(plan.reason, /权限/);
   assert.deepEqual(plan.state, initialReconnectState());
+});
+
+test("断线 5 分钟内可以 resume，超时或没有会话就重新 identify", () => {
+  const now = 1_800_000_000_000;
+  const session = { id: "session-1", seq: 7, at: now - 1_000 };
+
+  assert.equal(canResumeSession(session, now), true);
+  assert.equal(
+    canResumeSession({ ...session, at: now - RESUME_TTL_MS }, now),
+    true,
+  );
+  assert.equal(
+    canResumeSession({ ...session, at: now - RESUME_TTL_MS - 1 }, now),
+    false,
+  );
+  assert.equal(canResumeSession(null, now), false);
+  assert.equal(canResumeSession({ id: "", seq: 0, at: now }, now), false);
+  assert.equal(canResumeSession({ ...session, at: now + 1_000 }, now), false);
 });

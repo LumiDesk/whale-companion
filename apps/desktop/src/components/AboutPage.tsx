@@ -74,6 +74,22 @@ const AboutPage = ({ controller }: IProps) => {
           %APPDATA%。
         </p>
 
+        <label className="check-row">
+          <input
+            type="checkbox"
+            checked={controller.config.behavior.includePrerelease}
+            onChange={(event) =>
+              void controller.setIncludePrerelease(event.target.checked)
+            }
+          />
+          <span>
+            接收预发布版本
+            <span className="muted">
+              （测试版先发成 pre-release，只有打开这个开关才检查得到）
+            </span>
+          </span>
+        </label>
+
         <div
           className={`update-status ${update.status === "error" ? "is-error" : ""}`}
         >

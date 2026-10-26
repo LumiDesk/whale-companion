@@ -11,14 +11,39 @@ const {
   compareVersions,
   formatBytes,
   isNewerVersion,
+  isPrereleaseVersion,
   parseChecksumFile,
   parseHashOutput,
   parseRelease,
   parseUpdateResult,
+  pickBestRelease,
   progressPercent,
   RELEASES_API,
+  releasesApiUrl,
   validateDownloadUrl,
 } = await import("../src/lib/update");
+
+const makeRelease = (
+  tag: string,
+  options: { draft?: boolean; prerelease?: boolean; noAsset?: boolean } = {},
+) => ({
+  tag_name: tag,
+  name: `小鲸鱼 ${tag}`,
+  body: "",
+  html_url: `https://github.com/Talyra42/whale-companion/releases/tag/${tag}`,
+  published_at: "2026-10-26T00:00:00Z",
+  draft: options.draft ?? false,
+  prerelease: options.prerelease ?? false,
+  assets: options.noAsset
+    ? []
+    : [
+        {
+          name: `whale-companion-${tag.replace(/^v/, "")}-win-x64.zip`,
+          size: 1024,
+          browser_download_url: `https://github.com/Talyra42/whale-companion/releases/download/${tag}/x.zip`,
+        },
+      ],
+});
 
 const hash = "a".repeat(64);
 const zipName = "whale-companion-0.2.0-win-x64.zip";
@@ -43,6 +68,54 @@ test("判断是否有新版本", () => {
   assert.equal(isNewerVersion("0.2.0", "0.1.1"), true);
   assert.equal(isNewerVersion("0.1.1", "0.1.1"), false);
   assert.equal(isNewerVersion("0.1.0", "0.1.1"), false);
+});
+
+test("预发布开关决定查哪个接口", () => {
+  assert.ok(releasesApiUrl(false).endsWith("/releases/latest"));
+  assert.ok(releasesApiUrl(true).includes("/releases?per_page="));
+});
+
+test("只收正式版时会跳过更新的 pre-release", () => {
+  const list = [
+    makeRelease("v0.2.2", { prerelease: true }),
+    makeRelease("v0.2.1"),
+  ];
+
+  assert.equal(pickBestRelease(list, "0.2.0", false)?.version, "0.2.1");
+  assert.equal(pickBestRelease(list, "0.2.0", true)?.version, "0.2.2");
+});
+
+test("版本号带 -rc 后缀也算预发布，即使 GitHub 没标", () => {
+  const list = [makeRelease("v0.2.2-rc.1")];
+
+  assert.equal(pickBestRelease(list, "0.2.0", false), null);
+  assert.equal(pickBestRelease(list, "0.2.0", true)?.version, "0.2.2-rc.1");
+  assert.equal(isPrereleaseVersion("0.2.2-rc.1"), true);
+  assert.equal(isPrereleaseVersion("0.2.2"), false);
+});
+
+test("跳过草稿、无效 tag 和不比当前新的版本", () => {
+  const list = [
+    makeRelease("v0.9.0", { draft: true }),
+    { tag_name: "nightly" },
+    makeRelease("v0.2.0"),
+  ];
+
+  assert.equal(pickBestRelease(list, "0.2.0", true), null);
+});
+
+test("优先挑带 Windows 安装包的版本", () => {
+  const list = [
+    makeRelease("v0.3.0", { noAsset: true }),
+    makeRelease("v0.2.9"),
+  ];
+
+  assert.equal(pickBestRelease(list, "0.2.0", false)?.version, "0.2.9");
+});
+
+test("列表响应不是数组时按没有更新处理", () => {
+  assert.equal(pickBestRelease(null, "0.2.0", true), null);
+  assert.equal(pickBestRelease({ tag_name: "v1.0.0" }, "0.2.0", true), null);
 });
 
 test("解析 GitHub Release：挑出便携包和校验文件", () => {

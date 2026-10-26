@@ -46,6 +46,8 @@ export interface IAppConfig extends ISettings {
     autoRestartOnCrash: boolean;
     checkUpdateOnStartup: boolean;
     startMinimized: boolean;
+    /** 检查更新时是否包含 GitHub pre-release；默认只收正式版 */
+    includePrerelease: boolean;
   };
   appearance: {
     theme: ThemeMode;

@@ -14,6 +14,7 @@ const DEFAULT_BEHAVIOR: IAppConfig["behavior"] = {
   autoRestartOnCrash: false,
   checkUpdateOnStartup: true,
   startMinimized: false,
+  includePrerelease: false,
 };
 
 const DEFAULT_LOGS: IAppConfig["logs"] = {
@@ -73,6 +74,7 @@ const normalizeBehavior = (raw: unknown): IAppConfig["behavior"] => {
     autoRestartOnCrash: asBool(value.autoRestartOnCrash, false),
     checkUpdateOnStartup: asBool(value.checkUpdateOnStartup, true),
     startMinimized: asBool(value.startMinimized, false),
+    includePrerelease: asBool(value.includePrerelease, false),
   };
 };
 

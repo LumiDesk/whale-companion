@@ -83,6 +83,27 @@ export const initialReconnectState = (): IReconnectState => ({
   rapidKicks: 0,
 });
 
+/** 上一次连接的会话快照；断线后用它发 op 6 resume，平台会把漏掉的事件补发回来 */
+export interface ISessionSnapshot {
+  id: string;
+  seq: number;
+  /** 最近一次确认会话有效的时间（READY / RESUMED） */
+  at: number;
+}
+
+/** resume 的有效窗口：超过就老老实实重新 identify */
+export const RESUME_TTL_MS = 5 * 60_000;
+
+export const canResumeSession = (
+  session: ISessionSnapshot | null,
+  now = Date.now(),
+): boolean => {
+  if (!session || !session.id) return false;
+
+  const age = now - session.at;
+  return age >= 0 && age <= RESUME_TTL_MS;
+};
+
 /**
  * 根据一次连接的关闭结果决定下一步。
  * `sessionMs` 是 READY 之后存活了多久；负值表示这次根本没连上（取 token / 网关失败）。

@@ -2,10 +2,12 @@ import { createAggregator } from "./aggregator.js";
 import { createQQHandler } from "./handler.js";
 import { downloadImage } from "./media.js";
 import {
+  canResumeSession,
   initialReconnectState,
   planReconnect,
   RAPID_KICK_LIMIT,
   type IReconnectState,
+  type ISessionSnapshot,
 } from "./reconnect.js";
 import { cleanQQContent } from "./text.js";
 import { getAccessToken } from "./token.js";
@@ -98,9 +100,14 @@ const fetchGatewayUrl = async (token: string): Promise<string> => {
 export interface IConnectionResult {
   code: number;
   sessionMs: number;
+  /** 这次连接拿到的会话；null 表示没有有效会话，下次必须 identify */
+  session: ISessionSnapshot | null;
 }
 
-const connect = async (push: PushFn): Promise<IConnectionResult> => {
+const connect = async (
+  push: PushFn,
+  previous: ISessionSnapshot | null,
+): Promise<IConnectionResult> => {
   reportStatus({ type: "qq", state: "connecting" });
 
   const token = await getAccessToken();
@@ -109,12 +116,14 @@ const connect = async (push: PushFn): Promise<IConnectionResult> => {
   return new Promise<IConnectionResult>((resolve) => {
     const ws = new WebSocket(url);
 
-    let lastSeq: number | null = null;
+    let lastSeq: number | null = previous?.seq ?? null;
     let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
     let ackTimer: ReturnType<typeof setInterval> | null = null;
     let handshakeTimer: ReturnType<typeof setTimeout> | null = null;
     let lastAckAt = Date.now();
     let readyAt: number | null = null;
+    /** READY 或 RESUMED 之后才有效；op 9 会清空 */
+    let activeSessionId: string | null = null;
     let settled = false;
     /** 消息处理串行链 */
     let inbound: Promise<void> = Promise.resolve();
@@ -141,6 +150,9 @@ const connect = async (push: PushFn): Promise<IConnectionResult> => {
       resolve({
         code,
         sessionMs: readyAt === null ? -1 : Date.now() - readyAt,
+        session: activeSessionId
+          ? { id: activeSessionId, seq: lastSeq ?? 0, at: Date.now() }
+          : null,
       });
     };
 
@@ -188,9 +200,10 @@ const connect = async (push: PushFn): Promise<IConnectionResult> => {
         return;
       }
 
-      // op 9 = Invalid Session：清掉 seq，重新 identify
+      // op 9 = Invalid Session：会话彻底失效，清掉 session 与 seq，下次重新 identify
       if (data.op === 9) {
-        slog("QQ 会话失效（op 9），重新连接");
+        slog("QQ 会话失效（op 9），下次重新建立会话");
+        activeSessionId = null;
         lastSeq = null;
         closeQuietly();
         return;
@@ -198,17 +211,33 @@ const connect = async (push: PushFn): Promise<IConnectionResult> => {
 
       if (data.op === 10) {
         const interval = resolveHeartbeatInterval(payload.heartbeat_interval);
+        const resumable = canResumeSession(previous) ? previous : null;
 
         ws.send(
-          JSON.stringify({
-            op: 2,
-            d: {
-              token: `QQBot ${token}`,
-              intents: 1 << 25,
-              shard: [0, 1],
-            },
-          }),
+          JSON.stringify(
+            resumable
+              ? {
+                  op: 6,
+                  d: {
+                    token: `QQBot ${token}`,
+                    session_id: resumable.id,
+                    seq: resumable.seq,
+                  },
+                }
+              : {
+                  op: 2,
+                  d: {
+                    token: `QQBot ${token}`,
+                    intents: 1 << 25,
+                    shard: [0, 1],
+                  },
+                },
+          ),
         );
+
+        if (resumable) {
+          slog(`QQ 尝试恢复会话（resume，seq=${resumable.seq}）`);
+        }
 
         lastAckAt = Date.now();
         if (heartbeatTimer) clearInterval(heartbeatTimer);
@@ -241,7 +270,27 @@ const connect = async (push: PushFn): Promise<IConnectionResult> => {
 
       if (data.op === 0 && data.t === "READY") {
         readyAt = Date.now();
-        slog(`QQ 已上线 bot=${payload.user?.id ?? "?"}`);
+        activeSessionId =
+          typeof payload.session_id === "string" && payload.session_id
+            ? payload.session_id
+            : null;
+        slog(
+          `QQ 已上线 bot=${payload.user?.id ?? "?"}` +
+            (activeSessionId ? "" : "（没拿到 session_id，断线后只能重建会话）"),
+        );
+        reportStatus({
+          type: "qq",
+          state: "online",
+          botId: payload.user?.id ?? null,
+        });
+        return;
+      }
+
+      // RESUMED：op 6 成功，会话接回来了，断线期间的事件由平台补发
+      if (data.op === 0 && data.t === "RESUMED") {
+        readyAt = Date.now();
+        activeSessionId = previous?.id ?? null;
+        slog(`QQ 会话已恢复（resume，seq=${lastSeq ?? 0}）`);
         reportStatus({
           type: "qq",
           state: "online",
@@ -288,17 +337,23 @@ const sleep = (ms: number) =>
 export const startQQ = async () => {
   const aggregator = createAggregator(createQQHandler(getAccessToken));
   let state: IReconnectState = initialReconnectState();
+  /** 跨连接保留的会话，用来在断线后 resume，避免丢消息 */
+  let session: ISessionSnapshot | null = null;
 
   for (;;) {
     let result: IConnectionResult;
 
     try {
-      result = await connect(aggregator.push);
+      result = await connect(aggregator.push, session);
     } catch (e) {
       slog("连接失败", e);
       reportStatus({ type: "qq", state: "error" });
-      result = { code: -1, sessionMs: -1 };
+      result = { code: -1, sessionMs: -1, session };
     }
+
+    // 4009 / 4006 说明平台侧会话已经作废，resume 必然失败，直接走 identify
+    session =
+      result.code === 4009 || result.code === 4006 ? null : result.session;
 
     const plan = planReconnect(state, result.code, result.sessionMs);
     state = plan.state;
@@ -320,7 +375,8 @@ export const startQQ = async () => {
     const seconds = Math.round(plan.delayMs / 1000);
     slog(
       `QQ ${plan.reason}，${seconds} 秒后重连（第 ${state.attempt} 次` +
-        `${state.rapidKicks >= RAPID_KICK_LIMIT ? "，连续被顶号，已放慢" : ""}）`,
+        `${state.rapidKicks >= RAPID_KICK_LIMIT ? "，连续被顶号，已放慢" : ""}` +
+        `${session ? "，将尝试 resume" : ""}）`,
     );
     reportStatus({
       type: "qq",

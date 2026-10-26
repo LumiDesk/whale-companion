@@ -4,7 +4,13 @@ import { quoteArg } from "./process";
 export const UPDATE_OWNER = "Talyra42";
 export const UPDATE_REPO = "whale-companion";
 export const RELEASES_API = `https://api.github.com/repos/${UPDATE_OWNER}/${UPDATE_REPO}/releases/latest`;
+/** 允许预发布时改用列表接口，自己按语义化版本挑（/releases/latest 永远不含 pre-release） */
+export const RELEASES_LIST_API = `https://api.github.com/repos/${UPDATE_OWNER}/${UPDATE_REPO}/releases?per_page=30`;
 export const RELEASES_PAGE = `https://github.com/${UPDATE_OWNER}/${UPDATE_REPO}/releases`;
+
+/** 按设置选择检查更新的接口 */
+export const releasesApiUrl = (includePrerelease: boolean): string =>
+  includePrerelease ? RELEASES_LIST_API : RELEASES_API;
 
 export const UPDATE_ASSET_PATTERN = /^whale-companion-.+-win-x64\.zip$/i;
 export const CHECKSUM_ASSET_NAME = "SHA256SUMS.txt";
@@ -140,6 +146,10 @@ export const compareVersions = (left: string, right: string): number => {
 export const isNewerVersion = (candidate: string, current: string): boolean =>
   compareVersions(candidate, current) > 0;
 
+/** 带 -rc.1 / -beta 后缀的版本算预发布 */
+export const isPrereleaseVersion = (version: string): boolean =>
+  (parseVersion(version)?.prerelease.length ?? 0) > 0;
+
 export const pickUpdateAsset = (
   assets: IGithubAsset[],
 ): IGithubAsset | null =>
@@ -182,6 +192,43 @@ export const parseRelease = (raw: unknown): IReleaseInfo => {
           asset.name.toLowerCase() === CHECKSUM_ASSET_NAME.toLowerCase(),
       ) ?? null,
   };
+};
+
+/**
+ * 从 `/releases` 列表里挑一个「比当前版本新」的发布。
+ * - 跳过草稿；不允许预发布时再跳过 pre-release（GitHub 标记或 -rc 后缀）
+ * - 优先挑带 Windows 便携包的版本，避免「有新版本却没有安装包」
+ */
+export const pickBestRelease = (
+  raw: unknown,
+  current: string,
+  includePrerelease: boolean,
+): IReleaseInfo | null => {
+  if (!Array.isArray(raw)) return null;
+
+  const candidates: IReleaseInfo[] = [];
+
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+
+    const record = item as Record<string, unknown>;
+    if (record.draft === true) continue;
+    if (!includePrerelease && record.prerelease === true) continue;
+
+    try {
+      const info = parseRelease(record);
+      if (!includePrerelease && isPrereleaseVersion(info.version)) continue;
+      candidates.push(info);
+    } catch {
+      // tag 不是版本号的条目直接跳过
+    }
+  }
+
+  const newer = candidates
+    .filter((info) => isNewerVersion(info.version, current))
+    .sort((a, b) => compareVersions(b.version, a.version));
+
+  return newer.find((info) => info.asset) ?? newer[0] ?? null;
 };
 
 const ALLOWED_DOWNLOAD_HOSTS = new Set([
