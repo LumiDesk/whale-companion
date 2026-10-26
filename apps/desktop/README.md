@@ -55,6 +55,22 @@ WhaleCompanion/
   README.txt
 ```
 
+## 代码结构
+
+```
+src/
+├── pages/          页面：Status / Settings / Logs / About
+│   └── settings/   设置页子组件：TabPanels / DataTab / Field / ModelPicker / PersonaEditor / SelfCheck
+├── components/     通用组件：Sidebar / MessageBanner / ErrorBoundary
+│   └── ui/         基础控件：Icons / Switch
+├── hooks/          useController（组装）+ useConfig / useBotProcess / useUpdate / useDataActions / useLogs
+├── lib/            纯函数：配置、路径、锁、日志、进程、主题、更新（都有单测）
+└── styles.css      色板与全部样式（CSS 变量在顶部）
+```
+
+- 页面只放页面，通用组件放 `components/`，纯函数放 `lib/`，编排放 `hooks/`。
+- 视觉规范（颜色、间距、控件选择）见 [`DESIGN.md`](../../DESIGN.md)。
+
 ## 主题
 
 - 设置页「外观」可选 **跟随系统 / 浅色 / 深色**，默认跟随系统；主题即时生效，不需要重启 Bot。
@@ -103,7 +119,7 @@ WhaleCompanion/
 - 配置、日志、数据、更新缓存都在 `%APPDATA%\whale-companion`；开发模式的数据目录是
   `apps/server/data`，方便复用现有对话。
 - `persona.md` 通过 `WHALE_PERSONA_FILE` 注入；打包版从 `server/persona.md` 读。
-- 窗口关闭行为默认「最小化到托盘」；托盘菜单在 `useController` 的 `updateTray`。
+- 窗口关闭行为默认「最小化到托盘」；托盘菜单在 `hooks/useBotProcess.ts` 的 `updateTray`。
 - Bot 的状态通过 stdout 里以 `@@WHALE ` 开头的 JSON 行回传（`type` 为
   `boot` / `ready` / `qq` / `activity`），GUI 解析后更新状态，不写进普通日志。
 
@@ -118,4 +134,4 @@ pnpm --filter @apps/desktop typecheck
 Neutralino 窗口/托盘、真实下载与自动更新需要手动冒烟。
 
 遇到 Bot 起不来、托盘不显示、单实例卡住等问题，先看根 [`AGENTS.md`](../../AGENTS.md)
-的「排障索引」，再查 `%APPDATA%\whale-companion\logs`。
+的「Troubleshooting」，再查 `%APPDATA%\whale-companion\logs`。

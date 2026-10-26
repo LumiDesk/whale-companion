@@ -264,7 +264,7 @@ pnpm release patch    # 发版：bump + tag + push（CI 默认发 pre-release）
 | exe 被 SmartScreen 拦 | 默认未签名，点「更多信息 → 仍要运行」；配置签名证书后 CI 会自动签 |
 | 桌面端 Bot 起不来 | `%APPDATA%\whale-companion\logs`、`bot.json`；开发态先 `pnpm build` |
 
-更细的排障索引在 [`AGENTS.md`](AGENTS.md) 第 16 节。
+更细的排障在 [`AGENTS.md`](AGENTS.md) 的「Troubleshooting」一节。
 
 ## 已知限制
 
@@ -285,7 +285,8 @@ pnpm release patch    # 发版：bump + tag + push（CI 默认发 pre-release）
 
 | 文档 | 内容 |
 | --- | --- |
-| [`AGENTS.md`](AGENTS.md) | 架构、分层、QQ / Windows 踩坑、排障索引 |
+| [`AGENTS.md`](AGENTS.md) | 架构、分层、QQ / Windows 踩坑、Troubleshooting 排障表 |
+| [`DESIGN.md`](DESIGN.md) | 色板、字号、间距、控件规范（改界面前必读） |
 | [`CHANGELOG.md`](CHANGELOG.md) | 版本记录 |
 | [`apps/desktop/README.md`](apps/desktop/README.md) | 桌面端开发与打包 |
 | [`apps/server/README.md`](apps/server/README.md) | 服务端入口 |
