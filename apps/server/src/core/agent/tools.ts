@@ -1,5 +1,6 @@
 import { config } from "../../config.js";
 import { fetchWebPage, searchWeb } from "../web.js";
+import { splitMessageLines } from "./text.js";
 import { slog } from "../../util.js";
 import { formatAge, formatClock } from "./time.js";
 import type {
@@ -81,13 +82,6 @@ const gapFor = (ctx: IAgentToolContext, fixed: number): number => {
 };
 
 const MAX_MESSAGE_CHARS = 200;
-
-/** 聊天里一条消息不该有换行：按行拆开，空行丢掉 */
-const splitMessageLines = (text: string): string[] =>
-  text
-    .split(/\r\n|\r|\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
 
 /**
  * 模型经常把多段话塞进一个字符串。

@@ -3,6 +3,7 @@ import { selectImagesForModel, buildUserContent } from "../chat.js";
 import { slog } from "../../util.js";
 import { TOOL_SCHEMAS } from "./schemas.js";
 import { executeTool } from "./tools.js";
+import { flattenChatText } from "./text.js";
 import { buildAgentSystem } from "./prompt.js";
 import type {
   AgentTurnMode,
@@ -213,7 +214,7 @@ export const runAgentTurn = async (
   }
 
   if (!silent && budget.sent === 0 && mode === "reactive") {
-    const fallback = finalText.trim() || FALLBACK_TEXT;
+    const fallback = flattenChatText(finalText) || FALLBACK_TEXT;
 
     try {
       await deps.toolContext.sendText(fallback);

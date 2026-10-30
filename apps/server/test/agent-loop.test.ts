@@ -152,6 +152,15 @@ test("响应式回合没话说时发兜底", async () => {
   assert.equal(fake.persisted[0].silent, false);
 });
 
+test("响应式兜底也会把换行压成一行", async () => {
+  const fake = makeDeps([reply([], "第一段\n\n第二段")]);
+
+  await runAgentTurn("u1", [incoming()], "reactive", fake.deps);
+
+  assert.deepEqual(fake.sent, ["第一段，第二段"]);
+  assert.equal(fake.persisted[0].silent, false);
+});
+
 test("主动回合没话说时不发兜底，记为沉默", async () => {
   const fake = makeDeps([reply([], null)]);
 
