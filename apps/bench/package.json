@@ -1,0 +1,17 @@
+{
+  "name": "@apps/bench",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "拟人度对话 benchmark：多提示词 / 采样变体 × 固定场景，输出可打分的 HTML 报告",
+  "scripts": {
+    "bench": "tsx src/cli.ts",
+    "report": "tsx src/report-cli.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "tsx": "^4.23.0",
+    "typescript": "^7.0.2"
+  }
+}

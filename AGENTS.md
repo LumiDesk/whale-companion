@@ -28,15 +28,19 @@ apps/
 │       ├── config.ts           # env / --config → runtime config
 │       ├── types/              # 消息、工具调用与多模态类型
 │       └── index.ts            # 组合根
-└── desktop/                    # Windows 控制台
-    └── src/
-        ├── pages/              # 页面：Status / Settings / Logs / About
-        │   └── settings/       # 设置页子组件：TabPanels / DataTab / Field / ModelPicker / PersonaEditor / SelfCheck / specs
-        ├── components/         # 通用组件：Sidebar / ToastHost / ErrorBoundary
-        │   └── ui/             # 基础控件：Icons / Switch
-        ├── hooks/              # useController（组装）+ useConfig / useBotProcess / useUpdate / useDataActions / useLogs
-        ├── lib/                # 纯函数与适配：config / personas / paths / lock / logs / process / theme / update / notify
-        └── styles.css          # 色板与全部样式（CSS 变量在顶部）
+├── desktop/                    # Windows 控制台
+│   └── src/
+│       ├── pages/              # 页面：Status / Settings / Logs / About
+│       │   └── settings/       # 设置页子组件：TabPanels / DataTab / Field / ModelPicker / PersonaEditor / SelfCheck / specs
+│       ├── components/         # 通用组件：Sidebar / ToastHost / ErrorBoundary
+│       │   └── ui/             # 基础控件：Icons / Switch
+│       ├── hooks/              # useController（组装）+ useConfig / useBotProcess / useUpdate / useDataActions / useLogs
+│       ├── lib/                # 纯函数与适配：config / personas / paths / lock / logs / process / theme / update / notify
+│       └── styles.css          # 色板与全部样式（CSS 变量在顶部）
+└── bench/                      # 拟人度对话 benchmark（tsx 直跑，不打包）
+    ├── src/                    # cli / run-variant / report / scenarios / variants
+    ├── variants/               # 变体提示词（examples / lean）
+    └── scripts/                # build-variants.mjs
 
 docs/                           # 截图、架构图（见 docs/README.md）
 scripts/release.mjs             # 发版脚本（用户决定）
@@ -124,8 +128,9 @@ QQ 事件 → cleanQQContent 清洗 → 串行下载图（单张 8MB）
 pnpm dev                    # 只启动 Bot（tsx watch）
 pnpm build                  # 构建 Bot（apps/server/dist）
 pnpm desktop:dev            # 启动桌面控制台（需先 pnpm build）
-pnpm typecheck              # 两个包都查（提交前必跑）
-pnpm test                   # 两个包的单测（提交前必跑）
+pnpm typecheck              # 三个包都查（提交前必跑）
+pnpm test                   # 服务端 + 桌面端单测（提交前必跑）
+pnpm bench                  # 拟人度对话评测（见 apps/bench/README.md）
 pnpm lint:prettier          # Prettier 格式化
 pnpm desktop:pack           # 打 Windows 便携 zip（用户决定）
 ```

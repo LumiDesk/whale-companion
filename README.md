@@ -59,6 +59,7 @@
 - 你连发多条 / 多图，会合并成一轮再回（停口 3 秒，从第一条起最多等 10 秒）
 - 一天一个心情，还会按时段调语气：清早迷糊一点，深夜小声一点
 - 看得懂图：发来的图片会作为多模态输入（单张上限 8MB）；开启看图时图片会发给模型服务商
+- 会自己查资料：遇到事实、时事、版本、价格时调用 `web_search` / `web_fetch`（DeepSeek 官方接口，按次计费，可在设置页关闭）
 
 **人格可选**
 
@@ -271,8 +272,9 @@ pnpm dev              # 只启动机器人（tsx watch）
 pnpm build            # 构建 Bot（desktop:dev 需要）
 pnpm desktop:dev      # 启动桌面控制台（开发态）
 pnpm desktop:pack     # 打 Windows 便携 zip
-pnpm typecheck        # 两个包都查
-pnpm test             # 两个包的单测
+pnpm typecheck        # 三个包都查
+pnpm test             # 服务端 + 桌面端单测
+pnpm bench            # 拟人度对话评测（生成可打分的 report.html）
 pnpm release patch    # 发版：bump + tag + push（CI 默认发 pre-release）
 ```
 
@@ -324,6 +326,7 @@ pnpm release patch    # 发版：bump + tag + push（CI 默认发 pre-release）
 | [`CHANGELOG.md`](CHANGELOG.md)                     | 版本记录                                              |
 | [`apps/desktop/README.md`](apps/desktop/README.md) | 桌面端开发与打包                                      |
 | [`apps/server/README.md`](apps/server/README.md)   | 服务端入口                                            |
+| [`apps/bench/README.md`](apps/bench/README.md)     | 拟人度对话 benchmark：变体、场景、评分报告            |
 | [`docs/README.md`](docs/README.md)                 | 截图、架构图、社交预览图的来源与更新方法              |
 
 这是一个偏个人的项目，但 issue 和 PR 都欢迎。动代码之前建议先读 `AGENTS.md`：
