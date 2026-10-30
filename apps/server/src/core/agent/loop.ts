@@ -3,7 +3,7 @@ import { selectImagesForModel, buildUserContent } from "../chat.js";
 import { slog } from "../../util.js";
 import { TOOL_SCHEMAS } from "./schemas.js";
 import { executeTool } from "./tools.js";
-import { flattenChatText } from "./text.js";
+import { flattenChatText, isStickerOnly } from "./text.js";
 import { buildAgentSystem } from "./prompt.js";
 import type {
   AgentTurnMode,
@@ -125,6 +125,8 @@ export const runAgentTurn = async (
     maxSteps: deps.config.maxSteps,
     sent: 0,
     maxMessages: deps.config.maxMessages,
+    stickers: 0,
+    maxStickers: 1,
     waitUsed: false,
     deadlineAt: deps.now() + deps.config.turnTimeoutMs,
   };
@@ -213,7 +215,14 @@ export const runAgentTurn = async (
     if (silent || budget.sent >= budget.maxMessages) break;
   }
 
-  if (!silent && budget.sent === 0 && mode === "reactive") {
+  // 对方只发了个表情包时，不回也算正常；不要再用「嗯？」把人叫回来
+  const stickerOnly =
+    batch.length > 0 &&
+    batch.every(
+      (message) => message.images.length === 0 && isStickerOnly(message.text),
+    );
+
+  if (!silent && budget.sent === 0 && mode === "reactive" && !stickerOnly) {
     const fallback = flattenChatText(finalText) || FALLBACK_TEXT;
 
     try {
@@ -225,7 +234,7 @@ export const runAgentTurn = async (
     }
   }
 
-  if (!silent && budget.sent === 0 && mode === "proactive") {
+  if (!silent && budget.sent === 0 && (mode === "proactive" || stickerOnly)) {
     silent = true;
   }
 

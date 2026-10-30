@@ -189,6 +189,12 @@ const main = async (): Promise<void> => {
     const dataDir = join(runDir, "data", variant.id);
     mkdirSync(dataDir, { recursive: true });
 
+    // 图库 fixture：没有它，提示词里的【图库】永远是空的，表情包场景等于没测
+    const stickerFixture = join(appRoot, "fixtures", "stickers");
+    if (existsSync(stickerFixture)) {
+      cpSync(stickerFixture, join(dataDir, "stickers"), { recursive: true });
+    }
+
     const outFile = join(runDir, `${variant.id}.json`);
     const env: NodeJS.ProcessEnv = {
       ...process.env,

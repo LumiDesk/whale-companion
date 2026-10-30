@@ -5,7 +5,9 @@ import { listUsers } from "../../store/users.js";
 import { getPersona } from "../persona.js";
 import { dailyMood, timeOfDay, toneHint } from "../mood.js";
 import { loadBehavior, loadLegacyBehavior } from "./behavior.js";
+import { humanTextOf } from "./text.js";
 import { formatAge, formatClock } from "./time.js";
+import { detectStickerRequest } from "../sticker-request.js";
 import type {
   AgentTurnMode,
   IAgentDeps,
@@ -48,18 +50,77 @@ const recentTurns = (deps: IAgentDeps): string => {
   return lines.length > 0 ? `【你们最近】\n${lines.join("\n")}` : "";
 };
 
-const stickerLine = (): string => {
+const STICKER_BOUNDARY =
+  "【你看不到表情包的画面】对方发表情包时你只知道它的名字，不要描述图里的内容，也不要假装看到了。";
+
+const stickerLabel = (sticker: {
+  desc?: string;
+  tags: string[];
+  id: string;
+}): string => sticker.desc || sticker.tags[0] || sticker.id.slice(0, 8);
+
+const stickerCatalogLine = (): string => {
   if (!config.sticker.enabled)
     return "【图库】表情包功能已关闭，不要调用 send_sticker。";
 
   const stickers = listStickers();
-  if (stickers.length === 0) return "【图库】还是空的，不要调用 send_sticker。";
+  if (stickers.length === 0) {
+    return "【图库】还是空的，不要调用 send_sticker。";
+  }
 
-  const tags = [...new Set(stickers.flatMap((sticker) => sticker.tags))]
-    .filter(Boolean)
-    .slice(0, 8);
+  if (!config.sticker.catalogInPrompt) {
+    return `【图库】${stickers.length} 张可发；想发先用 list_stickers 搜 id 或标签。\n${STICKER_BOUNDARY}`;
+  }
 
-  return `【图库】${stickers.length} 张${tags.length > 0 ? `；常用标签：${tags.join(" / ")}` : ""}。`;
+  const max = Math.max(1, Math.min(100, Math.floor(config.sticker.catalogMax)));
+  const sorted = [...stickers].sort(
+    (a, b) =>
+      (b.useCount ?? 0) - (a.useCount ?? 0) || b.createdAt - a.createdAt,
+  );
+  const shown = sorted.slice(0, max);
+
+  const lines = shown.map((sticker) => {
+    const label = stickerLabel(sticker);
+    const tags = sticker.tags.filter((tag) => tag !== label).slice(0, 4);
+    const used = sticker.useCount ? ` 用过${sticker.useCount}次` : "";
+    return `- ${label}${tags.length > 0 ? ` [${tags.join("/")}]` : ""} id=${sticker.id.slice(0, 8)}${used}`;
+  });
+
+  const more =
+    stickers.length > shown.length
+      ? `\n（还有 ${stickers.length - shown.length} 张，用 list_stickers 搜）`
+      : "";
+
+  return `【图库】${stickers.length} 张，想发就调用 send_sticker：\n${lines.join("\n")}${more}\n${STICKER_BOUNDARY}`;
+};
+
+const stickerPolicyLine = (batch: IIncomingMessage[]): string => {
+  if (!config.sticker.enabled) return "";
+
+  // 只看"最后一句人话"：表情包本身没有文字，合并批次时别被它挡住
+  const humanMessages = batch
+    .map((message) => humanTextOf(message.text))
+    .filter(Boolean);
+  const lastHuman = humanMessages[humanMessages.length - 1] ?? "";
+  const request = lastHuman
+    ? detectStickerRequest(lastHuman)
+    : { requested: false };
+
+  const lines: string[] = [];
+
+  if (request.requested) {
+    lines.push(
+      "【他在要表情包】这轮必须发一张：直接调用 send_sticker（不知道挑哪张就不传 sticker，随机发一张）。",
+    );
+  }
+
+  if (!config.sticker.proactiveSticker) {
+    lines.push(
+      "【本轮限制】不要主动发表情包；只有对方先发了表情、或他明确要图时才发一张。",
+    );
+  }
+
+  return lines.join("\n");
 };
 
 const webLine = (): string => {
@@ -129,7 +190,8 @@ export const buildAgentState = (
     stale,
     recentTurns(deps),
     memory,
-    stickerLine(),
+    stickerCatalogLine(),
+    stickerPolicyLine(batch),
     webLine(),
     budgetLine,
     silentLine(userId, now),

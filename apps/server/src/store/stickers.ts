@@ -23,6 +23,16 @@ export interface ISticker {
   hash?: string;
   /** 图片字节数；旧索引可能没有 */
   size?: number;
+  /** 人类可读标签（默认取第一个标签）；旧索引可能没有 */
+  desc?: string;
+  /** 发送过几次 */
+  useCount?: number;
+  /** 最近一次发送时间 */
+  lastUsedAt?: number;
+  /** 最近一次发送时的语境（≤40 字） */
+  lastContext?: string;
+  /** 发送失败后的冷却截止时间（例如 QQ 不接受这张 GIF） */
+  unsendableUntil?: number;
 }
 
 export interface IIngestResult {
@@ -54,6 +64,35 @@ let indexCache: {
   data: ISticker[];
 } | null = null;
 
+const asCount = (value: unknown): number => {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? Math.floor(number) : 0;
+};
+
+/** 旧索引没有 desc / useCount 等字段，读取时补齐，不强制重写磁盘 */
+const normalizeSticker = (value: ISticker): ISticker => {
+  const tags = Array.isArray(value.tags) ? value.tags.filter(Boolean) : [];
+  const desc =
+    typeof value.desc === "string" && value.desc.trim()
+      ? value.desc.trim()
+      : (tags[0] ?? "");
+  const lastContext =
+    typeof value.lastContext === "string" ? value.lastContext.trim() : "";
+  const unsendableUntil = Number(value.unsendableUntil);
+
+  return {
+    ...value,
+    tags,
+    desc,
+    useCount: asCount(value.useCount),
+    lastUsedAt: asCount(value.lastUsedAt),
+    ...(lastContext ? { lastContext } : {}),
+    ...(Number.isFinite(unsendableUntil) && unsendableUntil > 0
+      ? { unsendableUntil }
+      : {}),
+  };
+};
+
 const readIndex = (): ISticker[] => {
   try {
     if (!existsSync(indexPath)) {
@@ -71,7 +110,9 @@ const readIndex = (): ISticker[] => {
     }
 
     const parsed = JSON.parse(readFileSync(indexPath, "utf8"));
-    const list = Array.isArray(parsed) ? (parsed as ISticker[]) : [];
+    const list = Array.isArray(parsed)
+      ? (parsed as ISticker[]).map(normalizeSticker)
+      : [];
     indexCache = { mtimeMs: stat.mtimeMs, size: stat.size, data: list };
     return list;
   } catch (e) {
@@ -228,6 +269,8 @@ export const ingestSticker = (
       file,
       mime,
       tags,
+      desc: tags[0] ?? "",
+      useCount: 0,
       createdAt: Date.now(),
       hash,
       size,
@@ -356,9 +399,68 @@ export const updateStickerTags = (id: string, tags: string[]): void => {
   if (!list.some((sticker) => sticker.id === id)) return;
 
   const next = list.map((sticker) =>
-    sticker.id === id ? { ...sticker, tags } : sticker,
+    sticker.id === id
+      ? { ...sticker, tags, desc: sticker.desc || tags[0] || "" }
+      : sticker,
   );
   writeIndex(next);
+};
+
+/**
+ * 按 id 找一张：先精确匹配，再允许 6 位以上的前缀（模型看到的是 8 位短 id）。
+ */
+export const findStickerById = (ref: string): ISticker | undefined => {
+  const query = ref.trim().toLowerCase();
+  if (!query) return undefined;
+
+  const list = readIndex();
+  const exact = list.find((sticker) => sticker.id.toLowerCase() === query);
+  if (exact) return exact;
+  if (query.length < 6) return undefined;
+
+  return list.find((sticker) => sticker.id.toLowerCase().startsWith(query));
+};
+
+/** 记录一次发送：次数 + 最近时间 + 语境，供"别老用同一张"和提示词使用 */
+export const markStickerUsed = (id: string, context = ""): void => {
+  const list = readIndex();
+  const index = list.findIndex((sticker) => sticker.id === id);
+  if (index < 0) return;
+
+  const current = list[index];
+  const next = [...list];
+  next[index] = {
+    ...current,
+    useCount: (current.useCount ?? 0) + 1,
+    lastUsedAt: Date.now(),
+    lastContext: context.trim().slice(0, 40) || current.lastContext,
+  };
+  writeIndex(next);
+};
+
+/** 发送失败（例如 QQ 不接受这张 GIF）时临时跳过它 */
+export const markStickerUnsendable = (id: string, ms = 60 * 60_000): void => {
+  const list = readIndex();
+  const index = list.findIndex((sticker) => sticker.id === id);
+  if (index < 0) return;
+
+  const next = [...list];
+  next[index] = { ...next[index], unsendableUntil: Date.now() + ms };
+  writeIndex(next);
+};
+
+/** 按标签/备注做包含匹配，给 list_stickers 和"未命中候选"用 */
+export const searchStickers = (query = "", limit = 10): ISticker[] => {
+  const list = readIndex();
+  const q = query.trim().toLowerCase();
+  const max = Math.max(1, Math.min(50, Math.floor(limit) || 10));
+  if (!q) return list.slice(-max).reverse();
+
+  return list
+    .filter((sticker) =>
+      [sticker.desc ?? "", ...sticker.tags].join(" ").toLowerCase().includes(q),
+    )
+    .slice(0, max);
 };
 
 export const listUntaggedStickers = (): ISticker[] =>

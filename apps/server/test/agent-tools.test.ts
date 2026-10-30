@@ -60,7 +60,9 @@ const makeContext = (
       return { messages: [], quiet: false, timeout: true };
     },
     pickSticker: () => undefined,
+    listStickers: () => [],
     readSticker: () => Buffer.from([]),
+    markStickerUsed: () => {},
     remember: (input) => ({ kind: input.kind, total: 1 }),
     setNextWake: (input) => ({
       wakeAt: Date.now() + input.afterMinutes * 60_000,
@@ -80,6 +82,8 @@ const makeContext = (
       maxSteps: 6,
       sent: 0,
       maxMessages: 3,
+      stickers: 0,
+      maxStickers: 1,
       waitUsed: false,
       deadlineAt: Date.now() + 120_000,
     },
@@ -319,6 +323,83 @@ test("未知工具和坏 JSON 都返回错误，不抛异常", async () => {
 
   assert.equal(unknown.kind, "error");
   assert.equal(badJson.kind, "error");
+});
+
+const fakeSticker = {
+  id: "22f7104f-1111-2222-3333-444444444444",
+  file: "22f7104f.jpg",
+  mime: "image/jpeg",
+  tags: ["无语死鱼眼", "摆烂"],
+  desc: "无语死鱼眼",
+  createdAt: 1,
+  useCount: 2,
+};
+
+test("send_sticker：按 id 命中，返回可落历史的标记", async () => {
+  const fake = makeContext({
+    pickSticker: () => ({ sticker: fakeSticker, matched: true, score: 1 }),
+  });
+  const result = await executeTool(
+    call("send_sticker", { sticker: "22f7104f" }),
+    fake.ctx,
+  );
+
+  assert.equal(result.kind, "sent");
+  assert.equal(result.sent, 1);
+  assert.deepEqual(result.texts, ["[表情包：无语死鱼眼]"]);
+  assert.equal(fake.ctx.budget.stickers, 1);
+  assert.equal(result.payload.random, false);
+});
+
+test("send_sticker：没命中时把图库候选说出来", async () => {
+  const fake = makeContext({
+    pickSticker: () => undefined,
+    listStickers: () => [fakeSticker],
+  });
+  const result = await executeTool(
+    call("send_sticker", { sticker: "委屈巴巴" }),
+    fake.ctx,
+  );
+
+  assert.equal(result.kind, "error");
+  assert.ok(String(result.payload.error).includes("无语死鱼眼"));
+  assert.ok(String(result.payload.error).includes("id=22f7104f"));
+});
+
+test("send_sticker：不传参数时随机，并标记 random", async () => {
+  const fake = makeContext({
+    pickSticker: (options) =>
+      options.allowRandom
+        ? { sticker: fakeSticker, matched: false, score: 0 }
+        : undefined,
+  });
+  const result = await executeTool(call("send_sticker", {}), fake.ctx);
+
+  assert.equal(result.kind, "sent");
+  assert.equal(result.payload.random, true);
+});
+
+test("send_sticker：一轮最多一张", async () => {
+  const fake = makeContext();
+  fake.ctx.budget.stickers = 1;
+  const result = await executeTool(call("send_sticker", {}), fake.ctx);
+
+  assert.equal(result.kind, "error");
+  assert.ok(String(result.payload.error).includes("已经发过一张"));
+});
+
+test("list_stickers：返回 id、标签和用过次数", async () => {
+  const fake = makeContext({ listStickers: () => [fakeSticker] });
+  const result = await executeTool(
+    call("list_stickers", { query: "无语" }),
+    fake.ctx,
+  );
+
+  assert.equal(result.kind, "listed");
+  const stickers = result.payload.stickers as Array<Record<string, unknown>>;
+  assert.equal(stickers[0].id, "22f7104f");
+  assert.deepEqual(stickers[0].tags, ["无语死鱼眼", "摆烂"]);
+  assert.equal(stickers[0].useCount, 2);
 });
 
 test("ReplySession：按 msg_id 分别计数，切回旧消息不重置", () => {

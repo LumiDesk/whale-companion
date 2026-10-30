@@ -46,6 +46,8 @@ const budget: ITurnBudget = {
   maxSteps: 6,
   sent: 0,
   maxMessages: 3,
+  stickers: 0,
+  maxStickers: 1,
   waitUsed: false,
   deadlineAt: Date.now() + 120_000,
 };

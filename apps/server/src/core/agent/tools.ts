@@ -9,6 +9,7 @@ import type {
   IWaitResult,
   MemoryKind,
 } from "./types.js";
+import type { ISticker } from "../../store/stickers.js";
 import type { IToolCall } from "../../types/message.js";
 
 const error = (message: string): IToolExecutionResult => ({
@@ -82,6 +83,21 @@ const gapFor = (ctx: IAgentToolContext, fixed: number): number => {
 };
 
 const MAX_MESSAGE_CHARS = 200;
+
+const stickerLabel = (sticker: ISticker): string =>
+  sticker.desc || sticker.tags[0] || sticker.id.slice(0, 8);
+
+/** 没命中时给模型的可操作提示：直接列出图库里有什么 */
+const stickerHint = (ctx: IAgentToolContext): string => {
+  const samples = ctx.listStickers(undefined, 5);
+  if (samples.length === 0) return "图库还是空的，先让主人发几张图";
+
+  return `图库里有：${samples
+    .map(
+      (sticker) => `${stickerLabel(sticker)}（id=${sticker.id.slice(0, 8)}）`,
+    )
+    .join("、")}`;
+};
 
 /**
  * 模型经常把多段话塞进一个字符串。
@@ -251,41 +267,90 @@ const sendSticker = async (
   ctx: IAgentToolContext,
   args: Record<string, unknown>,
 ): Promise<IToolExecutionResult> => {
+  if (ctx.budget.stickers >= ctx.budget.maxStickers) {
+    return error("这一轮已经发过一张表情包了，不要再发");
+  }
+
   const available = capacity(ctx);
   if (available <= 0) {
     return error("本轮/本条消息没有剩余回复额度了");
   }
 
-  const keyword = asString(args.keyword);
-  const sticker = ctx.pickSticker(keyword);
-  if (!sticker) {
-    return error("图库没有合适的表情包，继续用文字");
+  const ref = asString(args.sticker) || asString(args.keyword);
+  // 完全没指定时才默认随机；指定了但没命中不偷偷换一张
+  const allowRandom = asBool(args.allow_random, !ref);
+
+  const pick = ctx.pickSticker({
+    ...(ref ? { ref } : {}),
+    allowRandom,
+  });
+
+  if (!pick) {
+    if (!ref) {
+      return error(`没指定要发哪张，也没有允许随机。${stickerHint(ctx)}`);
+    }
+
+    return error(
+      `没找到「${ref}」。${stickerHint(ctx)}；也可以把 sticker 留空随机发一张`,
+    );
   }
 
   try {
-    const bytes = new Uint8Array(ctx.readSticker(sticker));
+    const bytes = new Uint8Array(ctx.readSticker(pick.sticker));
     const outcome = await ctx.sendImage(bytes);
     if (outcome.sent <= 0) {
       return error("表情包没有发出去");
     }
+
+    ctx.markStickerUsed(pick.sticker.id, ctx.latestUserText);
     ctx.recordReply();
+    ctx.budget.stickers += 1;
+
+    const label = stickerLabel(pick.sticker);
+
     return {
       kind: "sent",
       sent: 1,
-      texts: [],
+      texts: [`[表情包：${label}]`],
       payload: {
         ok: true,
         kind: "sent",
         sent: 1,
         remaining: outcome.remaining,
-        keyword,
-        stickerId: sticker.id,
+        stickerId: pick.sticker.id.slice(0, 8),
+        label,
+        random: !pick.matched,
       },
     };
   } catch (e) {
     slog("Agent 发表情包失败", e);
+    ctx.markStickerUnsendable?.(pick.sticker.id);
     return error(`发表情包失败：${errorText(e)}`);
   }
+};
+
+const listStickersTool = async (
+  ctx: IAgentToolContext,
+  args: Record<string, unknown>,
+): Promise<IToolExecutionResult> => {
+  const query = asString(args.query);
+  const count = clamp(asInt(args.count, 10), 1, 30);
+  const items = ctx.listStickers(query || undefined, count);
+
+  return {
+    kind: "listed",
+    payload: {
+      ok: true,
+      total: ctx.listStickers(undefined, 50).length,
+      count: items.length,
+      stickers: items.map((sticker) => ({
+        id: sticker.id.slice(0, 8),
+        label: stickerLabel(sticker),
+        tags: sticker.tags.slice(0, 6),
+        useCount: sticker.useCount ?? 0,
+      })),
+    },
+  };
 };
 
 const staySilent = async (
@@ -509,6 +574,8 @@ export const executeTool = async (
       return webFetchTool(ctx, args);
     case "send_sticker":
       return sendSticker(ctx, args);
+    case "list_stickers":
+      return listStickersTool(ctx, args);
     case "stay_silent":
       return staySilent(ctx, args);
     case "remember":

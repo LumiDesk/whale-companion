@@ -108,8 +108,13 @@ export interface IAgentSettings {
 
 export interface IStickerSettings {
   enabled: boolean;
-  spontaneousChance: number;
-  cooldownMs: number;
+  /** 允许她主动发表情包；关掉后只在对方先发表情、或明确要图时才发 */
+  proactiveSticker: boolean;
+  /** 图库清单是否进提示词 */
+  catalogInPrompt: boolean;
+  /** 提示词里最多列多少张 */
+  catalogMax: number;
+  /** 模糊匹配阈值；按 id 指定发送不受影响 */
   minScore: number;
   allowRandomOnRequest: boolean;
   autoIngest: boolean;
@@ -622,37 +627,41 @@ export const SETTINGS: readonly ISettingSpec[] = [
     default: "true",
   },
   {
-    env: "STICKER_CHANCE",
-    path: "stickers.spontaneousChance",
+    env: "STICKER_PROACTIVE",
+    path: "stickers.proactiveSticker",
     group: "stickers",
-    label: "自发跟图概率",
-    kind: "number",
-    default: "0.05",
-    min: 0,
-    max: 0.5,
-    step: 0.01,
-    unit: "%",
-    scale: 100,
+    label: "允许主动发表情包",
+    kind: "boolean",
+    default: "true",
+    help: "关掉后只在对方先发表情、或明确要图时才发",
   },
   {
-    env: "STICKER_COOLDOWN_MS",
-    path: "stickers.cooldownMs",
+    env: "STICKER_CATALOG_IN_PROMPT",
+    path: "stickers.catalogInPrompt",
     group: "stickers",
-    label: "同一用户冷却",
+    label: "图库清单进提示词",
+    kind: "boolean",
+    default: "true",
+    help: "让她知道具体有哪些图可发；关掉后只能用 list_stickers 搜",
+  },
+  {
+    env: "STICKER_CATALOG_MAX",
+    path: "stickers.catalogMax",
+    group: "stickers",
+    label: "清单最多列几张",
     kind: "number",
-    default: "480000",
-    min: 60_000,
-    max: 7_200_000,
-    step: 60_000,
-    unit: "分钟",
-    scale: 1 / 60_000,
+    default: "30",
+    min: 5,
+    max: 100,
+    step: 5,
     advanced: true,
+    help: "超出的部分让她用 list_stickers 搜",
   },
   {
     env: "STICKER_MIN_SCORE",
     path: "stickers.minScore",
     group: "stickers",
-    label: "挑图命中阈值",
+    label: "模糊匹配阈值",
     kind: "number",
     default: "0.12",
     min: 0.05,
@@ -661,7 +670,7 @@ export const SETTINGS: readonly ISettingSpec[] = [
     unit: "%",
     scale: 100,
     advanced: true,
-    help: "低于这个相似度宁可不发",
+    help: "低于这个相似度不算命中；按清单里的 id 指定发送不受影响",
   },
   {
     env: "STICKER_ALLOW_RANDOM",

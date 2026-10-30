@@ -78,7 +78,9 @@ const makeDeps = (script: IModelReply[], maxMessages = 3): IFake => {
     remaining: () => remaining,
     wait: async () => ({ messages: [], quiet: false, timeout: true }),
     pickSticker: () => undefined,
+    listStickers: () => [],
     readSticker: () => Buffer.from([]),
+    markStickerUsed: () => {},
     remember: (input) => ({ kind: input.kind, total: 1 }),
     setNextWake: (input) => ({
       wakeAt: Date.now() + input.afterMinutes * 60_000,
@@ -169,6 +171,20 @@ test("主动回合没话说时不发兜底，记为沉默", async () => {
   assert.deepEqual(fake.sent, []);
   assert.equal(fake.persisted[0].silent, true);
   assert.equal(fake.persisted[0].mode, "proactive");
+});
+
+test("对方只发了个表情包、模型没动作时不发兜底「嗯？」", async () => {
+  const fake = makeDeps([reply([], null)]);
+
+  await runAgentTurn(
+    "u1",
+    [incoming("[表情包：耳尖抖抖]")],
+    "reactive",
+    fake.deps,
+  );
+
+  assert.deepEqual(fake.sent, []);
+  assert.equal(fake.persisted[0].silent, true);
 });
 
 test("步数用尽时按已有发送收尾，不重复发", async () => {

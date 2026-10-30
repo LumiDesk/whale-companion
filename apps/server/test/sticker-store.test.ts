@@ -12,9 +12,11 @@ const dataDir = mkdtempSync(join(tmpdir(), "whale-stickers-"));
 process.env.WHALE_DATA_DIR = dataDir;
 
 const {
+  findStickerById,
   ingestSticker,
   listStickers,
   listUntaggedStickers,
+  markStickerUsed,
   readSticker,
   updateStickerTags,
 } = await import("../src/store/stickers.js");
@@ -35,7 +37,24 @@ test("打标回填后不再出现在未打标列表", () => {
 
   const updated = listStickers().find((item) => item.id === sticker.id);
   assert.deepEqual(updated?.tags, ["开心", "转圈"]);
+  assert.equal(updated?.desc, "开心");
   assert.equal(listUntaggedStickers().length, 0);
+});
+
+test("发送记录：useCount / lastUsedAt / lastContext 写进索引", () => {
+  const sticker = listStickers()[0];
+  markStickerUsed(sticker.id, "他说困了");
+
+  const updated = listStickers().find((item) => item.id === sticker.id);
+  assert.equal(updated?.useCount, 1);
+  assert.ok((updated?.lastUsedAt ?? 0) > 0);
+  assert.equal(updated?.lastContext, "他说困了");
+});
+
+test("按 id 前缀查找", () => {
+  const sticker = listStickers()[0];
+  assert.equal(findStickerById(sticker.id.slice(0, 8))?.id, sticker.id);
+  assert.equal(findStickerById("不存在的id"), undefined);
 });
 
 test.after(() => {

@@ -3,6 +3,12 @@ import { writeFileSync } from "node:fs";
 import { config } from "../../server/src/config.js";
 import { runAgentTurn } from "../../server/src/core/agent/loop.js";
 import { askModelWithTools } from "../../server/src/core/llm.js";
+import { pickSticker } from "../../server/src/core/sticker-pick.js";
+import {
+  listStickers,
+  readSticker as readStickerFile,
+  searchStickers,
+} from "../../server/src/store/stickers.js";
 import type {
   IAgentDeps,
   IAgentToolContextBase,
@@ -92,8 +98,14 @@ const buildContext = (state: ITurnState): IAgentToolContextBase => ({
   },
   remaining: () => Math.max(0, config.agent.maxMessages - state.sends.length),
   wait: async () => ({ messages: [], quiet: false, timeout: true }),
-  pickSticker: () => undefined,
-  readSticker: () => Buffer.alloc(0),
+  pickSticker: (options) =>
+    pickSticker(listStickers(), {
+      ...options,
+      minScore: config.sticker.minScore,
+    }),
+  listStickers: (query, limit) => searchStickers(query, limit),
+  readSticker: (sticker) => readStickerFile(sticker),
+  markStickerUsed: () => {},
   remember: (input) => {
     state.memories.push(input.text);
     return { kind: input.kind, total: state.memories.length };

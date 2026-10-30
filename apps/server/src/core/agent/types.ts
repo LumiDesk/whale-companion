@@ -43,12 +43,22 @@ export interface ITurnBudget {
   maxSteps: number;
   sent: number;
   maxMessages: number;
+  /** 本轮已发几张表情包 */
+  stickers: number;
+  maxStickers: number;
   waitUsed: boolean;
   deadlineAt: number;
 }
 
 export type ToolResultKind =
-  "sent" | "waited" | "silent" | "remembered" | "wake" | "searched" | "error";
+  | "sent"
+  | "waited"
+  | "silent"
+  | "remembered"
+  | "wake"
+  | "searched"
+  | "listed"
+  | "error";
 
 export interface IToolExecutionResult {
   kind: ToolResultKind;
@@ -86,6 +96,22 @@ export interface IWakeOutput {
   wakeAt: number;
 }
 
+export interface IStickerPickOptions {
+  /** id（完整或 6 位以上前缀）或标签/备注关键词 */
+  ref?: string;
+  /** 没命中时要不要随机兜底 */
+  allowRandom?: boolean;
+  /** 本轮已经发过的 id，挑图时排除 */
+  excludeIds?: readonly string[];
+}
+
+export interface IStickerPickResult {
+  sticker: ISticker;
+  /** true = 按 id/语义命中；false = 随机兜底 */
+  matched: boolean;
+  score: number;
+}
+
 export interface IAgentToolContextBase {
   userId: string;
   now: () => number;
@@ -95,13 +121,16 @@ export interface IAgentToolContextBase {
   /** 当前 QQ msg_id 还能回几条 */
   remaining: () => number;
   wait: (opts: IWaitOptions) => Promise<IWaitResult>;
-  pickSticker: (keyword: string) => ISticker | undefined;
+  pickSticker: (options: IStickerPickOptions) => IStickerPickResult | undefined;
+  listStickers: (query?: string, limit?: number) => ISticker[];
   readSticker: (sticker: ISticker) => Buffer;
+  markStickerUsed: (id: string, context?: string) => void;
+  markStickerUnsendable?: (id: string) => void;
   remember: (input: IRememberInput) => IRememberOutput;
   setNextWake: (input: IWakeInput) => IWakeOutput;
   recordReply: () => void;
   recordSilence: (reason: string) => void;
-  /** 本轮最新一条用户文本，用于沉默守卫 */
+  /** 本轮最新一条用户文本（已去掉表情/图片标记），用于沉默守卫 */
   latestUserText: string;
   silentStreak: number;
   config: IAgentSettings;

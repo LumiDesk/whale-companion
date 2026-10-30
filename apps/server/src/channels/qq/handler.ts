@@ -3,17 +3,18 @@ import { generateReplyLegacy } from "../../core/chat.js";
 import { askModelWithTools } from "../../core/llm.js";
 import { parseReply, splitReply } from "../../core/reply.js";
 import { parseCommand, runCommand } from "../../core/commands.js";
-import { detectStickerRequest } from "../../core/sticker-request.js";
-import { pickStickerSmart } from "../../core/sticker-pick.js";
+import { pickSticker, pickStickerSmart } from "../../core/sticker-pick.js";
 import { queueStickerTagging } from "../../core/tagger.js";
 import { summarizeIfNeeded } from "../../core/summarize.js";
 import { runAgentTurn } from "../../core/agent/loop.js";
+import { humanTextOf } from "../../core/agent/text.js";
 import type {
   IAgentDeps,
   IAgentToolContextBase,
   IIncomingMessage,
   IRememberInput,
   IRememberOutput,
+  IStickerPickOptions,
   IWakeInput,
   IWakeOutput,
 } from "../../core/agent/types.js";
@@ -22,7 +23,10 @@ import { loadMemory, saveMemory } from "../../store/memory.js";
 import {
   ingestSticker,
   listStickers,
+  markStickerUnsendable as setStickerUnsendable,
+  markStickerUsed as recordStickerUse,
   readSticker,
+  searchStickers,
 } from "../../store/stickers.js";
 import {
   listUsers,
@@ -44,18 +48,7 @@ import {
   sendImageProactive,
 } from "./send.js";
 
-const EXPLICIT_MIN_MS = 10_000;
-
-const lastStickerAt = new Map<string, number>();
-const lastExplicitAt = new Map<string, number>();
 const sessions = new Map<string, ReplySession>();
-
-const stickerCooling = (userId: string): boolean =>
-  Date.now() - (lastStickerAt.get(userId) ?? 0) < config.sticker.cooldownMs;
-
-const markSticker = (userId: string): void => {
-  lastStickerAt.set(userId, Date.now());
-};
 
 const sessionFor = (userId: string, msgId?: string): ReplySession => {
   let session = sessions.get(userId);
@@ -202,19 +195,19 @@ const buildToolContext = (
     wait: hub
       ? (options) => hub.wait(userId, options)
       : async () => ({ messages: [], quiet: false, timeout: true }),
-    pickSticker: (keyword) => {
-      if (!config.sticker.enabled || stickerCooling(userId)) return undefined;
+    pickSticker: (options: IStickerPickOptions) => {
+      if (!config.sticker.enabled) return undefined;
 
-      const query = keyword.trim();
-      const pick = pickStickerSmart(listStickers(), query, {
-        allowRandom: query ? false : config.sticker.allowRandomOnRequest,
+      return pickSticker(listStickers(), {
+        ...options,
         minScore: config.sticker.minScore,
       });
-
-      if (!pick) return undefined;
-      markSticker(userId);
-      return pick.sticker;
     },
+    listStickers: (query?: string, limit?: number) =>
+      searchStickers(query, limit),
+    markStickerUsed: (id: string, context?: string) =>
+      recordStickerUse(id, context),
+    markStickerUnsendable: (id: string) => setStickerUnsendable(id),
     readSticker,
     remember: (input) => rememberMemory(userId, input),
     setNextWake: (input: IWakeInput): IWakeOutput => {
@@ -286,15 +279,11 @@ const sendLegacyReply = async (
   const chunks = splitReply(clean, config.reply.maxChars);
   const session = sessionFor(userId, msgId);
 
-  const wantSticker = config.sticker.enabled
-    ? (requested ??
-      (Math.random() < config.sticker.spontaneousChance ? clean : undefined))
-    : undefined;
-
+  // 没有 Agent 时只能靠模型自己写 [表情包:关键词]；不再有"随机跟图"
   const pick =
-    wantSticker && !stickerCooling(userId)
-      ? pickStickerSmart(listStickers(), wantSticker, {
-          allowRandom: false,
+    config.sticker.enabled && requested
+      ? pickStickerSmart(listStickers(), requested, {
+          allowRandom: config.sticker.allowRandomOnRequest,
           minScore: config.sticker.minScore,
         })
       : undefined;
@@ -310,7 +299,7 @@ const sendLegacyReply = async (
   if (pick) {
     const seq = session.nextSeq(msgId);
     await sendImageC2C(userId, msgId, token, readSticker(pick.sticker), seq);
-    markSticker(userId);
+    recordStickerUse(pick.sticker.id, humanTextOf(text));
   }
 
   recordReply(userId);
@@ -426,63 +415,8 @@ export const createQQHandler = (
       }
     }
 
-    const request = config.sticker.enabled
-      ? detectStickerRequest(text)
-      : { requested: false, keyword: "" };
-
-    if (request.requested) {
-      const last = lastExplicitAt.get(batch.userId) ?? 0;
-      const session = sessionFor(batch.userId, batch.msgId);
-
-      if (Date.now() - last < EXPLICIT_MIN_MS) {
-        const seq = session.nextSeq(batch.msgId);
-        await sendC2C(
-          batch.userId,
-          batch.msgId,
-          token,
-          "刚给你找过一张啦，缓一缓再要嘛 🐋",
-          seq,
-        ).catch(() => {});
-        recordReply(batch.userId);
-        return;
-      }
-
-      const pick = pickStickerSmart(listStickers(), request.keyword, {
-        allowRandom: config.sticker.allowRandomOnRequest,
-        minScore: config.sticker.minScore,
-      });
-
-      try {
-        if (pick) {
-          const seq = session.nextSeq(batch.msgId);
-          await sendImageC2C(
-            batch.userId,
-            batch.msgId,
-            token,
-            readSticker(pick.sticker),
-            seq,
-          );
-          lastExplicitAt.set(batch.userId, Date.now());
-          markSticker(batch.userId);
-          recordReply(batch.userId);
-          return;
-        }
-
-        const seq = session.nextSeq(batch.msgId);
-        await sendC2C(
-          batch.userId,
-          batch.msgId,
-          token,
-          "图库还空着呢，先发几张图给我存着呀 🐋",
-          seq,
-        );
-        recordReply(batch.userId);
-      } catch (error) {
-        slog("发图失败", error);
-      }
-      return;
-    }
-
+    // 明确要图的判断交给 Agent 层（prompt 里会提示"这轮必须发一张"），
+    // 这里不再做隐式拦截：否则模型没有机会决定发哪张、要不要配字。
     if (!config.agent.enabled) {
       try {
         await sendLegacyReply(
@@ -511,7 +445,7 @@ export const createQQHandler = (
     }
 
     const latestUserText =
-      batch.texts.join("\n").trim() ||
+      humanTextOf(batch.texts.join("\n")).trim() ||
       (batch.images.length > 0 ? "[图片]" : "");
 
     const toolContext = buildToolContext(
@@ -570,7 +504,9 @@ export const createQQHandler = (
 
     const history = loadHistory(userId);
     const lastUser = [...history].reverse().find((m) => m.role === "user");
-    const latestUserText = lastUser ? contentText(lastUser.content) : "";
+    const latestUserText = lastUser
+      ? humanTextOf(contentText(lastUser.content))
+      : "";
 
     const toolContext = buildToolContext(userId, token, latestUserText, null);
     const deps: IAgentDeps = {

@@ -140,7 +140,8 @@ test("从 .env 导入全部新字段", () => {
     DEEPSEEK_TIMEOUT_MS: "30000",
     HISTORY_SEND: "60",
     VISION_ENABLED: "false",
-    STICKER_CHANCE: "0.2",
+    STICKER_PROACTIVE: "false",
+    STICKER_CATALOG_MAX: "12",
   });
 
   assert.equal(config.llm.thinkingEffort, "max");
@@ -148,7 +149,8 @@ test("从 .env 导入全部新字段", () => {
   assert.equal(config.llm.timeoutMs, 30_000);
   assert.equal(config.conversation.historySend, 60);
   assert.equal(config.llm.vision, false);
-  assert.equal(config.stickers.spontaneousChance, 0.2);
+  assert.equal(config.stickers.proactiveSticker, false);
+  assert.equal(config.stickers.catalogMax, 12);
 });
 
 test("范围错误会被校验拦住", () => {

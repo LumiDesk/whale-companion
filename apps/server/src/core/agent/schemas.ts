@@ -92,14 +92,44 @@ export const TOOL_SCHEMAS: readonly IToolDefinition[] = [
     function: {
       name: "send_sticker",
       description:
-        "从图库发一张表情包。一条只能一张，不能附带文字；想说话先 send_message，再单独发。",
+        "从图库发一张表情包。一条只能一张，不能附带文字；想说话先 send_message，再单独发。优先传 sticker（清单里的 id 或标签）；什么都不知道就别传，随机发一张。",
       parameters: {
         type: "object",
         properties: {
-          keyword: {
+          sticker: {
             type: "string",
             description:
-              "描述当下情绪/场景的关键词，如委屈巴巴、无语翻白眼；不传则随机挑一张",
+              "要发的表情包：清单里的 id（8 位就够）或标签/备注里的词，例如「22f7104f」「无语」",
+          },
+          keyword: {
+            type: "string",
+            description: "兼容写法，等价于 sticker；不知道 id 时用标签里的词",
+          },
+          allow_random: {
+            type: "boolean",
+            description:
+              "sticker 没命中时是否允许随机发一张；默认只有完全没指定时才随机",
+          },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_stickers",
+      description:
+        "查看/搜索表情包图库，返回每张图的 id、标签和用过几次。想发某张但不确定 id，或者图库很大时用。",
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description: "关键词，匹配标签和备注；不传则列最近的",
+          },
+          count: {
+            type: "integer",
+            description: "返回几张，默认 10，最多 30",
           },
         },
       },
