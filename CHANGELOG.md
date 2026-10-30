@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+（暂无）
+
+## [1.1.0] - 2026-10-30
+
 ### 新增
 
 - 联网搜索：`web_search` / `web_fetch` 接入 DeepSeek 官方 Search / Fetch，模型可以自己查资料、打开网页读正文；
