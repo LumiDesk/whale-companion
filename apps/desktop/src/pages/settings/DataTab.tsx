@@ -325,6 +325,14 @@ const DataTab = ({ controller, form, patch, onConfigReload }: IProps) => {
                   <div className="sticker-meta">
                     {sticker.id.slice(0, 8)} ·{" "}
                     {new Date(sticker.createdAt).toLocaleDateString("zh-CN")}
+                    {sticker.useCount ? ` · 用过 ${sticker.useCount} 次` : ""}
+                    {sticker.lastUsedAt
+                      ? ` · 最近 ${new Date(sticker.lastUsedAt).toLocaleDateString("zh-CN")}`
+                      : ""}
+                    {sticker.unsendableUntil &&
+                    sticker.unsendableUntil > Date.now()
+                      ? " · 暂不可发"
+                      : ""}
                   </div>
                 </div>
                 <button

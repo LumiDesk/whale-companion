@@ -87,6 +87,14 @@ export interface IStickerInfo {
   mime: string;
   tags: string[];
   createdAt: number;
+  /** 人类可读标签（服务端取第一个标签；旧索引可能没有） */
+  desc?: string;
+  /** 发送过几次 */
+  useCount?: number;
+  /** 最近一次发送时间 */
+  lastUsedAt?: number;
+  /** 发送失败后的冷却截止时间 */
+  unsendableUntil?: number;
 }
 
 export interface IKnownUser {

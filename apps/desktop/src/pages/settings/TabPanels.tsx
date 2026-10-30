@@ -319,8 +319,8 @@ export const StickerTab = ({
       <h2>表情包</h2>
     </div>
     <p className="muted card-desc">
-      收图会自动入库并在后台打标；模型要图时只发语义命中的，
-      你明确要图时才允许随机。
+      收图会自动入库并在后台打标；她能看图库清单自己决定发哪张，
+      每条消息最多一张，发不出去的图会临时跳过。
     </p>
     {renderFields(specsOf("stickers", false))}
     <h3 className="subhead">高级</h3>
