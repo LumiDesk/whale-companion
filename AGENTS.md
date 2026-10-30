@@ -1,7 +1,7 @@
 # AGENTS.md
 
 - 本项目为 **Node.js + TypeScript 的 QQ 陪伴机器人**（独立运行，不依赖 DeepSeek Harness），附带 **Windows 桌面控制台**
-- 仓库形态：pnpm workspaces，`apps/server`（Bot）+ `apps/desktop`（控制台）
+- 仓库形态：pnpm workspaces，`apps/server`（Bot）+ `apps/desktop`（控制台）+ `apps/bench`（拟人度评测）
 - 包管理器：**pnpm 12**（`pnpm-lock.yaml` 不许手改）
 - 运行环境：Node ≥ 22；桌面端 **Neutralino 6 + React 19 + Vite**，仅 Windows
 - 样式方案：原生 CSS + CSS 变量（`apps/desktop/src/styles.css`），无 UI 组件库
@@ -61,7 +61,8 @@ scripts/release.mjs             # 发版脚本（用户决定）
 QQ 事件 → cleanQQContent 清洗 → 串行下载图（单张 8MB）
         → SessionHub 聚合（停口 3s / 最长 10s / 10 条或 6 图）
         → 命令？ → 收图去重入库（打标丢后台）
-        → Agent 回合（模型 ⇄ send_message / wait_for_messages / send_sticker / stay_silent / remember / set_next_wake）
+        → Agent 回合（模型 ⇄ send_message / wait_for_messages / web_search / web_fetch /
+                     send_sticker / stay_silent / remember / set_next_wake）
         → 整条或最多 3 条发出（同一 msg_id 最多 4 条）
 ```
 
@@ -74,11 +75,13 @@ QQ 事件 → cleanQQContent 清洗 → 串行下载图（单张 8MB）
 - **提示词三层**：人格卡（是谁）+ 行为规则（怎么说话/用工具）+ 此刻（时间、记忆、预算）；
   行为规则在 `apps/server/prompts/behavior/`，三档风格（标准 / 克制 / 话痨）
 - **Agent 回合**：模型文本只是思考，发言必须调 `send_message`；可以 `wait_for_messages`、`stay_silent`、
-  `send_sticker`、`remember`、`set_next_wake`；每轮最多 6 步 / 3 条 / 120 秒
+  `send_sticker`、`remember`、`set_next_wake`、`web_search`、`web_fetch`；每轮最多 6 步 / 3 条 / 120 秒
 - **沉默**：显式 `stay_silent`；直接提问、连续 3 次、危机关键词会被拒绝；没有发送也没有沉默时走兜底
 - **记忆两级**：`history.json`（落盘 200 / 每轮发 40）+ `memory/<userId>.json`（摘要 ≤300 字 +
   facts ≤20 + topics/thoughts ≤20）；150 条触发压缩，压缩期间有新消息 / `/new` / `/forget` 就丢弃快照
 - **system 不落盘**，每轮由 `core/agent/prompt.ts` 现拼；旧 `core/prompt.ts` 只服务无工具回退
+- **联网**：`web_search` / `web_fetch` 调 DeepSeek 官方 Search / Fetch（同一 API Key，按成功请求计费，
+  QPS 100 / 25）；设置页「对话 → 联网」可关闭，超时与正文上限也在那里
 - **表情包**：收图按 SHA-256 去重后入库、后台打标；启动时合并旧图库里的重复图（标签取并集，上限 12）；
   挑图用字符二元组 + 余弦（阈值 0.12）；模型主动要图只发命中的；同一用户 8 分钟冷却
 - **主动消息**：模型可用 `set_next_wake` 指定下一次开口；60 秒精查 + 45 分钟兜底 tick；
