@@ -6,7 +6,7 @@ export const TOOL_SCHEMAS: readonly IToolDefinition[] = [
     function: {
       name: "send_message",
       description:
-        "把你要说的话发给他。文本输出不会自动发送，所有发言都必须调用这个工具。默认一次传 1~3 条（最多 4 条），每条是一个完整意群；不要用空格假装分条。",
+        "把你要说的话发给他。文本输出不会自动发送，所有发言都必须调用这个工具。默认一次传 1~3 条（最多 4 条），每条是一个完整意群；每条不要包含换行，有换行会被自动拆成多条。不要用空格假装分条。",
       parameters: {
         type: "object",
         properties: {

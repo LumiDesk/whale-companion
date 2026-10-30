@@ -80,6 +80,49 @@ const gapFor = (ctx: IAgentToolContext, fixed: number): number => {
     : randomBetween(ctx.config.gapMinMs, ctx.config.gapMaxMs);
 };
 
+const MAX_MESSAGE_CHARS = 200;
+
+/** 聊天里一条消息不该有换行：按行拆开，空行丢掉 */
+const splitMessageLines = (text: string): string[] =>
+  text
+    .split(/\r\n|\r|\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+/**
+ * 模型经常把多段话塞进一个字符串。
+ * - 额度够：每个字符串按换行拆成多条；
+ * - 额度不够：只把「同一条消息里的换行」用「，」压成一行，不合并不同的消息；
+ * - 压完超过 200 字就报错，让模型自己拆短。
+ */
+const normalizeMessages = (
+  raw: string[],
+  available: number,
+): { messages: string[]; error?: string } => {
+  const grouped = raw.map(splitMessageLines);
+  const total = grouped.reduce((sum, lines) => sum + lines.length, 0);
+
+  const messages =
+    total <= available
+      ? grouped.flat()
+      : grouped.map((lines) => lines.join("，"));
+
+  if (messages.length === 0) {
+    return { messages: [], error: "messages 不能为空" };
+  }
+
+  for (const text of messages) {
+    if (text.length > MAX_MESSAGE_CHARS) {
+      return {
+        messages: [],
+        error: `一条消息最多 ${MAX_MESSAGE_CHARS} 字，长段落拆成更多短句再发`,
+      };
+    }
+  }
+
+  return { messages };
+};
+
 const sendMessage = async (
   ctx: IAgentToolContext,
   args: Record<string, unknown>,
@@ -88,21 +131,24 @@ const sendMessage = async (
     return error("messages 必须是字符串数组");
   }
 
-  const messages = args.messages.map((item) => asString(item)).filter(Boolean);
+  const raw = args.messages.map((item) => asString(item)).filter(Boolean);
 
-  if (messages.length === 0) return error("messages 不能为空");
-  if (messages.length > 4) return error("一次最多发 4 条");
-
-  for (const text of messages) {
-    if (text.length > 200) {
-      return error("单条消息不能超过 200 字，拆成两条再发");
-    }
-  }
+  if (raw.length === 0) return error("messages 不能为空");
+  if (raw.length > 4) return error("一次最多发 4 条");
 
   const available = capacity(ctx);
   if (available <= 0) {
     return error("本轮/本条消息没有剩余回复额度了，等他再说一句");
   }
+  if (raw.length > available) {
+    return error(`现在最多还能发 ${available} 条，先少发一点`);
+  }
+
+  const normalized = normalizeMessages(raw, available);
+  if (normalized.error) return error(normalized.error);
+
+  const messages = normalized.messages;
+  if (messages.length === 0) return error("messages 不能为空");
   if (messages.length > available) {
     return error(`现在最多还能发 ${available} 条，先少发一点`);
   }

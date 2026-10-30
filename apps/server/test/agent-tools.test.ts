@@ -141,6 +141,46 @@ test("send_message：单条超过 200 字拒绝", async () => {
   assert.ok(String(result.payload.error).includes("200 字"));
 });
 
+test("send_message：一条消息里的换行会拆成多条", async () => {
+  const fake = makeContext();
+  const result = await executeTool(
+    call("send_message", { messages: ["第一段\n\n第二段"] }),
+    fake.ctx,
+  );
+
+  assert.equal(result.kind, "sent");
+  assert.equal(result.sent, 2);
+  assert.deepEqual(fake.sent, ["第一段", "第二段"]);
+  assert.ok(fake.sent.every((text) => !text.includes("\n")));
+  assert.deepEqual(result.payload.texts, ["第一段", "第二段"]);
+});
+
+test("send_message：只剩一条额度时，换行用逗号并成一条", async () => {
+  const fake = makeContext({ remaining: () => 1 });
+  const result = await executeTool(
+    call("send_message", { messages: ["第一段\n第二段"] }),
+    fake.ctx,
+  );
+
+  assert.equal(result.kind, "sent");
+  assert.equal(result.sent, 1);
+  assert.deepEqual(fake.sent, ["第一段，第二段"]);
+});
+
+test("send_message：换行合并后超过 200 字时拒绝", async () => {
+  const fake = makeContext({ remaining: () => 1 });
+  const result = await executeTool(
+    call("send_message", {
+      messages: [`${"字".repeat(150)}\n${"字".repeat(150)}`],
+    }),
+    fake.ctx,
+  );
+
+  assert.equal(result.kind, "error");
+  assert.match(String(result.payload.error), /200/);
+  assert.deepEqual(fake.sent, []);
+});
+
 test("wait_for_messages：返回带 at/ago 的新消息，并标记本轮已用", async () => {
   const incoming: IIncomingMessage = {
     seq: 2,
