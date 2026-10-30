@@ -192,6 +192,18 @@ pnpm dev
 
 Windows 下也可以直接 `Copy-Item apps/server/.env.example apps/server/.env`。
 
+### 方式三：Linux 服务器（无桌面控制台）
+
+适合 VPS、家里常开的小主机；不需要 Windows，也不需要 Docker。
+用 `git` + Node 22 + systemd 跑起来，数据放在代码目录外，升级不丢。
+只提供这一条源码部署路径，不提供 Docker 镜像或一键脚本。
+
+完整步骤（安装、systemd、时区、备份、从 Windows 迁移、排障）见
+[`docs/deploy-linux.md`](docs/deploy-linux.md)。
+
+> 服务器部署没有桌面控制台：人格卡、表情包图库要直接改文件或手动备份。
+> 另外同一个 AppID 只能跑一个实例，迁移前先停掉 Windows 版。
+
 ### QQ 端要做的两件事
 
 1. 在 [q.qq.com](https://q.qq.com) 的「开发设置 → 事件订阅」里选择 **WebSocket**
@@ -307,6 +319,7 @@ pnpm release patch    # 发版：bump + tag + push（CI 默认发 pre-release）
 | -------------------------------------------------- | ----------------------------------------------------- |
 | [`AGENTS.md`](AGENTS.md)                           | 架构、分层、QQ / Windows 踩坑、Troubleshooting 排障表 |
 | [`DESIGN.md`](DESIGN.md)                           | 色板、字号、间距、控件规范（改界面前必读）            |
+| [`docs/deploy-linux.md`](docs/deploy-linux.md)     | Linux 服务器部署：systemd、备份、迁移、排障           |
 | [`AGENT_REDESIGN.md`](AGENT_REDESIGN.md)           | 私聊 Agent / 人格系统改造方案（已实现规格）           |
 | [`CHANGELOG.md`](CHANGELOG.md)                     | 版本记录                                              |
 | [`apps/desktop/README.md`](apps/desktop/README.md) | 桌面端开发与打包                                      |

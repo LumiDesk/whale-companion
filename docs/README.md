@@ -1,12 +1,14 @@
 # docs
 
-README 用到的静态素材，以及它们的来源。文字文档都在仓库根目录：
-[`README.md`](../README.md)、[`AGENTS.md`](../AGENTS.md)、[`CHANGELOG.md`](../CHANGELOG.md)。
+README 用到的静态素材，以及它们的来源。主要文字文档在仓库根目录：
+[`README.md`](../README.md)、[`AGENTS.md`](../AGENTS.md)、[`CHANGELOG.md`](../CHANGELOG.md)；
+Linux 服务器部署见 [`deploy-linux.md`](deploy-linux.md)。
 
 ## 目录
 
 ```
-screenshots/   桌面控制台截图（README「截图」一节用的）
+deploy-linux.md  Linux 服务器部署（systemd、备份、迁移）
+screenshots/     桌面控制台截图（README「截图」一节用的）
 assets/
   logo.png            README 顶部图标（与 apps/desktop/public/icons/app.png 相同）
   architecture.png    架构图成品（README「它怎么工作」）
