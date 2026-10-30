@@ -68,6 +68,7 @@ node apps/bench/scripts/build-variants.mjs
 ## 实现
 
 - 复用服务端**真实的** `runAgentTurn` / `askModelWithTools` / 工具 schema；只把 QQ 发送换成一个记录用的 mock `toolContext`。
+- 消息内的换行会被服务端处理：`send_message` 拆成多条，额度不够时压成一行；没走工具的兜底文本也会压成一行。所以报告里的每条「小鲸鱼」消息都是单行。
 - 每个变体跑在独立子进程里：`config` 是单例，靠 `WHALE_PERSONA_DIR` / `WHALE_PROMPTS_DIR` / `DEEPSEEK_*` 环境变量在启动时切分。
 - `sleep` 被 mock 成 no-op，回合内不会真的等 1–3 秒；报告里的耗时是模型 + 搜索的真实耗时，不含 QQ 发送节奏。
 - 不写真实 `data/`：每个变体用 `out/<runId>/data/<variant>/` 作为数据目录。
