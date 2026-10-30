@@ -4,7 +4,12 @@
 
 ## [Unreleased]
 
-（暂无）
+### 变更
+
+- 仓库迁移到 LumiDesk 组织：检查更新改从 `LumiDesk/whale-companion` 读取，
+  README、包元数据、exe 厂商信息与文档同步改为 LumiDesk
+- 旧地址 `Talyra42/whale-companion` 会自动重定向；升级到本版后客户端直接查新仓库，
+  1.0.3 及更早的客户端也能通过重定向完成这一次更新
 
 ## [1.0.3] - 2026-10-26
 

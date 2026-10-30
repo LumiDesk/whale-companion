@@ -103,7 +103,7 @@ src/
 
 ## 自动更新
 
-- 「关于」页会检查 `https://api.github.com/repos/Talyra42/whale-companion/releases/latest`；
+- 「关于」页会检查 `https://api.github.com/repos/LumiDesk/whale-companion/releases/latest`；
   启动时也会在后台静默检查一次（打包版且配置完整时）。
 - 发现新版本后点「下载并更新」：下载 zip → 校验 `SHA256SUMS.txt`（有就校验）→ 解压 →
   生成 `updates/apply-update-*.ps1` → 退出当前进程。

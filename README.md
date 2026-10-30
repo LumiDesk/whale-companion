@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Talyra42/whale-companion/releases"><img src="https://img.shields.io/github/v/release/Talyra42/whale-companion?style=flat-square&label=release&color=0284c7" alt="release" /></a>
+  <a href="https://github.com/LumiDesk/whale-companion/releases"><img src="https://img.shields.io/github/v/release/LumiDesk/whale-companion?style=flat-square&label=release&color=0284c7" alt="release" /></a>
   <img src="https://img.shields.io/badge/license-AGPL--3.0--only-0e7490?style=flat-square" alt="license" />
   <img src="https://img.shields.io/badge/platform-Windows%20x64-1d4ed8?style=flat-square" alt="platform" />
   <img src="https://img.shields.io/badge/node-%E2%89%A5%2022-339933?style=flat-square&logo=nodedotjs&logoColor=white" alt="node" />
@@ -163,7 +163,7 @@
 
 ### 方式一：桌面版（推荐）
 
-1. 从 [Releases](https://github.com/Talyra42/whale-companion/releases) 下载 `whale-companion-*-win-x64.zip`，解压到任意目录
+1. 从 [Releases](https://github.com/LumiDesk/whale-companion/releases) 下载 `whale-companion-*-win-x64.zip`，解压到任意目录
 2. 双击 `WhaleCompanion.exe`；首次启动会自动打开设置页
 3. 填 **QQ Bot 的 AppID / AppSecret** 和 **DeepSeek API Key**（模型和接口地址可保留默认），保存后 Bot 自动启动
 

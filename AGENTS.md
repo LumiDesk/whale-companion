@@ -160,6 +160,9 @@ pnpm desktop:pack           # 打 Windows 便携 zip（用户决定）
 - 客户端默认只查正式 Release；用户在 GitHub 把 pre-release 转正式后，客户端才看得到
 - 关于页有「接收预发布版本」开关（`behavior.includePrerelease`），只影响本机检查更新
 - 代理只有在用户明确要求时才代为发版；平时准备好 CHANGELOG 并提示用户自己执行
+- **仓库地址**：`LumiDesk/whale-companion`（2026-10-30 从个人账号迁入）。
+  旧地址 `Talyra42/whale-companion` 会自动重定向到新仓库；**永远不要**在旧地址新建仓库或 fork，
+  GitHub 会因此永久删除重定向，1.0.3 及更早的客户端将无法检查更新
 
 ## Troubleshooting
 
