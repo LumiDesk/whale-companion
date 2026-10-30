@@ -1,7 +1,7 @@
 import { quoteArg } from "./process";
 
 /** 更新源：只查正式 Release，不包含 pre-release */
-export const UPDATE_OWNER = "Talyra42";
+export const UPDATE_OWNER = "LumiDesk";
 export const UPDATE_REPO = "whale-companion";
 export const RELEASES_API = `https://api.github.com/repos/${UPDATE_OWNER}/${UPDATE_REPO}/releases/latest`;
 /** 允许预发布时改用列表接口，自己按语义化版本挑（/releases/latest 永远不含 pre-release） */

@@ -135,7 +135,7 @@ if (existsSync(rcedit)) {
       "小鲸鱼 Bot 控制台",
       "--set-version-string",
       "CompanyName",
-      "Talyra42",
+      "LumiDesk",
     ],
     { stdio: "inherit" },
   );

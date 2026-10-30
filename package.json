@@ -15,7 +15,15 @@
     "lint:prettier": "prettier --write \"**/*.{js,ts,mjs,cjs,json,tsx,css,less,scss,vue,html,md}\""
   },
   "keywords": [],
-  "author": "Talyra42",
+  "author": "LumiDesk",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LumiDesk/whale-companion.git"
+  },
+  "homepage": "https://github.com/LumiDesk/whale-companion#readme",
+  "bugs": {
+    "url": "https://github.com/LumiDesk/whale-companion/issues"
+  },
   "license": "AGPL-3.0-only",
   "devEngines": {
     "packageManager": {

@@ -30,7 +30,7 @@ const makeRelease = (
   tag_name: tag,
   name: `小鲸鱼 ${tag}`,
   body: "",
-  html_url: `https://github.com/Talyra42/whale-companion/releases/tag/${tag}`,
+  html_url: `https://github.com/LumiDesk/whale-companion/releases/tag/${tag}`,
   published_at: "2026-10-26T00:00:00Z",
   draft: options.draft ?? false,
   prerelease: options.prerelease ?? false,
@@ -40,7 +40,7 @@ const makeRelease = (
         {
           name: `whale-companion-${tag.replace(/^v/, "")}-win-x64.zip`,
           size: 1024,
-          browser_download_url: `https://github.com/Talyra42/whale-companion/releases/download/${tag}/x.zip`,
+          browser_download_url: `https://github.com/LumiDesk/whale-companion/releases/download/${tag}/x.zip`,
         },
       ],
 });
@@ -48,10 +48,13 @@ const makeRelease = (
 const hash = "a".repeat(64);
 const zipName = "whale-companion-0.2.0-win-x64.zip";
 const zipUrl =
-  "https://github.com/Talyra42/whale-companion/releases/download/v0.2.0/whale-companion-0.2.0-win-x64.zip";
+  "https://github.com/LumiDesk/whale-companion/releases/download/v0.2.0/whale-companion-0.2.0-win-x64.zip";
 
 test("更新检查只查正式 Release", () => {
-  assert.ok(RELEASES_API.endsWith("/releases/latest"));
+  assert.equal(
+    RELEASES_API,
+    "https://api.github.com/repos/LumiDesk/whale-companion/releases/latest",
+  );
 });
 
 test("版本号比较：数字段、v 前缀、预发布", () => {
@@ -123,7 +126,7 @@ test("解析 GitHub Release：挑出便携包和校验文件", () => {
     tag_name: "v0.2.0",
     name: "小鲸鱼 v0.2.0",
     body: "更新内容",
-    html_url: "https://github.com/Talyra42/whale-companion/releases/tag/v0.2.0",
+    html_url: "https://github.com/LumiDesk/whale-companion/releases/tag/v0.2.0",
     published_at: "2026-10-25T00:00:00Z",
     assets: [
       {
@@ -135,7 +138,7 @@ test("解析 GitHub Release：挑出便携包和校验文件", () => {
         name: "SHA256SUMS.txt",
         size: 80,
         browser_download_url:
-          "https://github.com/Talyra42/whale-companion/releases/download/v0.2.0/SHA256SUMS.txt",
+          "https://github.com/LumiDesk/whale-companion/releases/download/v0.2.0/SHA256SUMS.txt",
       },
       {
         name: "source.tar.gz",
