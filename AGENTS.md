@@ -58,11 +58,11 @@ scripts/release.mjs             # 发版脚本（用户决定）
 ## Message Flow
 
 ```
-QQ 事件 → cleanQQContent 清洗 → 串行下载图（单张 8MB）
+QQ 事件 → parseQQContent（表情转标记、清 @）→ 串行下载图（单张 8MB）
         → SessionHub 聚合（停口 3s / 最长 10s / 10 条或 6 图）
         → 命令？ → 收图去重入库（打标丢后台）
         → Agent 回合（模型 ⇄ send_message / wait_for_messages / web_search / web_fetch /
-                     send_sticker / stay_silent / remember / set_next_wake）
+                     send_sticker / list_stickers / stay_silent / remember / set_next_wake）
         → 整条或最多 3 条发出（同一 msg_id 最多 4 条）
 ```
 
@@ -83,7 +83,9 @@ QQ 事件 → cleanQQContent 清洗 → 串行下载图（单张 8MB）
 - **联网**：`web_search` / `web_fetch` 调 DeepSeek 官方 Search / Fetch（同一 API Key，按成功请求计费，
   QPS 100 / 25）；设置页「对话 → 联网」可关闭，超时与正文上限也在那里
 - **表情包**：收图按 SHA-256 去重后入库、后台打标；启动时合并旧图库里的重复图（标签取并集，上限 12）；
-  挑图用字符二元组 + 余弦（阈值 0.12）；模型主动要图只发命中的；同一用户 8 分钟冷却
+  提示词每轮带图库清单（id / 标签 / 使用次数），模型按 id 或标签挑，`list_stickers` 可搜；每轮最多一张、不能配字；
+  **对方发来的表情包官方 API 只给名字**（`<faceType=4,…ext=base64({"text":"[耳尖抖抖]"})>`），
+  没有图片也没有附件，既看不到画面也进不了图库
 - **主动消息**：模型可用 `set_next_wake` 指定下一次开口；60 秒精查 + 45 分钟兜底 tick；
   闲置 3 小时–7 天，免打扰 23–9，失败只记日志
 - **命令**：`core/commands.ts` 的数组驱动（`/help /new /forget /memory /remember /status`）
@@ -95,10 +97,14 @@ QQ 事件 → cleanQQContent 清洗 → 串行下载图（单张 8MB）
 3. **一个 AppID 只能一条 WS 连接**；`4009` = 会话过期，**必须重连**（策略在 `channels/qq/reconnect.ts`），
    连续「刚连上就被踢」才放慢到 5 分钟，永不永久退出
 4. intents 用 `1 << 25`；token 两小时过期，重连时自然刷新
-5. 入历史前必须 `cleanQQContent`，否则模型看到 `<faceType=...>` 这类 base64
+5. 入历史前必须走 `parseQQContent`：`<faceType=…>` 要转成 `[表情包：名字]` / `[表情：名字]`，
+   **不能整段删掉**（删掉会变成空消息，见下面第 9 条）
 6. **WS 事件处理要串行**（`gateway.ts` 的 `inbound` 链），否则顺序和 `msg_id` 会错
 7. 单张图片上限 8MB，超了跳过并记日志
 8. 回复默认 1–3 条；同一 `msg_id` 最多 4 条，别恢复「一口气拆很多条」
+9. **表情包消息只有名字**：`content` 是 `<faceType=4,faceId="",ext="base64({"text":"[耳尖抖抖]"})">`，
+   `attachments` 为空。删成空串会被网关当成「语音/卡片」丢弃（2026-10-30 因此丢了所有表情包消息）；
+   表情名是用户可控输入，进提示词前必须清洗（去控制字符/方括号、截 30 字）
 
 ## Coding Style
 
@@ -181,7 +187,7 @@ pnpm desktop:pack           # 打 Windows 便携 zip（用户决定）
 | 托盘没图标            | Windows 隐藏图标区；`/resources/icons/tray.png`                                 |
 | 检查更新失败          | GitHub 可达性、`api.github.com` 是否被代理拦、是否 403 限流                     |
 | 更新安装失败          | `updates/update.log`、`update-result.json`；安装目录可写、Bot 已停              |
-| 表情包不发            | 标签质量、`STICKER_MIN_SCORE`、冷却、`allowRandom`                              |
+| 表情包不发            | 图库清单/标签质量、`STICKER_MIN_SCORE`；对方发的表情包只有名字，看不到图       |
 | 记忆没生效            | `history.json` / `memory/`、`prompt.ts` 拼接、压缩阈值                          |
 
 ## License
