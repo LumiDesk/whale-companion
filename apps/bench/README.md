@@ -30,7 +30,7 @@ pnpm bench -- --dry-run
 | `<variant>.json` | 每个变体的单独结果                                                        |
 | `prompts/`       | 本次实际使用的提示词副本（可复查）                                        |
 
-评分只存在浏览器 `localStorage`；评完点「导出评分」，把 JSON 发回来即可。
+评分只存在浏览器 `localStorage`；评完点「导出评分」，会打开一个 JSON 窗口，可以「复制 JSON」或「下载 .json」。如果浏览器拦截了下载，直接点复制，把内容发回来即可。
 
 ## 变体
 

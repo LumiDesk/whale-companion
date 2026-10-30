@@ -447,6 +447,57 @@ body.reveal #reveal-box { display: block; }
 table { border-collapse: collapse; width: 100%; font-size: 12px; }
 th, td { border: 1px solid var(--line); padding: 6px 10px; text-align: left; }
 th { background: var(--bot); color: var(--muted); font-weight: 600; }
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, .55);
+}
+.modal[hidden] { display: none; }
+.modal-card {
+  width: min(760px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, .35);
+}
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.modal-head h3 { margin: 0; font-size: 16px; }
+.modal-close {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
+}
+#export-json {
+  width: 100%;
+  margin: 10px 0;
+  padding: 10px;
+  resize: vertical;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font: 12px/1.5 "Cascadia Mono", Consolas, monospace;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
 @media (max-width: 720px) {
   main { padding: 16px 12px 48px; }
   .topbar { padding: 10px 12px; }
@@ -521,20 +572,89 @@ const JS = `
   document.addEventListener('change', read);
   document.addEventListener('input', read);
 
-  document.getElementById('export').addEventListener('click', function () {
-    var payload = {
+  function buildPayload() {
+    read();
+    return {
       runId: run.runId,
       model: run.model,
       scores: state,
       mapping: run.mapping,
       exportedAt: new Date().toISOString()
     };
-    var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  }
+
+  function setExportStatus(text) {
+    document.getElementById('export-status').textContent = text;
+  }
+
+  function openExport() {
+    var text = JSON.stringify(buildPayload(), null, 2);
+    var area = document.getElementById('export-json');
+    area.value = text;
+    document.getElementById('export-modal').hidden = false;
+    area.focus();
+    area.setSelectionRange(0, 0);
+    area.scrollTop = 0;
+
+    var scored = 0;
+    Object.keys(state).forEach(function (key) {
+      if (key.indexOf('best|') !== 0) scored++;
+    });
+    setExportStatus(
+      scored > 0
+        ? '已生成。下载没反应就点「复制 JSON」，把内容发我。'
+        : '还没有评分；导出的 scores 会是空的，可以先评几项。'
+    );
+  }
+
+  function closeExport() {
+    document.getElementById('export-modal').hidden = true;
+  }
+
+  function downloadExport() {
+    var text = document.getElementById('export-json').value;
+    var blob = new Blob([text], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
     var link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
+    link.href = url;
     link.download = 'whale-bench-' + run.runId + '.json';
+    link.rel = 'noopener';
+    document.body.appendChild(link);
     link.click();
-    URL.revokeObjectURL(link.href);
+    document.body.removeChild(link);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 10000);
+    setExportStatus('已触发下载。没看到文件就点「复制 JSON」。');
+  }
+
+  function copyExport() {
+    var area = document.getElementById('export-json');
+    area.focus();
+    area.select();
+
+    var copied = false;
+    try { copied = document.execCommand('copy'); } catch (e) { copied = false; }
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(area.value).then(function () {
+        setExportStatus('已复制到剪贴板。');
+      }, function () {
+        setExportStatus(copied ? '已复制到剪贴板。' : '复制失败：请手动全选复制。');
+      });
+      return;
+    }
+
+    setExportStatus(copied ? '已复制到剪贴板。' : '复制失败：请手动全选复制。');
+  }
+
+  document.getElementById('export').addEventListener('click', openExport);
+  document.getElementById('export-close').addEventListener('click', closeExport);
+  document.getElementById('export-download').addEventListener('click', downloadExport);
+  document.getElementById('export-copy').addEventListener('click', copyExport);
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape') closeExport();
+  });
+  document.getElementById('export-modal').addEventListener('click', function (event) {
+    if (event.target === this) closeExport();
   });
 
   document.getElementById('reveal').addEventListener('click', function () {
@@ -606,7 +726,7 @@ export const buildReport = (run: IRun): IBuiltReport => {
       <li><b>聪明</b>：事实对不对、有没有查资料、回答有没有信息量。</li>
       <li><b>想继续聊</b>：读完这段，你还想不想跟她聊下去。</li>
     </ul>
-    <p class="muted">分数只存在这台浏览器里；评完点「导出评分」，把 JSON 发我。备注可以写「哪句最出戏」。</p>
+    <p class="muted">分数只存在这台浏览器里；评完点「导出评分」，会打开一个 JSON 窗口，可以复制或下载。备注可以写「哪句最出戏」。</p>
   </section>
   ${scenarios}
   <section class="intro">
@@ -628,6 +748,21 @@ export const buildReport = (run: IRun): IBuiltReport => {
     </div>
   </section>
 </main>
+<div id="export-modal" class="modal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="export-title">
+    <div class="modal-head">
+      <h3 id="export-title">评分 JSON</h3>
+      <button type="button" id="export-close" class="modal-close" aria-label="关闭">×</button>
+    </div>
+    <p class="muted" id="export-status">已生成。</p>
+    <textarea id="export-json" readonly rows="14" spellcheck="false"></textarea>
+    <div class="modal-actions">
+      <button type="button" id="export-copy">复制 JSON</button>
+      <button type="button" id="export-download" class="primary">下载 .json</button>
+    </div>
+    <p class="muted">如果浏览器拦截下载，就点「复制 JSON」，把内容发我。</p>
+  </div>
+</div>
 <script id="run-data" type="application/json">${dataJson}</script>
 <script>${JS}</script>
 </body>
