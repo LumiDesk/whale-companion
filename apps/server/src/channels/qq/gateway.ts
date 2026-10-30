@@ -1,4 +1,4 @@
-import { downloadImage } from "./media.js";
+import { downloadImage, stickerCdnUrl } from "./media.js";
 import {
   canResumeSession,
   initialReconnectState,
@@ -7,10 +7,10 @@ import {
   type IReconnectState,
   type ISessionSnapshot,
 } from "./reconnect.js";
-import { cleanQQContent } from "./text.js";
+import { parseQQContent } from "./text.js";
 import { getAccessToken } from "./token.js";
 import { reportStatus } from "../../status.js";
-import { slog } from "../../util.js";
+import { slog, slogDebug } from "../../util.js";
 import type { IImageInput } from "../../types/message.js";
 
 const HANDSHAKE_TIMEOUT_MS = 10_000;
@@ -45,7 +45,10 @@ const handleC2CMessage = async (d: any, push: PushFn): Promise<void> => {
   const userId: string | undefined = d.author?.user_openid;
   if (!userId || !d.id) return;
 
+  const rawContent = String(d.content ?? "");
+  const parsed = parseQQContent(rawContent);
   const images: IImageInput[] = [];
+
   for (const att of d.attachments ?? []) {
     if (!String(att.content_type ?? "").startsWith("image/")) continue;
 
@@ -56,16 +59,44 @@ const handleC2CMessage = async (d: any, push: PushFn): Promise<void> => {
     }
   }
 
-  const text = cleanQQContent(String(d.content ?? ""));
+  // 前瞻兜底：官方单聊 API 现在给的 faceId 是空串，这段不会触发；
+  // 万一平台开始下发 emoji_id，就能把表情包原图取回来（拿不到也不影响文字标记）。
+  for (const face of parsed.faces) {
+    const url = stickerCdnUrl(face.faceId);
+    if (!url) continue;
+
+    try {
+      images.push(await downloadImage(url));
+    } catch (err) {
+      slogDebug(`表情包原图获取失败（${face.name || "未命名"}）`, err);
+    }
+  }
+
+  const text = parsed.text;
 
   // 每收到一条就记一行：没有这行日志时，"机器人是不是没收到消息"只能靠猜
   slog(
     `收到消息 ${String(d.id).slice(0, 8)}：${text.length} 字` +
-      `${images.length > 0 ? ` / ${images.length} 图` : ""}`,
+      `${images.length > 0 ? ` / ${images.length} 图` : ""}` +
+      `${parsed.faces.length > 0 ? ` / ${parsed.faces.length} 表情` : ""}`,
   );
+
+  for (const face of parsed.faces) {
+    if (face.kind === "sticker") {
+      slog(`收到表情包：${face.name || "(未命名)"}`);
+    }
+  }
 
   if (!text && images.length === 0) {
     slog("这条消息既没有文字也没有图片（可能是语音/卡片），已跳过");
+    // 只在这一种情况下留原始结构：以后再遇到新形态不用重新挂探针
+    slogDebug(
+      "被跳过的原始消息",
+      JSON.stringify({
+        content: rawContent,
+        attachments: d.attachments ?? [],
+      }).slice(0, 800),
+    );
     return;
   }
 
