@@ -108,5 +108,8 @@ export const config = {
 
   media: { ...settings.media },
 
+  /** 联网搜索：DeepSeek 官方 Search / Fetch */
+  web: { ...settings.web },
+
   log: { ...settings.logs },
 } as const;

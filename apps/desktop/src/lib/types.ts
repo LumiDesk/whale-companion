@@ -9,6 +9,7 @@ export type {
   IProactiveSettings,
   ISettings,
   IStickerSettings,
+  IWebSettings,
   LogLevel,
   SettingGroup,
   SettingKind,

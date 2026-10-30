@@ -50,6 +50,46 @@ export const TOOL_SCHEMAS: readonly IToolDefinition[] = [
   {
     type: "function",
     function: {
+      name: "web_search",
+      description:
+        "联网搜索网页。问事实、时事、版本、价格、人物、地点，或你不确定时先搜；一次一个关键词，可以换词多搜 2~3 次。返回标题、链接和摘要；需要正文再用 web_fetch。",
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description: "搜索关键词，1~128 字；支持 site: / after: 等运算符",
+          },
+          count: {
+            type: "integer",
+            description: "要几条结果，默认 5，最多 10",
+          },
+        },
+        required: ["query"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "web_fetch",
+      description:
+        "打开一个网页并读取正文（Markdown）。搜到结果后对最相关的 1~2 条用；只接受 http / https 链接。",
+      parameters: {
+        type: "object",
+        properties: {
+          url: {
+            type: "string",
+            description: "要打开的网页链接，必须是 http / https",
+          },
+        },
+        required: ["url"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "send_sticker",
       description:
         "从图库发一张表情包。一条只能一张，不能附带文字；想说话先 send_message，再单独发。",

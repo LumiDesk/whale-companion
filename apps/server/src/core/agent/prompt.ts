@@ -62,6 +62,14 @@ const stickerLine = (): string => {
   return `【图库】${stickers.length} 张${tags.length > 0 ? `；常用标签：${tags.join(" / ")}` : ""}。`;
 };
 
+const webLine = (): string => {
+  if (!config.web.enabled) {
+    return "【联网】已关闭，不确定就如实说，别编。";
+  }
+
+  return "【联网】可用：web_search / web_fetch。事实、时事、版本、价格先搜再答；搜不到就说不确定。";
+};
+
 const silentLine = (userId: string, now: number): string => {
   const user = listUsers().find((item) => item.userId === userId);
   if (!user?.lastSilentAt || !user.silentStreak) return "";
@@ -122,6 +130,7 @@ export const buildAgentState = (
     recentTurns(deps),
     memory,
     stickerLine(),
+    webLine(),
     budgetLine,
     silentLine(userId, now),
     proactive,

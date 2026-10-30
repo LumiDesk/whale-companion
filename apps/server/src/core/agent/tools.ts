@@ -1,3 +1,5 @@
+import { config } from "../../config.js";
+import { fetchWebPage, searchWeb } from "../web.js";
 import { slog } from "../../util.js";
 import { formatAge, formatClock } from "./time.js";
 import type {
@@ -365,6 +367,88 @@ const setNextWake = async (
   }
 };
 
+const shorten = (text: string, max: number): string =>
+  text.length > max ? `${text.slice(0, max)}…` : text;
+
+const webSearchTool = async (
+  _ctx: IAgentToolContext,
+  args: Record<string, unknown>,
+): Promise<IToolExecutionResult> => {
+  if (!config.web.enabled) return error("联网搜索已在设置里关闭");
+
+  const query = asString(args.query);
+  if (!query) return error("query 不能为空");
+  if ([...query].length > 128) return error("query 不能超过 128 字");
+
+  const limit = Math.max(1, Math.min(10, config.web.maxResults));
+  const count = clamp(asInt(args.count, limit), 1, limit);
+
+  try {
+    const results = await searchWeb(query, count);
+
+    if (results.length === 0) {
+      return {
+        kind: "searched",
+        payload: {
+          ok: true,
+          query,
+          results: [],
+          note: "没有搜到结果；可以换个关键词，或者直接说不确定",
+        },
+      };
+    }
+
+    return {
+      kind: "searched",
+      payload: {
+        ok: true,
+        query,
+        count: results.length,
+        results: results.map((item) => ({
+          title: shorten(item.title, 120),
+          url: item.url,
+          ...(item.siteName ? { site: item.siteName } : {}),
+          ...(item.date ? { date: item.date } : {}),
+          summary: shorten(item.summary, 350),
+        })),
+      },
+    };
+  } catch (e) {
+    return error(`搜索失败：${errorText(e)}`);
+  }
+};
+
+const webFetchTool = async (
+  _ctx: IAgentToolContext,
+  args: Record<string, unknown>,
+): Promise<IToolExecutionResult> => {
+  if (!config.web.enabled) return error("联网搜索已在设置里关闭");
+
+  const url = asString(args.url);
+  if (!url) return error("url 不能为空");
+
+  try {
+    const page = await fetchWebPage(url);
+    const truncated = page.content.length > config.web.fetchMaxChars;
+    const content = truncated
+      ? `${page.content.slice(0, config.web.fetchMaxChars)}…（已截断）`
+      : page.content;
+
+    return {
+      kind: "searched",
+      payload: {
+        ok: true,
+        url,
+        title: page.title,
+        content,
+        truncated,
+      },
+    };
+  } catch (e) {
+    return error(`打开网页失败：${errorText(e)}`);
+  }
+};
+
 export const executeTool = async (
   call: IToolCall,
   ctx: IAgentToolContext,
@@ -379,6 +463,10 @@ export const executeTool = async (
       return sendMessage(ctx, args);
     case "wait_for_messages":
       return waitForMessages(ctx, args);
+    case "web_search":
+      return webSearchTool(ctx, args);
+    case "web_fetch":
+      return webFetchTool(ctx, args);
     case "send_sticker":
       return sendSticker(ctx, args);
     case "stay_silent":

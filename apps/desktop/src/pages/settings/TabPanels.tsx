@@ -272,6 +272,19 @@ export const ChatTab = ({
         ),
       ])}
     </div>
+
+    <div className="card">
+      <div className="card-head">
+        <h2>联网</h2>
+        <span className="badge">按次计费</span>
+      </div>
+      <p className="muted card-desc">
+        用 DeepSeek 官方 Search / Fetch 接口；她可以自己搜资料、打开网页看正文。
+      </p>
+      {renderFields(specsOf("web", false))}
+      <h3 className="subhead">高级</h3>
+      {renderFields(specsOf("web", true))}
+    </div>
   </>
 );
 

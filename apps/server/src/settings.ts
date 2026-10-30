@@ -23,6 +23,7 @@ export type SettingGroup =
   | "stickers"
   | "proactive"
   | "media"
+  | "web"
   | "logs";
 
 export interface ISettingOption {
@@ -130,6 +131,13 @@ export interface IMediaSettings {
   maxBytes: number;
 }
 
+export interface IWebSettings {
+  enabled: boolean;
+  maxResults: number;
+  timeoutMs: number;
+  fetchMaxChars: number;
+}
+
 export interface ILogSettings {
   level: LogLevel;
 }
@@ -143,6 +151,7 @@ export interface ISettings {
   stickers: IStickerSettings;
   proactive: IProactiveSettings;
   media: IMediaSettings;
+  web: IWebSettings;
   logs: ILogSettings;
 }
 
@@ -798,6 +807,58 @@ export const SETTINGS: readonly ISettingSpec[] = [
     unit: "MB",
     scale: 1 / (1024 * 1024),
     advanced: true,
+  },
+
+  {
+    env: "WEB_SEARCH_ENABLED",
+    path: "web.enabled",
+    group: "web",
+    label: "联网搜索",
+    kind: "boolean",
+    default: "true",
+    help: "用 DeepSeek 官方 Search / Fetch 接口；按成功请求计费",
+  },
+  {
+    env: "WEB_SEARCH_MAX_RESULTS",
+    path: "web.maxResults",
+    group: "web",
+    label: "每次结果数",
+    kind: "number",
+    default: "5",
+    min: 1,
+    max: 10,
+    step: 1,
+    unit: "条",
+    advanced: true,
+    help: "不影响计费，只影响给模型看几条",
+  },
+  {
+    env: "WEB_SEARCH_TIMEOUT_MS",
+    path: "web.timeoutMs",
+    group: "web",
+    label: "搜索超时",
+    kind: "number",
+    default: "15000",
+    min: 5000,
+    max: 60000,
+    step: 1000,
+    unit: "秒",
+    scale: 0.001,
+    advanced: true,
+  },
+  {
+    env: "WEB_FETCH_MAX_CHARS",
+    path: "web.fetchMaxChars",
+    group: "web",
+    label: "网页正文上限",
+    kind: "number",
+    default: "6000",
+    min: 1000,
+    max: 20000,
+    step: 500,
+    unit: "字",
+    advanced: true,
+    help: "抓网页后最多给模型多少字，超出截断",
   },
 
   {

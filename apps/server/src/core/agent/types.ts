@@ -48,7 +48,7 @@ export interface ITurnBudget {
 }
 
 export type ToolResultKind =
-  "sent" | "waited" | "silent" | "remembered" | "wake" | "error";
+  "sent" | "waited" | "silent" | "remembered" | "wake" | "searched" | "error";
 
 export interface IToolExecutionResult {
   kind: ToolResultKind;
