@@ -1,6 +1,6 @@
 {
   "name": "whale-companion",
-  "version": "1.0.4",
+  "version": "1.1.0",
   "description": "独立的 QQ 陪伴 AI（不依赖 DeepSeek Harness）",
   "private": true,
   "scripts": {
