@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+（暂无）
+
+## [1.0.4] - 2026-10-30
+
 ### 变更
 
 - 仓库迁移到 LumiDesk 组织：检查更新改从 `LumiDesk/whale-companion` 读取，
